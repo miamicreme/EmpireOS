@@ -86,7 +86,7 @@ export const createGlobalActionSchema = z.object({
   title: z.string().min(1).max(300),
   description: z.string().max(5000).nullable().optional(),
   category: actionCategory.default('general'),
-  status: actionStatus.default('open'),
+  status: actionStatus.exclude(['archived']).default('open'),
   priority: actionPriority.default('medium'),
   due_at: z.string().datetime().nullable().optional(),
   impact_score: z.number().int().min(0).max(10).default(5),
@@ -120,7 +120,8 @@ export const createDecisionSchema = z.object({
   title: z.string().min(1).max(300),
   question: z.string().min(1).max(2000),
   context: z.string().max(20000).nullable().optional(),
-  status: decisionStatus.default('draft'),
+  // Creation always starts in draft; only finalizeDecision can set terminal status.
+  status: z.literal('draft').default('draft'),
   decision_type: decisionType.default('general'),
   metadata: jsonRecord.default({}),
 });

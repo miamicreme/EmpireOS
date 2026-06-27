@@ -31,10 +31,11 @@ export async function createAction(
   }
   const v = parsed.data;
   const rank_score = computeRankScore(v);
+  const completed_at = v.status === 'done' ? nowISO() : undefined;
 
   const { data, error } = await supabase
     .from(TABLE)
-    .insert({ ...v, user_id: userId, rank_score })
+    .insert({ ...v, user_id: userId, rank_score, ...(completed_at && { completed_at }) })
     .select('*')
     .single();
 
