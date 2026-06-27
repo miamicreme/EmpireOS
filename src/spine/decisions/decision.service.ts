@@ -226,7 +226,7 @@ export async function updateDecision(
     .eq('id', decisionId)
     .eq('user_id', userId)
     .select('*')
-    .single();
+    .maybeSingle();
 
   if (error) return err(appError('db_error', error.message));
   if (!data) return err(appError('not_found', 'Decision not found.'));

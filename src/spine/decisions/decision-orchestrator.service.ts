@@ -299,6 +299,16 @@ export async function runFullDecisionAnalysis(
       .eq('id', decisionId)
       .eq('user_id', userId);
 
+  // Delete all votes for the decision so a retry starts clean. Without this,
+  // partial runs leave stale panel votes in the table and synthesizeFinalRecommendation
+  // would include them in the next judge's context.
+  const deleteVotes = () =>
+    supabase.from('decision_votes').delete().eq('decision_id', decisionId);
+
+  const rollback = async () => {
+    await Promise.all([restorePriorStatus(), deleteVotes()]);
+  };
+
   await supabase
     .from('decisions')
     .update({ status: 'analyzing' })
@@ -307,13 +317,13 @@ export async function runFullDecisionAnalysis(
 
   const panelResult = await runAdvisorPanel(supabase, userId, decisionId);
   if (!panelResult.ok) {
-    await restorePriorStatus();
+    await rollback();
     return panelResult;
   }
 
   const synthResult = await synthesizeFinalRecommendation(supabase, userId, decisionId);
   if (!synthResult.ok) {
-    await restorePriorStatus();
+    await rollback();
     return synthResult;
   }
 
