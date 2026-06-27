@@ -138,13 +138,21 @@ export async function runAdvisorPanel(
   const provider = activeProvider();
   logger.info('runAdvisorPanel', { decisionId, provider });
 
-  // Run all non-judge advisors in parallel
+  // Run all non-judge advisors in parallel; convert any thrown provider
+  // error (bad key, timeout, rate-limit) into an AppResult so the reset
+  // path in runFullDecisionAnalysis fires correctly.
   const panelAdvisors = ADVISOR_PANEL.filter((a) => a.role !== 'final_judge');
-  const panelOutputs = await Promise.all(
-    panelAdvisors.map((advisor) =>
-      callAdvisor(advisor.role, advisor.name, advisor.preferredModel, question, redacted),
-    ),
-  );
+  let panelOutputs: AdvisorOutput[];
+  try {
+    panelOutputs = await Promise.all(
+      panelAdvisors.map((advisor) =>
+        callAdvisor(advisor.role, advisor.name, advisor.preferredModel, question, redacted),
+      ),
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return err(appError('ai_provider_error', `Advisor panel failed: ${msg}`));
+  }
 
   // Persist panel votes
   const outputs: AdvisorOutput[] = [];
@@ -262,15 +270,29 @@ export async function runFullDecisionAnalysis(
     finalRecommendation: FinalRecommendation;
   }>
 > {
-  const resetToDraft = () =>
+  // Capture prior status so we can restore it on failure — avoids
+  // unarchiving or unfinalizing a decision that was never re-analyzed.
+  const { data: prior } = await supabase
+    .from('decisions')
+    .select('status')
+    .eq('id', decisionId)
+    .eq('user_id', userId)
+    .single();
+
+  const priorStatus = (prior?.status as string | undefined) ?? 'draft';
+
+  // Only allow analysis from draft or analyzing; block on terminal statuses.
+  if (priorStatus === 'archived') {
+    return err(appError('invalid_state', 'Cannot analyze an archived decision.'));
+  }
+
+  const restorePriorStatus = () =>
     supabase
       .from('decisions')
-      .update({ status: 'draft' })
+      .update({ status: priorStatus })
       .eq('id', decisionId)
       .eq('user_id', userId);
 
-  // Mark as analyzing only after preflight — failures before this point leave
-  // the row in its prior status.
   await supabase
     .from('decisions')
     .update({ status: 'analyzing' })
@@ -279,13 +301,13 @@ export async function runFullDecisionAnalysis(
 
   const panelResult = await runAdvisorPanel(supabase, userId, decisionId);
   if (!panelResult.ok) {
-    await resetToDraft();
+    await restorePriorStatus();
     return panelResult;
   }
 
   const synthResult = await synthesizeFinalRecommendation(supabase, userId, decisionId);
   if (!synthResult.ok) {
-    await resetToDraft();
+    await restorePriorStatus();
     return synthResult;
   }
 
