@@ -60,12 +60,16 @@ async function computeEmpireScore(
       ? (cashToday.metric_value ?? 0) / cashToday.target_value
       : 0;
 
-  const highPriority = rankedActions.filter(
-    (a) => a.priority === 'high' || a.priority === 'critical',
-  );
-  const highDone = highPriority.filter((a) => a.status === 'done').length;
-  const actionsRatio =
-    highPriority.length > 0 ? highDone / highPriority.length : 0;
+  // getRankedActions only returns open actions; query all high-priority rows
+  // (including done) so completed work earns score credit.
+  const { data: allHighPriority } = await supabase
+    .from('global_actions')
+    .select('status')
+    .eq('user_id', userId)
+    .in('priority', ['high', 'critical']);
+  const allHP = allHighPriority ?? [];
+  const highDone = allHP.filter((a) => a.status === 'done').length;
+  const actionsRatio = allHP.length > 0 ? highDone / allHP.length : 0;
 
   const activeApps = metrics.find((m) => m.metric_key === 'active_apps');
   const jobHuntRatio = activeApps

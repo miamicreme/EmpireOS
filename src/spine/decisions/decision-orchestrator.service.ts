@@ -47,11 +47,11 @@ export async function buildDecisionContext(
   return ok(context);
 }
 
-/** Redacts a context and asserts no high-risk secrets survive. */
+/** Asserts no high-risk secrets in the original context, then redacts it. */
 export function redactSensitiveContext(context: DecisionContext): DecisionContext {
-  const redacted = redactDecisionContext(context);
-  assertNoHighRiskSecrets(JSON.stringify(redacted));
-  return redacted;
+  // Gate runs on the ORIGINAL before redaction — a redacted SSN must not pass through.
+  assertNoHighRiskSecrets(JSON.stringify(context));
+  return redactDecisionContext(context);
 }
 
 /**
@@ -140,7 +140,11 @@ export async function synthesizeFinalRecommendation(
     rationale: 'Aggregated from advisor panel (V3 stub synthesis).',
   };
 
-  const fin = await finalizeDecision(supabase, userId, decisionId, final.recommendation);
+  const fin = await finalizeDecision(supabase, userId, decisionId, final.recommendation, {
+    confidence: final.confidence,
+    risk_level: final.riskLevel,
+    upside_level: final.upsideLevel,
+  });
   if (!fin.ok) return fin;
 
   return ok(final);

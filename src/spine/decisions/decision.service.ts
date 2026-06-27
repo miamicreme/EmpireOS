@@ -143,6 +143,7 @@ export async function finalizeDecision(
   userId: string,
   decisionId: string,
   recommendation: string,
+  meta?: { confidence?: number; risk_level?: string; upside_level?: string },
 ): Promise<AppResult<Decision>> {
   const { data, error } = await supabase
     .from(DECISIONS)
@@ -150,6 +151,9 @@ export async function finalizeDecision(
       status: 'decided',
       recommendation,
       decided_at: nowISO(),
+      ...(meta?.confidence !== undefined && { confidence: meta.confidence }),
+      ...(meta?.risk_level !== undefined && { risk_level: meta.risk_level }),
+      ...(meta?.upside_level !== undefined && { upside_level: meta.upside_level }),
     })
     .eq('id', decisionId)
     .eq('user_id', userId)
