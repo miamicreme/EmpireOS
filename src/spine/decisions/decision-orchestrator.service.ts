@@ -208,7 +208,7 @@ export async function synthesizeFinalRecommendation(
   );
 
   // Persist the final judge vote
-  await addAdvisorVote(supabase, userId, decisionId, {
+  const savedJudge = await addAdvisorVote(supabase, userId, decisionId, {
     advisor_name: judgeOutput.advisorName,
     advisor_role: judgeOutput.role,
     model_name: judgeOutput.modelName,
@@ -219,6 +219,7 @@ export async function synthesizeFinalRecommendation(
     next_actions: judgeOutput.nextActions,
     redactions_applied: true,
   });
+  if (!savedJudge.ok) return savedJudge;
 
   // Derive risk/upside from panel vote distribution
   const avgConfidence =
@@ -261,7 +262,15 @@ export async function runFullDecisionAnalysis(
     finalRecommendation: FinalRecommendation;
   }>
 > {
-  // Mark as analyzing
+  const resetToDraft = () =>
+    supabase
+      .from('decisions')
+      .update({ status: 'draft' })
+      .eq('id', decisionId)
+      .eq('user_id', userId);
+
+  // Mark as analyzing only after preflight — failures before this point leave
+  // the row in its prior status.
   await supabase
     .from('decisions')
     .update({ status: 'analyzing' })
@@ -269,10 +278,16 @@ export async function runFullDecisionAnalysis(
     .eq('user_id', userId);
 
   const panelResult = await runAdvisorPanel(supabase, userId, decisionId);
-  if (!panelResult.ok) return panelResult;
+  if (!panelResult.ok) {
+    await resetToDraft();
+    return panelResult;
+  }
 
   const synthResult = await synthesizeFinalRecommendation(supabase, userId, decisionId);
-  if (!synthResult.ok) return synthResult;
+  if (!synthResult.ok) {
+    await resetToDraft();
+    return synthResult;
+  }
 
   return ok({
     advisorOutputs: panelResult.data,

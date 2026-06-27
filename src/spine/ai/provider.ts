@@ -173,7 +173,7 @@ export function modelForAdvisor(
     case 'openai':
       return 'gpt-4o-mini';
     case 'google':
-      return 'gemini-1.5-flash';
+      return 'gemini-2.0-flash';
     default:
       return 'stub';
   }
