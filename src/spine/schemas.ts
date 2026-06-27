@@ -129,12 +129,10 @@ export const updateDecisionSchema = z.object({
   title: z.string().min(1).max(300).optional(),
   question: z.string().min(1).max(2000).optional(),
   context: z.string().max(20000).nullable().optional(),
-  status: decisionStatus.optional(),
-  recommendation: z.string().nullable().optional(),
-  confidence: z.number().min(0).max(1).nullable().optional(),
-  selected_option: z.string().nullable().optional(),
-  risk_level: z.string().nullable().optional(),
-  upside_level: z.string().nullable().optional(),
+  // Only client-controlled transitions allowed via PATCH. 'analyzing' and
+  // 'decided' are set exclusively by the system (runFullDecisionAnalysis /
+  // finalizeDecision) to maintain decided_at, judge votes, and audit trail.
+  status: z.enum(['draft', 'archived']).optional(),
   decision_type: decisionType.optional(),
   metadata: jsonRecord.optional(),
 });

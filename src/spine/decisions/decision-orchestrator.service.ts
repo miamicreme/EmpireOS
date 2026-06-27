@@ -206,14 +206,20 @@ export async function synthesizeFinalRecommendation(
   }));
 
   const judgeAdvisor = ADVISOR_PANEL.find((a) => a.role === 'final_judge')!;
-  const judgeOutput = await callAdvisor(
-    judgeAdvisor.role,
-    judgeAdvisor.name,
-    judgeAdvisor.preferredModel,
-    full.data.question,
-    redacted,
-    priorVotes,
-  );
+  let judgeOutput: AdvisorOutput;
+  try {
+    judgeOutput = await callAdvisor(
+      judgeAdvisor.role,
+      judgeAdvisor.name,
+      judgeAdvisor.preferredModel,
+      full.data.question,
+      redacted,
+      priorVotes,
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return err(appError('ai_provider_error', `Final Judge failed: ${msg}`));
+  }
 
   // Persist the final judge vote
   const savedJudge = await addAdvisorVote(supabase, userId, decisionId, {
@@ -282,8 +288,8 @@ export async function runFullDecisionAnalysis(
   const priorStatus = (prior?.status as string | undefined) ?? 'draft';
 
   // Only allow analysis from draft or analyzing; block on terminal statuses.
-  if (priorStatus === 'archived') {
-    return err(appError('invalid_state', 'Cannot analyze an archived decision.'));
+  if (priorStatus === 'archived' || priorStatus === 'decided') {
+    return err(appError('invalid_state', `Cannot analyze a ${priorStatus} decision.`));
   }
 
   const restorePriorStatus = () =>
