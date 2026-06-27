@@ -60,20 +60,23 @@ async function computeEmpireScore(
       ? (cashToday.metric_value ?? 0) / cashToday.target_value
       : 0;
 
-  // Score today's execution: count high/critical actions due today (or with no
-  // due date) that are not archived. Done ones earn credit; open/blocked ones
-  // are outstanding. Old completed rows from prior days don't inflate the pool.
-  // Use tomorrow as the upper bound so actions due anywhere today (timestamptz)
-  // are included — comparing to today's date string truncates to midnight UTC.
+  // Score today's execution: high/critical actions that are either open/blocked
+  // (due today or overdue) OR completed today. Prior-day completed rows are
+  // excluded so only today's work earns the 25% actions component.
+  const today = todayISODate();
   const tomorrow = tomorrowISODate();
   const { data: allHighPriority } = await supabase
     .from('global_actions')
-    .select('status')
+    .select('status, completed_at')
     .eq('user_id', userId)
     .in('priority', ['high', 'critical'])
     .not('status', 'eq', 'archived')
     .or(`due_at.is.null,due_at.lt.${tomorrow}`);
-  const allHP = allHighPriority ?? [];
+  const allHP = (allHighPriority ?? []).filter(
+    (a) =>
+      a.status !== 'done' ||
+      (a.completed_at !== null && a.completed_at >= today),
+  );
   const highDone = allHP.filter((a) => a.status === 'done').length;
   const actionsRatio = allHP.length > 0 ? highDone / allHP.length : 0;
 

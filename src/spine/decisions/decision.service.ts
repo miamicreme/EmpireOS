@@ -201,7 +201,8 @@ export async function createActionsFromDecision(
       empire_score_weight: 1,
       metadata: {},
     });
-    if (res.ok) created.push(res.data);
+    if (!res.ok) return res;
+    created.push(res.data);
   }
 
   return ok(created);
