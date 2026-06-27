@@ -157,6 +157,7 @@ export async function getActionsByModule(
     .select('*')
     .eq('user_id', userId)
     .eq('module_id', moduleId)
+    .in('status', ['open', 'in_progress', 'blocked'])
     .order('rank_score', { ascending: false });
 
   if (error) return err(appError('db_error', error.message));
