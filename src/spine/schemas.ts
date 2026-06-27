@@ -129,10 +129,12 @@ export const updateDecisionSchema = z.object({
   title: z.string().min(1).max(300).optional(),
   question: z.string().min(1).max(2000).optional(),
   context: z.string().max(20000).nullable().optional(),
-  // Only client-controlled transitions allowed via PATCH. 'analyzing' and
-  // 'decided' are set exclusively by the system (runFullDecisionAnalysis /
-  // finalizeDecision) to maintain decided_at, judge votes, and audit trail.
-  status: z.enum(['draft', 'archived']).optional(),
+  // Only 'archived' is a safe client-settable status via PATCH.
+  // 'draft' is excluded: patching a decided row to draft would leave decided_at
+  // and judge votes intact while bypassing the re-analysis guard.
+  // 'analyzing' and 'decided' are system-only (runFullDecisionAnalysis /
+  // finalizeDecision). Use POST /analyze to restart from draft.
+  status: z.literal('archived').optional(),
   decision_type: decisionType.optional(),
   metadata: jsonRecord.optional(),
 });

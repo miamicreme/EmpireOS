@@ -311,11 +311,20 @@ export async function runFullDecisionAnalysis(
     await Promise.all([restorePriorStatus(), deleteVotes()]);
   };
 
-  await supabase
+  // Atomic draft→analyzing claim: the extra .eq('status','draft') means only
+  // one concurrent request succeeds; others get 0 rows back and return 409.
+  const { data: claimed } = await supabase
     .from('decisions')
     .update({ status: 'analyzing' })
     .eq('id', decisionId)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .eq('status', 'draft')
+    .select('id')
+    .maybeSingle();
+
+  if (!claimed) {
+    return err(appError('invalid_state', 'Decision is already being analyzed or is not in draft state.'));
+  }
 
   const panelResult = await runAdvisorPanel(supabase, userId, decisionId);
   if (!panelResult.ok) {
