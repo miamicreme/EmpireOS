@@ -22,7 +22,7 @@ export async function syncModuleMetricsToSpine(
   const supabase = createClient();
   const today = todayISODate();
   for (const metric of metrics) {
-    await supabase.from('module_metrics').upsert(
+    const { error } = await supabase.from('module_metrics').upsert(
       {
         user_id: userId,
         module_id: moduleId,
@@ -38,6 +38,7 @@ export async function syncModuleMetricsToSpine(
       },
       { onConflict: 'user_id,module_id,metric_key,date' },
     );
+    if (error) throw new Error(`syncModuleMetricsToSpine: ${error.message}`);
   }
 }
 
