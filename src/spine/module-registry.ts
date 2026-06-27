@@ -7,7 +7,11 @@
 import { cashEngineModule } from '@/modules/cash-engine/service';
 import { jobHuntModule } from '@/modules/job-hunt/service';
 import { followupCrmModule } from '@/modules/followup-crm/service';
+import { creditFundingModule } from '@/modules/credit-funding/service';
+import { projectsModule } from '@/modules/projects/service';
+import { acquisitionsModule } from '@/modules/acquisitions/service';
 import type { ModuleContract } from './module-contract';
+import type { ModuleHealthCheck } from './module-contract';
 import type {
   DecisionContext,
   GlobalAction,
@@ -19,9 +23,16 @@ export const moduleRegistry: ReadonlyArray<ModuleContract> = [
   cashEngineModule,
   jobHuntModule,
   followupCrmModule,
+  creditFundingModule,
+  projectsModule,
+  acquisitionsModule,
 ];
 
 export function getActiveModules(): ReadonlyArray<ModuleContract> {
+  return moduleRegistry;
+}
+
+export function getAllModules(): ReadonlyArray<ModuleContract> {
   return moduleRegistry;
 }
 
@@ -57,4 +68,17 @@ export async function getModuleHealthSummary(
   userId: string,
 ): Promise<ModuleHealthResult[]> {
   return Promise.all(moduleRegistry.map((m) => m.getHealth(userId)));
+}
+
+/** Returns a ModuleHealthCheck[] compatible with the module-contract type. */
+export async function getModuleHealthReport(
+  userId: string,
+): Promise<ModuleHealthCheck[]> {
+  const results = await getModuleHealthSummary(userId);
+  return results.map((r) => ({
+    moduleId: r.moduleId,
+    health: r.health,
+    summary: r.reason,
+    issues: r.health !== 'green' ? [r.reason] : [],
+  }));
 }

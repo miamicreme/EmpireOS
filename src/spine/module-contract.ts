@@ -4,6 +4,43 @@
  * Every module plugs into the Spine through this single interface. The Spine
  * never reaches into module internals — it only calls these methods.
  */
+
+// ---------------------------------------------------------------------------
+// Shared module types (exported for module use)
+// ---------------------------------------------------------------------------
+
+export type ModuleCapability =
+  | 'metrics'
+  | 'actions'
+  | 'decisions'
+  | 'events'
+  | 'notifications'
+  | 'documents'
+  | 'ai_context'
+  | 'health_check'
+  | 'sync';
+
+export type ModuleHealth = 'green' | 'yellow' | 'red' | 'unknown';
+
+/** Lightweight action descriptor for module outputs (not the full GlobalAction row). */
+export type ModuleAction = {
+  id: string;
+  moduleId: string;
+  title: string;
+  description: string;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  dueAt?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type ModuleHealthCheck = {
+  moduleId: string;
+  health: ModuleHealth;
+  summary: string;
+  issues: string[];
+  lastSyncedAt?: string;
+};
+
 import type {
   DecisionContext,
   GlobalAction,
