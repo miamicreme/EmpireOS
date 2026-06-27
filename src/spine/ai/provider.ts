@@ -164,7 +164,9 @@ export function modelForAdvisor(
   preferredModel: string | undefined,
   provider: AIProvider,
 ): string {
-  if (preferredModel) return preferredModel;
+  // preferredModel values are Anthropic model IDs — only honour them when
+  // Anthropic is the active provider; otherwise fall through to provider defaults.
+  if (preferredModel && provider === 'anthropic') return preferredModel;
   switch (provider) {
     case 'anthropic':
       return 'claude-sonnet-4-6';

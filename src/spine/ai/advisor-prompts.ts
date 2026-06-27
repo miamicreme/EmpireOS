@@ -6,6 +6,7 @@
  */
 import type { AdvisorRole } from '../types';
 import type { DecisionContext } from '../types';
+import { redactSensitiveText } from '../decisions/context-redaction.service';
 
 export interface AdvisorPromptResult {
   systemPrompt: string;
@@ -94,7 +95,10 @@ export function buildAdvisorPrompt(
 ): AdvisorPromptResult {
   const systemPrompt = ADVISOR_SYSTEM_PROMPTS[role];
 
-  let userPrompt = `${contextBlock(ctx)}\n\nQUESTION: ${question}`;
+  // Redact the question independently — the context block is already redacted
+  // by the orchestrator, but the question string arrives raw.
+  const safeQuestion = redactSensitiveText(question);
+  let userPrompt = `${contextBlock(ctx)}\n\nQUESTION: ${safeQuestion}`;
 
   if (priorVotes && priorVotes.length > 0 && role === 'final_judge') {
     userPrompt += '\n\nADVISOR PANEL VOTES:\n';
