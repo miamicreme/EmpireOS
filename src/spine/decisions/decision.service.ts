@@ -221,16 +221,14 @@ export async function updateDecision(
     return err(appError('validation', 'Invalid decision update.', parsed.error.format()));
   }
 
-  // Prompt fields (title, question, context) may only be changed on draft
-  // decisions. Editing them on a decided row would misalign the stored
-  // recommendation with the question it was made for, while the analyze guard
-  // prevents re-running analysis to correct it.
   const promptFieldsChanged =
     parsed.data.title !== undefined ||
     parsed.data.question !== undefined ||
     parsed.data.context !== undefined;
+  const archiving = parsed.data.status === 'archived';
 
-  if (promptFieldsChanged) {
+  // Pre-flight status check for any state-sensitive patch.
+  if (promptFieldsChanged || archiving) {
     const { data: current } = await supabase
       .from(DECISIONS)
       .select('status')
@@ -238,12 +236,20 @@ export async function updateDecision(
       .eq('user_id', userId)
       .maybeSingle();
     if (!current) return err(appError('not_found', 'Decision not found.'));
-    if (current.status !== 'draft') {
+
+    // Prompt edits only allowed on draft — changing question/context on a
+    // decided row misaligns the recommendation with its source prompt.
+    if (promptFieldsChanged && current.status !== 'draft') {
       return err(
-        appError(
-          'invalid_state',
-          `Cannot edit question or context on a ${current.status} decision.`,
-        ),
+        appError('invalid_state', `Cannot edit question or context on a ${current.status} decision.`),
+      );
+    }
+
+    // Archiving an analyzing row races with the in-flight analysis: finalizeDecision
+    // or the rollback path can silently overwrite the archive with 'decided'/'draft'.
+    if (archiving && current.status === 'analyzing') {
+      return err(
+        appError('invalid_state', 'Cannot archive a decision that is currently being analyzed.'),
       );
     }
   }
