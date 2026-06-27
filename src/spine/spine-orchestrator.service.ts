@@ -6,7 +6,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ok, type AppResult } from '@/lib/result';
-import { todayISODate } from '@/lib/dates';
+import { todayISODate, tomorrowISODate } from '@/lib/dates';
 import {
   getAllModuleMetrics,
   getModuleHealthSummary,
@@ -63,14 +63,16 @@ async function computeEmpireScore(
   // Score today's execution: count high/critical actions due today (or with no
   // due date) that are not archived. Done ones earn credit; open/blocked ones
   // are outstanding. Old completed rows from prior days don't inflate the pool.
-  const today = todayISODate();
+  // Use tomorrow as the upper bound so actions due anywhere today (timestamptz)
+  // are included — comparing to today's date string truncates to midnight UTC.
+  const tomorrow = tomorrowISODate();
   const { data: allHighPriority } = await supabase
     .from('global_actions')
     .select('status')
     .eq('user_id', userId)
     .in('priority', ['high', 'critical'])
     .not('status', 'eq', 'archived')
-    .or(`due_at.is.null,due_at.lte.${today}`);
+    .or(`due_at.is.null,due_at.lt.${tomorrow}`);
   const allHP = allHighPriority ?? [];
   const highDone = allHP.filter((a) => a.status === 'done').length;
   const actionsRatio = allHP.length > 0 ? highDone / allHP.length : 0;

@@ -104,7 +104,8 @@ export async function runAdvisorPanel(
       next_actions: output.nextActions,
       redactions_applied: true,
     });
-    if (saved.ok) outputs.push(output);
+    if (!saved.ok) return saved;
+    outputs.push(output);
   }
 
   return ok(outputs);

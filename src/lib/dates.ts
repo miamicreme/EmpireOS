@@ -20,6 +20,13 @@ export function weekStartISODate(now: Date = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Returns tomorrow's date (UTC) as YYYY-MM-DD. */
+export function tomorrowISODate(now: Date = new Date()): string {
+  const d = new Date(now);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 /** ISO date N days ago (UTC), as YYYY-MM-DD. */
 export function isoDateDaysAgo(days: number, now: Date = new Date()): string {
   const d = new Date(now);
