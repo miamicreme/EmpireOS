@@ -93,7 +93,7 @@ export const createGlobalActionSchema = z.object({
   urgency_score: z.number().int().min(0).max(10).default(5),
   effort_score: z.number().int().min(0).max(10).default(5),
   confidence_score: z.number().min(0).max(1).default(0.5),
-  empire_score_weight: z.number().min(0).default(1),
+  empire_score_weight: z.number().min(0).max(5).default(1),
   source_type: z.string().default('manual'),
   source_id: z.string().nullable().optional(),
   metadata: jsonRecord.default({}),
