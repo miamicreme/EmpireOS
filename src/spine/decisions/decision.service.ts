@@ -14,9 +14,11 @@ import {
   createDecisionSchema,
   createDecisionOptionSchema,
   createDecisionVoteSchema,
+  updateDecisionSchema,
   type CreateDecisionInput,
   type CreateDecisionOptionInput,
   type CreateDecisionVoteInput,
+  type UpdateDecisionInput,
 } from '../schemas';
 import type {
   Decision,
@@ -206,4 +208,42 @@ export async function createActionsFromDecision(
   }
 
   return ok(created);
+}
+
+export async function updateDecision(
+  supabase: SupabaseClient,
+  userId: string,
+  decisionId: string,
+  input: UpdateDecisionInput,
+): Promise<AppResult<Decision>> {
+  const parsed = updateDecisionSchema.safeParse(input);
+  if (!parsed.success) {
+    return err(appError('validation', 'Invalid decision update.', parsed.error.format()));
+  }
+  const { data, error } = await supabase
+    .from(DECISIONS)
+    .update(parsed.data)
+    .eq('id', decisionId)
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+
+  if (error) return err(appError('db_error', error.message));
+  if (!data) return err(appError('not_found', 'Decision not found.'));
+  return ok(data as Decision);
+}
+
+export async function deleteDecision(
+  supabase: SupabaseClient,
+  userId: string,
+  decisionId: string,
+): Promise<AppResult<{ id: string }>> {
+  const { error } = await supabase
+    .from(DECISIONS)
+    .delete()
+    .eq('id', decisionId)
+    .eq('user_id', userId);
+
+  if (error) return err(appError('db_error', error.message));
+  return ok({ id: decisionId });
 }

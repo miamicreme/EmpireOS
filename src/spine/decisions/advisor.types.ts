@@ -44,10 +44,40 @@ export interface FinalRecommendation {
 
 /** The six standard advisors of the Empire OS decision panel. */
 export const ADVISOR_PANEL: ReadonlyArray<AdvisorDefinition> = [
-  { role: 'cash_advisor', name: 'Cash Advisor', lens: 'near-term cash generation' },
-  { role: 'career_advisor', name: 'Career Advisor', lens: 'high-income role progression' },
-  { role: 'risk_advisor', name: 'Risk Advisor', lens: 'downside, exposure, failure modes' },
-  { role: 'deal_advisor', name: 'Deal Advisor', lens: 'acquisition and deal structure' },
-  { role: 'execution_advisor', name: 'Execution Advisor', lens: 'sequencing and next steps' },
-  { role: 'final_judge', name: 'Final Judge', lens: 'synthesis into a recommendation' },
+  {
+    role: 'cash_advisor',
+    name: 'Cash Advisor',
+    lens: 'near-term cash generation',
+    preferredModel: 'claude-haiku-4-5-20251001',
+  },
+  {
+    role: 'career_advisor',
+    name: 'Career Advisor',
+    lens: 'high-income role progression',
+    preferredModel: 'claude-haiku-4-5-20251001',
+  },
+  {
+    role: 'risk_advisor',
+    name: 'Risk Advisor',
+    lens: 'downside, exposure, failure modes',
+    preferredModel: 'claude-haiku-4-5-20251001',
+  },
+  {
+    role: 'deal_advisor',
+    name: 'Deal Advisor',
+    lens: 'acquisition and deal structure',
+    preferredModel: 'claude-haiku-4-5-20251001',
+  },
+  {
+    role: 'execution_advisor',
+    name: 'Execution Advisor',
+    lens: 'sequencing and next steps',
+    preferredModel: 'claude-haiku-4-5-20251001',
+  },
+  {
+    role: 'final_judge',
+    name: 'Final Judge',
+    lens: 'synthesis into a recommendation',
+    preferredModel: 'claude-sonnet-4-6',
+  },
 ];

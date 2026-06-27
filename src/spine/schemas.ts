@@ -330,6 +330,7 @@ export type CreateGlobalActionInput = z.infer<typeof createGlobalActionSchema>;
 export type UpdateGlobalActionInput = z.infer<typeof updateGlobalActionSchema>;
 export type CreateModuleMetricInput = z.infer<typeof createModuleMetricSchema>;
 export type CreateDecisionInput = z.infer<typeof createDecisionSchema>;
+export type UpdateDecisionInput = z.infer<typeof updateDecisionSchema>;
 export type CreateDecisionOptionInput = z.infer<typeof createDecisionOptionSchema>;
 export type CreateDecisionVoteInput = z.infer<typeof createDecisionVoteSchema>;
 export type CreateDailyReviewInput = z.infer<typeof createDailyReviewSchema>;
