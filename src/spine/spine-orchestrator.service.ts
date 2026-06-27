@@ -70,7 +70,7 @@ async function computeEmpireScore(
     .eq('user_id', userId)
     .in('priority', ['high', 'critical'])
     .not('status', 'eq', 'archived')
-    .or(`due_date.is.null,due_date.lte.${today}`);
+    .or(`due_at.is.null,due_at.lte.${today}`);
   const allHP = allHighPriority ?? [];
   const highDone = allHP.filter((a) => a.status === 'done').length;
   const actionsRatio = allHP.length > 0 ? highDone / allHP.length : 0;
