@@ -127,7 +127,8 @@ export async function getCommandDashboardData(
     getRankedActions(supabase, userId),
   ]);
 
-  const ranked = rankedRes.ok ? rankedRes.data : [];
+  if (!rankedRes.ok) return rankedRes;
+  const ranked = rankedRes.data;
   const empireScore = await computeEmpireScore(supabase, userId, metrics, ranked);
 
   return ok({

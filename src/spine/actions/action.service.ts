@@ -56,6 +56,10 @@ export async function updateAction(
   // Recompute rank if any scoring field is present in the update.
   const v = parsed.data;
   const patch: Record<string, unknown> = { ...v };
+  // Mirror completeAction: stamp completed_at when status transitions to done.
+  if (v.status === 'done' && !patch.completed_at) {
+    patch.completed_at = nowISO();
+  }
   if (
     v.impact_score !== undefined ||
     v.urgency_score !== undefined ||
