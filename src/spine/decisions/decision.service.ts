@@ -220,6 +220,34 @@ export async function updateDecision(
   if (!parsed.success) {
     return err(appError('validation', 'Invalid decision update.', parsed.error.format()));
   }
+
+  // Prompt fields (title, question, context) may only be changed on draft
+  // decisions. Editing them on a decided row would misalign the stored
+  // recommendation with the question it was made for, while the analyze guard
+  // prevents re-running analysis to correct it.
+  const promptFieldsChanged =
+    parsed.data.title !== undefined ||
+    parsed.data.question !== undefined ||
+    parsed.data.context !== undefined;
+
+  if (promptFieldsChanged) {
+    const { data: current } = await supabase
+      .from(DECISIONS)
+      .select('status')
+      .eq('id', decisionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!current) return err(appError('not_found', 'Decision not found.'));
+    if (current.status !== 'draft') {
+      return err(
+        appError(
+          'invalid_state',
+          `Cannot edit question or context on a ${current.status} decision.`,
+        ),
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from(DECISIONS)
     .update(parsed.data)
