@@ -283,9 +283,10 @@ export async function runFullDecisionAnalysis(
     .select('status')
     .eq('id', decisionId)
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
-  const priorStatus = (prior?.status as string | undefined) ?? 'draft';
+  if (!prior) return err(appError('not_found', 'Decision not found.'));
+  const priorStatus = prior.status as string;
 
   // Block terminal and already-running statuses. 'analyzing' is rejected to
   // prevent concurrent runs from inserting duplicate votes and racing on

@@ -254,16 +254,32 @@ export async function updateDecision(
     }
   }
 
-  const { data, error } = await supabase
+  // Make the update atomic by adding the same status predicates used in the
+  // pre-flight check. If the row's status changed between the read and here
+  // (e.g. analysis claimed it), 0 rows are returned and we return 409.
+  let query = supabase
     .from(DECISIONS)
     .update(parsed.data)
     .eq('id', decisionId)
-    .eq('user_id', userId)
-    .select('*')
-    .maybeSingle();
+    .eq('user_id', userId);
+
+  if (promptFieldsChanged) {
+    query = query.eq('status', 'draft');
+  } else if (archiving) {
+    query = query.neq('status', 'analyzing');
+  }
+
+  const { data, error } = await query.select('*').maybeSingle();
 
   if (error) return err(appError('db_error', error.message));
-  if (!data) return err(appError('not_found', 'Decision not found.'));
+  if (!data) {
+    // Zero rows: either the row doesn't exist or the status predicate blocked it.
+    return err(
+      promptFieldsChanged || archiving
+        ? appError('invalid_state', 'Decision state changed before update could be applied.')
+        : appError('not_found', 'Decision not found.'),
+    );
+  }
   return ok(data as Decision);
 }
 
