@@ -287,8 +287,10 @@ export async function runFullDecisionAnalysis(
 
   const priorStatus = (prior?.status as string | undefined) ?? 'draft';
 
-  // Only allow analysis from draft or analyzing; block on terminal statuses.
-  if (priorStatus === 'archived' || priorStatus === 'decided') {
+  // Block terminal and already-running statuses. 'analyzing' is rejected to
+  // prevent concurrent runs from inserting duplicate votes and racing on
+  // synthesizeFinalRecommendation / finalizeDecision.
+  if (priorStatus === 'archived' || priorStatus === 'decided' || priorStatus === 'analyzing') {
     return err(appError('invalid_state', `Cannot analyze a ${priorStatus} decision.`));
   }
 

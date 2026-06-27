@@ -128,7 +128,10 @@ export function parseAdvisorResponse(raw: string): ParsedAdvisorResponse {
     return {
       recommendation: String(parsed.recommendation ?? 'No recommendation provided.'),
       reasoning: String(parsed.reasoning ?? ''),
-      confidence: Math.min(1, Math.max(0, Number(parsed.confidence ?? 0.5))),
+      confidence: (() => {
+        const n = Number(parsed.confidence ?? 0.5);
+        return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0.5;
+      })(),
       risks: String(parsed.risks ?? ''),
       next_actions: Array.isArray(parsed.next_actions)
         ? parsed.next_actions.map(String)
