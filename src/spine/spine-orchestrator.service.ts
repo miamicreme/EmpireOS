@@ -65,13 +65,16 @@ async function computeEmpireScore(
   // excluded so only today's work earns the 25% actions component.
   const today = todayISODate();
   const tomorrow = tomorrowISODate();
+  // Predicate: include a row if it is due today-or-earlier (or has no due date)
+  // OR it was completed today — so future-due actions finished today still earn
+  // credit. The JS filter then drops done rows completed before today.
   const { data: allHighPriority } = await supabase
     .from('global_actions')
     .select('status, completed_at')
     .eq('user_id', userId)
     .in('priority', ['high', 'critical'])
     .not('status', 'eq', 'archived')
-    .or(`due_at.is.null,due_at.lt.${tomorrow}`);
+    .or(`due_at.is.null,due_at.lt.${tomorrow},completed_at.gte.${today}`);
   const allHP = (allHighPriority ?? []).filter(
     (a) =>
       a.status !== 'done' ||
