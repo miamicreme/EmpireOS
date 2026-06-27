@@ -1,0 +1,110 @@
+# Empire OS Repository Rules
+
+## Architecture
+
+Empire OS uses a Spine + Modules + AI Decision Engine architecture.
+
+Core rule:
+
+```txt
+The Spine owns priority.
+Modules own detail.
+Decisions create actions.
+Actions move phases.
+Phases build the empire.
+```
+
+## Stack
+
+Use:
+
+- Next.js App Router
+- TypeScript
+- Supabase
+- PostgreSQL
+- Row Level Security
+- Zod
+- Tailwind CSS
+
+Do not use:
+
+- Vite
+- React Router
+- Pages Router
+- Hardcoded private data
+- Secrets in code
+- Unredacted AI context
+
+## Branch Rules
+
+Use this workflow:
+
+```txt
+feature branches -> develop -> validate -> main
+```
+
+Do not merge feature branches directly into `main`.
+
+`main` is stable only.
+
+`develop` is the integration branch.
+
+Feature branches are for isolated work.
+
+## Required Merge Order
+
+For current Empire OS work, merge in this order:
+
+```txt
+1. feature/spine-backend-v3 -> develop
+2. Validate develop
+3. feature/module-system-v3 -> develop
+4. Validate develop again
+5. develop -> main only after validation passes
+```
+
+Do not merge `feature/spine-backend-v3` directly into `main`.
+
+Do not merge `feature/module-system-v3` directly into `main`.
+
+Do not use the old `feature/spine-backend` branch for mainline work; it only contains early docs and is superseded by v3 branches.
+
+## Validation Before Main
+
+Before merging into `main`, run:
+
+```bash
+npm install
+npm run build
+npm run lint
+```
+
+Also confirm:
+
+- No Vite files
+- No React Router
+- No secrets committed
+- Supabase migrations exist
+- RLS policies exist
+- TypeScript compiles
+- Module registry loads
+- Module metrics/actions sync to Spine
+- Decision context redaction exists
+- Documentation is updated
+
+## Build Order
+
+Build in this order:
+
+```txt
+1. Backend Spine
+2. Module System
+3. Decision Engine
+4. Dashboard UI
+5. Individual module UIs
+6. Validation and deployment
+```
+
+## Main Safety Rule
+
+If branches diverge, do not guess. Merge through `develop`, resolve conflicts there, validate, then merge `develop` into `main`.
