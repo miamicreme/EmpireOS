@@ -9,6 +9,7 @@ import { err, ok, type AppResult } from '@/lib/result';
 import type { ModuleContract } from '@/spine/module-contract';
 import type { AcquisitionTarget } from '@/spine/types';
 import { emitSystemEvent } from '@/spine/events/event.service';
+import { syncModuleMetricsToSpine } from '@/spine/module-adapter';
 import { manifest } from './manifest';
 import { getMetrics, getHealth } from './metrics';
 import { getActions } from './actions';
@@ -91,7 +92,10 @@ export const acquisitionsModule: ModuleContract = {
   getDecisionContext: (userId) => getDecisionContext(createClient(), userId),
   getHealth: (userId) => getHealth(createClient(), userId),
   syncToSpine: async (userId) => {
-    await emitSystemEvent(createClient(), userId, {
+    const supabase = createClient();
+    const metrics = await getMetrics(supabase, userId);
+    await syncModuleMetricsToSpine(userId, manifest.id, metrics);
+    await emitSystemEvent(supabase, userId, {
       event_name: 'module.synced',
       event_type: 'synced',
       module_id: manifest.id,

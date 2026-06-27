@@ -20,9 +20,10 @@ export async function recordMetric(
   if (!parsed.success) {
     return err(appError('validation', 'Invalid metric input.', parsed.error.format()));
   }
+  const row = { ...parsed.data, user_id: userId };
   const { data, error } = await supabase
     .from(TABLE)
-    .insert({ ...parsed.data, user_id: userId })
+    .upsert(row, { onConflict: 'user_id,module_id,metric_key,date' })
     .select('*')
     .single();
 
