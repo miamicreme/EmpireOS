@@ -104,7 +104,7 @@ Or run all three checks through:
 npm run validate
 ```
 
-CI also runs these checks from:
+CI on `develop` also runs these checks from:
 
 ```txt
 .github/workflows/ci.yml
@@ -160,17 +160,23 @@ If a high-risk secret is detected, the analysis is blocked with `redaction_block
 
 ## Build Fixes Included
 
-This validation branch also includes:
+This validation branch includes:
 
 ```txt
 .eslintrc.json
 next-env.d.ts
-.github/workflows/ci.yml
 package.json validate script
 eslint / eslint-config-next dev dependencies
+AI provider typing hardening
 ```
 
-It also removes the duplicate dynamic route pattern by using:
+The `develop` branch includes:
+
+```txt
+.github/workflows/ci.yml
+```
+
+The branch also removes the duplicate dynamic route pattern by using:
 
 ```txt
 src/app/api/decisions/[id]/analyze/route.ts
