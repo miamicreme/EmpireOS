@@ -14,9 +14,11 @@ import {
   createDecisionSchema,
   createDecisionOptionSchema,
   createDecisionVoteSchema,
+  updateDecisionSchema,
   type CreateDecisionInput,
   type CreateDecisionOptionInput,
   type CreateDecisionVoteInput,
+  type UpdateDecisionInput,
 } from '../schemas';
 import type {
   Decision,
@@ -206,4 +208,92 @@ export async function createActionsFromDecision(
   }
 
   return ok(created);
+}
+
+export async function updateDecision(
+  supabase: SupabaseClient,
+  userId: string,
+  decisionId: string,
+  input: UpdateDecisionInput,
+): Promise<AppResult<Decision>> {
+  const parsed = updateDecisionSchema.safeParse(input);
+  if (!parsed.success) {
+    return err(appError('validation', 'Invalid decision update.', parsed.error.format()));
+  }
+
+  const promptFieldsChanged =
+    parsed.data.title !== undefined ||
+    parsed.data.question !== undefined ||
+    parsed.data.context !== undefined;
+  const archiving = parsed.data.status === 'archived';
+
+  // Pre-flight status check for any state-sensitive patch.
+  if (promptFieldsChanged || archiving) {
+    const { data: current } = await supabase
+      .from(DECISIONS)
+      .select('status')
+      .eq('id', decisionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!current) return err(appError('not_found', 'Decision not found.'));
+
+    // Prompt edits only allowed on draft — changing question/context on a
+    // decided row misaligns the recommendation with its source prompt.
+    if (promptFieldsChanged && current.status !== 'draft') {
+      return err(
+        appError('invalid_state', `Cannot edit question or context on a ${current.status} decision.`),
+      );
+    }
+
+    // Archiving an analyzing row races with the in-flight analysis: finalizeDecision
+    // or the rollback path can silently overwrite the archive with 'decided'/'draft'.
+    if (archiving && current.status === 'analyzing') {
+      return err(
+        appError('invalid_state', 'Cannot archive a decision that is currently being analyzed.'),
+      );
+    }
+  }
+
+  // Make the update atomic by adding the same status predicates used in the
+  // pre-flight check. If the row's status changed between the read and here
+  // (e.g. analysis claimed it), 0 rows are returned and we return 409.
+  let query = supabase
+    .from(DECISIONS)
+    .update(parsed.data)
+    .eq('id', decisionId)
+    .eq('user_id', userId);
+
+  if (promptFieldsChanged) {
+    query = query.eq('status', 'draft');
+  } else if (archiving) {
+    query = query.neq('status', 'analyzing');
+  }
+
+  const { data, error } = await query.select('*').maybeSingle();
+
+  if (error) return err(appError('db_error', error.message));
+  if (!data) {
+    // Zero rows: either the row doesn't exist or the status predicate blocked it.
+    return err(
+      promptFieldsChanged || archiving
+        ? appError('invalid_state', 'Decision state changed before update could be applied.')
+        : appError('not_found', 'Decision not found.'),
+    );
+  }
+  return ok(data as Decision);
+}
+
+export async function deleteDecision(
+  supabase: SupabaseClient,
+  userId: string,
+  decisionId: string,
+): Promise<AppResult<{ id: string }>> {
+  const { error } = await supabase
+    .from(DECISIONS)
+    .delete()
+    .eq('id', decisionId)
+    .eq('user_id', userId);
+
+  if (error) return err(appError('db_error', error.message));
+  return ok({ id: decisionId });
 }
