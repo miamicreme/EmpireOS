@@ -129,12 +129,12 @@ export const updateDecisionSchema = z.object({
   title: z.string().min(1).max(300).optional(),
   question: z.string().min(1).max(2000).optional(),
   context: z.string().max(20000).nullable().optional(),
-  status: decisionStatus.optional(),
-  recommendation: z.string().nullable().optional(),
-  confidence: z.number().min(0).max(1).nullable().optional(),
-  selected_option: z.string().nullable().optional(),
-  risk_level: z.string().nullable().optional(),
-  upside_level: z.string().nullable().optional(),
+  // Only 'archived' is a safe client-settable status via PATCH.
+  // 'draft' is excluded: patching a decided row to draft would leave decided_at
+  // and judge votes intact while bypassing the re-analysis guard.
+  // 'analyzing' and 'decided' are system-only (runFullDecisionAnalysis /
+  // finalizeDecision). Use POST /analyze to restart from draft.
+  status: z.literal('archived').optional(),
   decision_type: decisionType.optional(),
   metadata: jsonRecord.optional(),
 });
@@ -330,6 +330,7 @@ export type CreateGlobalActionInput = z.infer<typeof createGlobalActionSchema>;
 export type UpdateGlobalActionInput = z.infer<typeof updateGlobalActionSchema>;
 export type CreateModuleMetricInput = z.infer<typeof createModuleMetricSchema>;
 export type CreateDecisionInput = z.infer<typeof createDecisionSchema>;
+export type UpdateDecisionInput = z.infer<typeof updateDecisionSchema>;
 export type CreateDecisionOptionInput = z.infer<typeof createDecisionOptionSchema>;
 export type CreateDecisionVoteInput = z.infer<typeof createDecisionVoteSchema>;
 export type CreateDailyReviewInput = z.infer<typeof createDailyReviewSchema>;

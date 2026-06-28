@@ -10,6 +10,8 @@ export type AppErrorCode =
   | 'conflict'
   | 'db_error'
   | 'redaction_blocked'
+  | 'ai_provider_error'
+  | 'invalid_state'
   | 'internal';
 
 export type AppError = {
@@ -40,6 +42,9 @@ export function httpStatusForError(code: AppErrorCode): number {
       return 422;
     case 'conflict':
       return 409;
+    case 'invalid_state':
+      return 409;
+    case 'ai_provider_error':
     case 'db_error':
     case 'internal':
       return 500;
