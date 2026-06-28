@@ -59,12 +59,16 @@ async function callAnthropic(
     temperature: opts.temperature ?? 0.3,
     ...(systemPrompt ? { system: systemPrompt } : {}),
     messages: messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      .filter((message) => message.role !== 'system')
+      .map((message) => ({
+        role: message.role as 'user' | 'assistant',
+        content: message.content,
+      })),
   });
 
-  const text =
-    response.content[0]?.type === 'text' ? response.content[0].text : '';
+  const firstContent = response.content[0];
+  const text = firstContent?.type === 'text' ? firstContent.text : '';
+
   return {
     text,
     provider: 'anthropic',
@@ -90,10 +94,14 @@ async function callOpenAI(
     model,
     max_tokens: opts.maxTokens ?? 1024,
     temperature: opts.temperature ?? 0.3,
-    messages: msgs.map((m) => ({ role: m.role, content: m.content })),
+    messages: msgs.map((message) => ({
+      role: message.role,
+      content: message.content,
+    })),
   });
 
   const text = response.choices[0]?.message.content ?? '';
+
   return {
     text,
     provider: 'openai',
@@ -112,21 +120,22 @@ async function callGoogle(
   const model = opts.model ?? 'gemini-1.5-flash';
   const genModel = client.getGenerativeModel({ model });
 
-  // Combine system + user messages into a single prompt for Google's API
   const parts: string[] = [];
   if (opts.systemPrompt) parts.push(opts.systemPrompt);
-  for (const m of messages) {
-    parts.push(`${m.role.toUpperCase()}: ${m.content}`);
+  for (const message of messages) {
+    parts.push(`${message.role.toUpperCase()}: ${message.content}`);
   }
 
   const result = await genModel.generateContent(parts.join('\n\n'));
   const text = result.response.text();
+
   return { text, provider: 'google', model };
 }
 
 /** Deterministic stub — returns when no provider is configured. */
-function callStub(messages: AIMessage[], opts: AICallOptions): AIResponse {
+function callStub(messages: AIMessage[], _opts: AICallOptions): AIResponse {
   const last = messages[messages.length - 1]?.content ?? '';
+
   return {
     text: `[STUB] No AI provider configured. Received prompt: "${last.slice(0, 120)}..."`,
     provider: 'stub',
@@ -164,9 +173,8 @@ export function modelForAdvisor(
   preferredModel: string | undefined,
   provider: AIProvider,
 ): string {
-  // preferredModel values are Anthropic model IDs — only honour them when
-  // Anthropic is the active provider; otherwise fall through to provider defaults.
   if (preferredModel && provider === 'anthropic') return preferredModel;
+
   switch (provider) {
     case 'anthropic':
       return 'claude-sonnet-4-6';
