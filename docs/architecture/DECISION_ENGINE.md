@@ -54,7 +54,7 @@ src/spine/decisions/decision.service.ts
 src/spine/decisions/context-redaction.service.ts
 src/spine/ai/provider.ts
 src/spine/ai/advisor-prompts.ts
-src/app/api/decisions/[decisionId]/analyze/route.ts
+src/app/api/decisions/[id]/analyze/route.ts
 ```
 
 ## API Endpoint
@@ -62,7 +62,7 @@ src/app/api/decisions/[decisionId]/analyze/route.ts
 Run a decision analysis:
 
 ```http
-POST /api/decisions/:decisionId/analyze
+POST /api/decisions/:id/analyze
 ```
 
 Body:
@@ -141,6 +141,23 @@ confidence
 risks
 next_actions
 redactions_applied
+```
+
+## Validation
+
+Validation now has a dedicated CI workflow:
+
+```txt
+.github/workflows/ci.yml
+```
+
+The workflow runs:
+
+```bash
+npm install
+npm run typecheck
+npm run lint
+npm run build
 ```
 
 ## Next Work
