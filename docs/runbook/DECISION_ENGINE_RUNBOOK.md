@@ -35,7 +35,7 @@ src/spine/decisions/decision.service.ts
 src/spine/decisions/context-redaction.service.ts
 src/spine/ai/provider.ts
 src/spine/ai/advisor-prompts.ts
-src/app/api/decisions/[decisionId]/analyze/route.ts
+src/app/api/decisions/[id]/analyze/route.ts
 docs/architecture/DECISION_ENGINE.md
 ```
 
@@ -52,7 +52,7 @@ POST /api/decisions
 Then analyze it:
 
 ```http
-POST /api/decisions/:decisionId/analyze
+POST /api/decisions/:id/analyze
 ```
 
 Request body:
@@ -93,12 +93,22 @@ Run:
 
 ```bash
 npm install
-npm run build
-npm run lint
 npm run typecheck
+npm run lint
+npm run build
 ```
 
-If `npm run lint` fails because the Next.js lint command is unavailable, update the lint script before merging.
+Or run all three checks through:
+
+```bash
+npm run validate
+```
+
+CI also runs these checks from:
+
+```txt
+.github/workflows/ci.yml
+```
 
 ---
 
@@ -148,6 +158,28 @@ If a high-risk secret is detected, the analysis is blocked with `redaction_block
 
 ---
 
+## Build Fixes Included
+
+This validation branch also includes:
+
+```txt
+.eslintrc.json
+next-env.d.ts
+.github/workflows/ci.yml
+package.json validate script
+eslint / eslint-config-next dev dependencies
+```
+
+It also removes the duplicate dynamic route pattern by using:
+
+```txt
+src/app/api/decisions/[id]/analyze/route.ts
+```
+
+instead of creating a second sibling dynamic route named `[decisionId]`.
+
+---
+
 ## Next Recommended Step
 
 After validation passes, merge this branch into `develop`:
@@ -156,9 +188,7 @@ After validation passes, merge this branch into `develop`:
 git checkout develop
 git pull origin develop
 git merge feature/decision-engine-implementation
-npm run build
-npm run lint
-npm run typecheck
+npm run validate
 git push origin develop
 ```
 
