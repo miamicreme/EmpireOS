@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { ModuleCopilotPanel } from '@/components/ui/ai/ModuleCopilotPanel';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -136,6 +137,8 @@ export default function JobHuntPage() {
         subtitle="Your pipeline of high-income roles, from saved leads to signed offers."
         action={<Button onClick={() => setOpen(true)} icon={<span>+</span>}>Add Application</Button>}
       />
+
+      <ModuleCopilotPanel moduleId="job-hunt" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard label="Total Apps" value={totals.total} tone="violet" />

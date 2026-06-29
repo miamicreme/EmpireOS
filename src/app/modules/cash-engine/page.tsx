@@ -11,6 +11,7 @@ import { StatCard } from '@/components/ui/Stat';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SkeletonRows } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { ModuleCopilotPanel } from '@/components/ui/ai/ModuleCopilotPanel';
 import { api, usd } from '@/lib/api-client';
 import type { CashEntry, ModuleMetric } from '@/spine/types';
 
@@ -125,6 +126,8 @@ export default function CashEnginePage() {
         subtitle="Today's income, expenses, and net toward your daily target."
         action={<Button onClick={() => setOpen(true)} icon={<span>+</span>}>Log Entry</Button>}
       />
+
+      <ModuleCopilotPanel moduleId="cash-engine" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard

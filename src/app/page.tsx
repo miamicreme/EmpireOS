@@ -5,9 +5,11 @@ import { ActionQueue } from '@/components/ui/ActionQueue';
 import { DecisionList } from '@/components/ui/DecisionList';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { AiChiefOfStaffWidget } from '@/components/ui/ai/AiDashboardWidgets';
 import { MODULE_IDS } from '@/spine/constants';
 import type { ModuleHealthResult } from '@/spine/types';
 import Link from 'next/link';
+import type { Route } from 'next';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +38,22 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <PageHeader title="Command Center" subtitle={today} />
+      <PageHeader
+        title="Command Center"
+        subtitle={today}
+        action={
+          <Link
+            href={'/ai' as Route}
+            className="text-xs text-empire-blue hover:underline font-mono"
+          >
+            AI Chief of Staff →
+          </Link>
+        }
+      />
+
+      <div className="mb-5 animate-fade-in">
+        <AiChiefOfStaffWidget />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-fade-in">
         {/* Left col: score + module health */}

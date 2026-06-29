@@ -15,6 +15,7 @@ interface NavItem {
 
 const CORE: NavItem[] = [
   { href: '/' as Route, label: 'Dashboard', icon: '⬡' },
+  { href: '/ai' as Route, label: 'AI Chief of Staff', icon: '✦' },
   { href: '/actions' as Route, label: 'Actions', icon: '⚡' },
   { href: '/decisions' as Route, label: 'Decisions', icon: '◈' },
 ];

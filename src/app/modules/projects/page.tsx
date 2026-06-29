@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { ModuleCopilotPanel } from '@/components/ui/ai/ModuleCopilotPanel';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -124,6 +125,8 @@ export default function ProjectsPage() {
         subtitle="Track strategic initiatives, focus levels, and what moves each one forward."
         action={<Button onClick={() => setOpen(true)} icon={<span>+</span>}>New Project</Button>}
       />
+
+      <ModuleCopilotPanel moduleId="projects" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard label="Total" value={projects.length} tone="violet" />
