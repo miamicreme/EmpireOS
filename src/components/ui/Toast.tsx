@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react';
@@ -49,11 +50,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [remove],
   );
 
-  const api: ToastApi = {
-    toast,
-    success: (m) => toast(m, 'success'),
-    error: (m) => toast(m, 'error'),
-  };
+  const success = useCallback((m: string) => toast(m, 'success'), [toast]);
+  const error = useCallback((m: string) => toast(m, 'error'), [toast]);
+  // Stable identity so consumers that depend on these callbacks (e.g. in a
+  // useCallback/useEffect dep array) don't re-run just because a toast was added.
+  const api = useMemo<ToastApi>(() => ({ toast, success, error }), [toast, success, error]);
 
   return (
     <ToastContext.Provider value={api}>
