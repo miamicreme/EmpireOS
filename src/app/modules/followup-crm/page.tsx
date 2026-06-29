@@ -55,7 +55,10 @@ export default function FollowupCrmPage() {
     const active = contacts.filter((c) => c.status === 'active').length;
     const cold = contacts.filter((c) => c.status === 'cold').length;
     const due = contacts.filter(
-      (c) => c.next_follow_up_at != null && c.next_follow_up_at <= today,
+      (c) =>
+        c.status !== 'archived' &&
+        c.next_follow_up_at != null &&
+        c.next_follow_up_at <= today,
     ).length;
     return { total, active, cold, due };
   }, [contacts]);
