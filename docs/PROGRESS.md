@@ -20,7 +20,8 @@ high-level [`MASTER_GUIDE.md`](../MASTER_GUIDE.md) and the architecture docs und
 | Dashboard UI | ✅ Done | Command center: Empire Score, module health, action queue, decisions |
 | Module UIs | ✅ Done | All 6 wired to their APIs with optimistic updates |
 | Design system | ✅ Done | Tokens, primitives, motion, toasts, modals, data tables |
-| Tests | ✅ 175 passing | Pure logic, schemas, redaction, module metrics, API routes |
+| Auth | ✅ Done | Passkey / Face ID (WebAuthn), multi-passkey recovery, route gate |
+| Tests | ✅ 181 passing | Pure logic, schemas, redaction, module metrics, API routes, auth config |
 | Deployment | ⏭️ Next | Live Supabase project + hosting + CI |
 
 `main` and `develop` are in sync. Every merged change passes `npm run typecheck`,
@@ -87,9 +88,12 @@ Ordered by leverage.
 - Add an `npm run test` step to the workflow alongside typecheck/lint/build.
 
 ### C. Auth & onboarding
-- Wire a real Supabase auth flow (sign-in/up, session handling) and a minimal
-  profile setup that lets the user set `daily_cash_target` (the Cash Engine
-  page already reads it from module metrics).
+- ✅ Passwordless **passkey / Face ID** auth (WebAuthn) is built: first passkey
+  claims the owner account, additional passkeys are recovery devices, and the
+  app is gated by middleware. Requires `SUPABASE_SERVICE_ROLE_KEY`,
+  `WEBAUTHN_ORIGIN`/`WEBAUTHN_RP_ID`, and `OWNER_EMAIL` on the server.
+- ⏭️ Onboarding: a first-run profile step to set `daily_cash_target` (the Cash
+  Engine already reads it from module metrics).
 
 ### D. Feature depth
 - **Reviews UI**: build `/reviews/daily` and `/reviews/weekly` pages on the

@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
+import { api } from '@/lib/api-client';
 
 interface NavItem {
   href: Route;
@@ -55,8 +56,15 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
+
+  async function logout() {
+    await api.post('/api/auth/logout', {});
+    router.replace('/login' as Route);
+    router.refresh();
+  }
 
   return (
     <aside className="w-56 shrink-0 bg-surface-1 border-r border-border flex flex-col h-screen sticky top-0">
@@ -85,6 +93,24 @@ export function Sidebar() {
           {MODULES.map((item) => (
             <NavLink key={item.href} item={item} active={isActive(item.href)} />
           ))}
+        </div>
+        <div className="px-5 pt-5 pb-2 text-[10px] font-mono tracking-widest text-empire-muted/70 uppercase">
+          Account
+        </div>
+        <div className="space-y-0.5">
+          <NavLink
+            item={{ href: '/settings/passkeys' as Route, label: 'Passkeys', icon: '◇' }}
+            active={isActive('/settings/passkeys')}
+          />
+          <button
+            onClick={logout}
+            className="group relative flex w-[calc(100%-1rem)] items-center gap-3 px-3 py-2 mx-2 rounded-lg text-sm text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-all duration-150"
+          >
+            <span className="w-4 text-center font-mono text-empire-muted group-hover:text-gray-300">
+              ⏻
+            </span>
+            Sign out
+          </button>
         </div>
       </nav>
 
