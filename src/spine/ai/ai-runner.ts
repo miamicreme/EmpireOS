@@ -13,7 +13,7 @@
 import type { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { aiConfig } from '@/lib/env';
-import { callAI, activeProvider, type AIProvider } from './provider';
+import { callAI, activeProvider, modelForAdvisor, type AIProvider } from './provider';
 import {
   assertNoHighRiskSecrets,
   redactSensitiveText,
@@ -82,7 +82,11 @@ export async function runStructured<T>(
   opts: StructuredRunOptions<T>,
 ): Promise<StructuredRunResult<T>> {
   const provider = activeProvider();
-  const model = opts.model ?? aiConfig.defaultModel;
+  // Resolve the model for the *active* provider. A caller-supplied preference
+  // (e.g. the Anthropic fast model) is only honored on Anthropic; OpenAI/Google
+  // fall back to their own provider defaults so single-key envs don't pass an
+  // Anthropic model name into a non-Anthropic API.
+  const model = modelForAdvisor(opts.model ?? aiConfig.defaultModel, provider);
 
   // Redaction gate — applies to both the instruction and the context.
   const safeInstruction = redactSensitiveText(opts.instruction);

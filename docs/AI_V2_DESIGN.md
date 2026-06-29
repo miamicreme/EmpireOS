@@ -59,7 +59,7 @@ AI recommends and drafts — the user approves before anything enters the Spine.
 
 ## Database
 
-Migration `supabase/migrations/0008_ai_v2.sql` adds (all RLS-isolated by
+Migration `supabase/migrations/0011_ai_v2.sql` adds (all RLS-isolated by
 `auth.uid()`): `ai_context_snapshots`, `ai_briefs`, `ai_recommendations`,
 `ai_action_drafts`, `ai_conversations`, `ai_messages`, `ai_usage_events`.
 

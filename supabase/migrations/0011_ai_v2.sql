@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Empire OS — AI V2 (AI Execution Layer)
--- Migration: 0008_ai_v2
+-- Migration: 0011_ai_v2
 --
 -- Adds the AI Chief of Staff layer that sits ON TOP of the Spine. AI never
 -- replaces the Spine: it reads context, drafts recommendations and actions,

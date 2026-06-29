@@ -13,10 +13,20 @@ import { nowISO } from '@/lib/dates';
 import { redactSensitiveText } from '../decisions/context-redaction.service';
 import { createAction } from '../actions/action.service';
 import { createGlobalActionSchema } from '../schemas';
+import { MODULE_IDS } from '../constants';
 import type { GlobalAction, ActionCategory, ActionPriority } from '../types';
 import type { SuggestedAction, ActionDraftStatus } from './ai.types';
 
 const TABLE = 'ai_action_drafts';
+
+/**
+ * Coerce an AI-provided module id to a known module or null. `module_id` is an
+ * FK to public.modules, so a hallucinated id (or the literal "null") would fail
+ * the whole batch insert — drop it to null instead.
+ */
+function normalizeModuleId(id: string | null | undefined): string | null {
+  return id && (MODULE_IDS as readonly string[]).includes(id) ? id : null;
+}
 
 const VALID_CATEGORIES: ActionCategory[] = [
   'cash', 'job', 'followup', 'credit', 'project', 'acquisition', 'review', 'admin', 'general',
@@ -64,7 +74,7 @@ export async function createDraftsFromSuggestions(
   const rows = suggestions.map((s) => ({
     user_id: userId,
     recommendation_id: opts.recommendationId ?? null,
-    module_id: s.moduleId ?? opts.moduleId ?? null,
+    module_id: normalizeModuleId(s.moduleId ?? opts.moduleId),
     title: redactSensitiveText(s.title).slice(0, 300),
     description: s.description ? redactSensitiveText(s.description).slice(0, 5000) : null,
     category: normalizeCategory(s.category),
@@ -143,31 +153,67 @@ export async function approveActionDraft(
     }
   }
 
+  // Atomically claim the draft: flip pending -> approved guarded by status.
+  // Only one concurrent caller wins, so a double-click / retry can't create two
+  // global_actions. The loser falls through to read the winner's action.
+  const { data: claimed, error: claimError } = await supabase
+    .from(TABLE)
+    .update({ status: 'approved', approved_at: nowISO() })
+    .eq('id', id)
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .select('*')
+    .maybeSingle();
+
+  if (claimError) return err(appError('db_error', claimError.message));
+  if (!claimed) {
+    // Someone else already claimed it (or it isn't pending). Return the existing
+    // action if it's been recorded; otherwise report the in-flight conflict.
+    const reread = await getActionDraftById(supabase, userId, id);
+    if (!reread.ok) return reread;
+    if (reread.data.status === 'approved' && reread.data.created_action_id) {
+      const existing = await supabase
+        .from('global_actions')
+        .select('*')
+        .eq('id', reread.data.created_action_id)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (existing.data) {
+        return ok({ draft: reread.data, action: existing.data as GlobalAction });
+      }
+    }
+    return err(appError('conflict', 'Draft approval already in progress.'));
+  }
+
   const input = createGlobalActionSchema.parse({
-    module_id: draft.module_id,
-    title: draft.title,
-    description: draft.description,
-    category: normalizeCategory(draft.category),
-    priority: normalizePriority(draft.priority),
-    due_at: draft.due_at,
-    impact_score: draft.impact_score,
-    urgency_score: draft.urgency_score,
-    effort_score: draft.effort_score,
-    confidence_score: draft.confidence_score,
+    module_id: normalizeModuleId(claimed.module_id),
+    title: claimed.title,
+    description: claimed.description,
+    category: normalizeCategory(claimed.category),
+    priority: normalizePriority(claimed.priority),
+    due_at: claimed.due_at,
+    impact_score: claimed.impact_score,
+    urgency_score: claimed.urgency_score,
+    effort_score: claimed.effort_score,
+    confidence_score: claimed.confidence_score,
     source_type: 'ai_draft',
-    source_id: draft.id,
+    source_id: claimed.id,
   });
 
   const created = await createAction(supabase, userId, input);
-  if (!created.ok) return created;
+  if (!created.ok) {
+    // Release the claim so the user can retry after a transient create failure.
+    await supabase
+      .from(TABLE)
+      .update({ status: 'pending', approved_at: null })
+      .eq('id', id)
+      .eq('user_id', userId);
+    return created;
+  }
 
   const { data, error } = await supabase
     .from(TABLE)
-    .update({
-      status: 'approved',
-      approved_at: nowISO(),
-      created_action_id: created.data.id,
-    })
+    .update({ created_action_id: created.data.id })
     .eq('id', id)
     .eq('user_id', userId)
     .select('*')
