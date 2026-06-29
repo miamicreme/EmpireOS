@@ -2,35 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-sans: system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, 'JetBrains Mono', 'Fira Code', monospace;
+@layer base {
+  :root {
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'Fira Code', monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    border-color: #23272f;
+  }
+
+  html {
+    background-color: #08090c;
+    color: #e8eaed;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: rgba(96, 165, 250, 0.3);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #08090c, 0 0 0 4px #60a5fa;
+    border-radius: 4px;
+  }
 }
 
-* {
-  box-sizing: border-box;
-}
+@layer components {
+  .nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
 
-html {
-  background-color: #0a0a0a;
-  color: #f5f5f5;
-  font-family: var(--font-sans);
-}
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: #15181e;
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+    animation: shimmer 1.6s infinite;
+  }
 
-body {
-  margin: 0;
-  min-height: 100vh;
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #111111;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
-  border-radius: 3px;
+  background: #1d212a;
+  border-radius: 4px;
+  border: 2px solid #08090c;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #262b36;
+}
+
+/* Range slider polish */
+input[type='range'] {
+  height: 4px;
+  border-radius: 9999px;
+  background: #1d212a;
+  appearance: none;
+  -webkit-appearance: none;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #60a5fa;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+  transition: box-shadow 0.15s;
+}
+input[type='range']::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 5px rgba(96, 165, 250, 0.25);
 }
