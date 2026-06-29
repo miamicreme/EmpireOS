@@ -29,7 +29,7 @@ export default async function DashboardPage() {
   );
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
       {!userId && (
         <div className="mb-6 px-4 py-3 bg-empire-yellow/10 border border-empire-yellow/20 rounded-lg text-sm text-empire-yellow font-mono">
           Not signed in — connect Supabase and configure auth to see live data.
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Right col: actions + decisions */}
-        <div className="col-span-2 flex flex-col gap-5">
+        <div className="lg:col-span-2 flex flex-col gap-5">
           <Card hover>
             <CardHeader
               title="Action Queue"

@@ -36,7 +36,7 @@ export default function NewDecisionPage() {
   }
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
       <div className="max-w-2xl">
         <div className="mb-6">
           <h1 className="text-lg font-semibold text-gray-100">New Decision</h1>
