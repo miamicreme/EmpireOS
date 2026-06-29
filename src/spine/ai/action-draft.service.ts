@@ -234,14 +234,22 @@ export async function rejectActionDraft(
     return err(appError('invalid_state', 'Cannot reject an approved draft.'));
   }
 
+  // Guard by status='pending' so a reject racing an in-flight approval can't
+  // overwrite a draft the approval already claimed (which would otherwise leave
+  // a real global_action attached to a "rejected" draft).
   const { data, error } = await supabase
     .from(TABLE)
     .update({ status: 'rejected', rejected_at: nowISO() })
     .eq('id', id)
     .eq('user_id', userId)
+    .eq('status', 'pending')
     .select('*')
-    .single();
+    .maybeSingle();
 
   if (error) return err(appError('db_error', error.message));
+  if (!data) {
+    // Lost the race: the draft is no longer pending (approval claimed it first).
+    return err(appError('invalid_state', 'Draft is no longer pending.'));
+  }
   return ok(data as ActionDraft);
 }

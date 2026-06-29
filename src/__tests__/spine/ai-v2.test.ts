@@ -239,6 +239,32 @@ describe('approveActionDraft', () => {
     if (result.ok) return;
     expect(result.error.code).toBe('invalid_state');
   });
+
+  it('refuses to reject an approved draft', async () => {
+    const { rejectActionDraft } = await import('@/spine/ai/action-draft.service');
+    const client = makeClient({
+      ai_action_drafts: [{ id: 'd3', user_id: USER, status: 'approved', category: 'general', priority: 'medium', impact_score: 5, urgency_score: 5, effort_score: 5, confidence_score: 0.5, title: 'x', description: null, module_id: null, due_at: null, created_action_id: 'act-1' }],
+    });
+    const result = await rejectActionDraft(client, USER, 'd3');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('invalid_state');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ask input persistence default — action-oriented callers persist by default
+// ---------------------------------------------------------------------------
+describe('askInputSchema persist default', () => {
+  it('defaults persist to true so decision questions create drafts', async () => {
+    const { askInputSchema } = await import('@/spine/ai/ai.schemas');
+    expect(askInputSchema.parse({ question: 'Uber or jobs?' }).persist).toBe(true);
+  });
+
+  it('honors an explicit persist:false (exploratory chat)', async () => {
+    const { askInputSchema } = await import('@/spine/ai/ai.schemas');
+    expect(askInputSchema.parse({ question: 'hi', persist: false }).persist).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

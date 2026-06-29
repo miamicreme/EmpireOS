@@ -67,10 +67,11 @@ export async function buildEmpireContext(
   const today = todayISODate();
   const now = nowISO();
 
-  const [profileRow, actions, decisions, daily, weekly, health, metrics] =
+  const [profileRow, actions, doneToday, decisions, daily, weekly, health, metrics] =
     await Promise.all([
       safe(fetchProfile(supabase, userId), null),
       safe(fetchOpenActions(supabase, userId), [] as GlobalAction[]),
+      safe(fetchActionsCompletedToday(supabase, userId, today), [] as GlobalAction[]),
       safe(fetchRecentDecisions(supabase, userId), [] as Decision[]),
       safe(fetchDailyReview(supabase, userId, today), null as DailyReview | null),
       safe(fetchWeeklyReview(supabase, userId), null as WeeklyReview | null),
@@ -85,7 +86,9 @@ export async function buildEmpireContext(
     .map(toContextAction);
 
   const modules = buildModuleSlices(health, metrics);
-  const empireScore = computeEmpireScore(actions, health, daily);
+  // Score from open + today's completed actions so completion is credited
+  // (fetchOpenActions excludes done; scoring on it alone would always read 0).
+  const empireScore = computeEmpireScore(actions, doneToday, health, daily);
 
   const context: EmpireContext = {
     generatedFor: today,
@@ -156,20 +159,25 @@ function buildModuleSlices(
 }
 
 function computeEmpireScore(
-  actions: GlobalAction[],
+  openActions: GlobalAction[],
+  doneActions: GlobalAction[],
   health: ModuleHealthResult[],
   daily: DailyReview | null,
 ) {
-  if (actions.length === 0 && health.length === 0) return null;
+  if (openActions.length === 0 && doneActions.length === 0 && health.length === 0) {
+    return null;
+  }
   const healthRatio = (id: string) => {
     const h = health.find((x) => x.moduleId === id)?.health ?? 'red';
     return h === 'green' ? 1 : h === 'yellow' ? 0.5 : 0;
   };
-  const done = actions.filter((a) => a.status === 'done').length;
-  const actionsRatio = actions.length > 0 ? done / actions.length : 0;
+  const openCount = openActions.length;
+  const doneCount = doneActions.length;
+  const total = openCount + doneCount;
+  const actionsRatio = total > 0 ? doneCount / total : 0;
   return calculateEmpireScore({
     cashRatio: healthRatio('cash-engine'),
-    actionsRatio: Math.min(1, actionsRatio + (actions.length > done ? 0.3 : 0)),
+    actionsRatio: Math.min(1, actionsRatio + (openCount > 0 ? 0.3 : 0)),
     jobHuntRatio: healthRatio('job-hunt'),
     followUpsRatio: healthRatio('followup-crm'),
     reviewRatio: daily ? 1 : 0,
@@ -203,6 +211,21 @@ async function fetchOpenActions(supabase: SupabaseClient, userId: string): Promi
     .in('status', ['open', 'in_progress', 'blocked'])
     .order('rank_score', { ascending: false })
     .limit(50);
+  return (data ?? []) as GlobalAction[];
+}
+
+async function fetchActionsCompletedToday(
+  supabase: SupabaseClient,
+  userId: string,
+  today: string,
+): Promise<GlobalAction[]> {
+  const { data } = await supabase
+    .from('global_actions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'done')
+    .gte('completed_at', today)
+    .limit(100);
   return (data ?? []) as GlobalAction[];
 }
 

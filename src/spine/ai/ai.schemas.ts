@@ -73,7 +73,10 @@ export const generateBriefInputSchema = z.object({
 
 export const askInputSchema = z.object({
   question: z.string().min(1).max(2000),
-  persist: z.boolean().default(false),
+  // Action-oriented callers (Decision Console, dashboard ask) want recommendations
+  // and drafts persisted, so default to true. The exploratory chat opts out
+  // explicitly with persist: false.
+  persist: z.boolean().default(true),
 });
 
 export const moduleCopilotInputSchema = z.object({
