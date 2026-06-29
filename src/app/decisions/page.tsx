@@ -26,7 +26,7 @@ export default async function DecisionsPage() {
   const decisions = await getDecisions();
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-lg font-semibold text-gray-100">Decisions</h1>

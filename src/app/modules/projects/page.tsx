@@ -118,7 +118,7 @@ export default function ProjectsPage() {
   ];
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
       <PageHeader
         title="Projects"
         subtitle="Track strategic initiatives, focus levels, and what moves each one forward."

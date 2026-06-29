@@ -113,7 +113,7 @@ export default function CreditFundingPage() {
   ];
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
       <PageHeader
         title="Credit & Funding"
         subtitle="Track credit repair disputes and build toward funding readiness."

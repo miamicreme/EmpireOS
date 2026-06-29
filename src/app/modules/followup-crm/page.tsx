@@ -124,7 +124,7 @@ export default function FollowupCrmPage() {
   ];
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
       <PageHeader
         title="Follow-ups"
         subtitle="Track relationships and stay on top of your follow-up cadence."
