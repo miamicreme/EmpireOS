@@ -22,18 +22,27 @@ Flow: **Decisions create actions → Actions move phases → Phases build the em
 
 ## Current Build Status
 
-- ✅ Documentation setup
-- ⏭️ Backend spine next
+- ✅ Documentation & repo organization
+- ✅ Backend spine (actions, decisions, metrics, reviews, events, audit)
+- ✅ Module system (6 modules on a uniform `ModuleContract`)
+- ✅ AI decision engine (multi-advisor, redaction-gated)
+- ✅ Module CRUD + review API routes (auth + RLS + Zod on every write)
+- ✅ Dashboard UI + command center
+- ✅ Individual module UIs (all 6 wired to their APIs)
+- ✅ Test suite — 175 passing (typecheck + build clean)
+- ⏭️ Deployment & live Supabase wiring next
+
+See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next steps.
 
 ## Build Order
 
-1. Repo / docs organization
-2. Backend spine
-3. Module system
-4. Decision engine
-5. Dashboard UI
-6. Individual module UIs
-7. Validation and deployment
+1. ✅ Repo / docs organization
+2. ✅ Backend spine
+3. ✅ Module system
+4. ✅ Decision engine
+5. ✅ Dashboard UI
+6. ✅ Individual module UIs
+7. ⏭️ Validation and deployment
 
 ## Important Docs
 
