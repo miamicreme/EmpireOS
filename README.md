@@ -46,6 +46,8 @@ See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next st
 
 ## Important Docs
 
+- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — deploy + first passkey login
+- [`docs/PROGRESS.md`](./docs/PROGRESS.md) — status & next steps
 - [`CLAUDE_BUILD_INSTRUCTIONS.md`](./CLAUDE_BUILD_INSTRUCTIONS.md)
 - [`MASTER_GUIDE.md`](./MASTER_GUIDE.md)
 - [`docs/prompts/Backend_Spine_Prompt_V3_High_Tech.md`](./docs/prompts/Backend_Spine_Prompt_V3_High_Tech.md)
