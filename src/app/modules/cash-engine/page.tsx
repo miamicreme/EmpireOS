@@ -119,7 +119,7 @@ export default function CashEnginePage() {
   ];
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
       <PageHeader
         title="Cash Engine"
         subtitle="Today's income, expenses, and net toward your daily target."

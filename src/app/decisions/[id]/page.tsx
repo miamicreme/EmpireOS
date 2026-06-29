@@ -114,7 +114,7 @@ export default async function DecisionDetailPage({
   const judgeVote = votes.find((v) => v.advisor_role === 'final_judge');
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
+    <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
       <div className="max-w-3xl">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
