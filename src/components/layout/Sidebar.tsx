@@ -139,6 +139,18 @@ export function Sidebar() {
     setOpen(false);
   }, [pathname]);
 
+  // Close the drawer when the viewport grows to desktop, so the scroll lock is
+  // never left on in a state where the drawer (and its close control) is hidden.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => {
+      if (mq.matches) setOpen(false);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   // Lock body scroll while the drawer is open.
   useEffect(() => {
     if (typeof document === 'undefined') return;
