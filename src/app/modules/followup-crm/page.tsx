@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { ModuleCopilotPanel } from '@/components/ui/ai/ModuleCopilotPanel';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -130,6 +131,8 @@ export default function FollowupCrmPage() {
         subtitle="Track relationships and stay on top of your follow-up cadence."
         action={<Button onClick={() => setOpen(true)} icon={<span>+</span>}>Add Contact</Button>}
       />
+
+      <ModuleCopilotPanel moduleId="followup-crm" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard label="Contacts" value={stats.total} tone="violet" />

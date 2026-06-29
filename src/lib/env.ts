@@ -75,3 +75,15 @@ export const aiKeys = {
 export function hasAnyAiProvider(): boolean {
   return Boolean(aiKeys.openai || aiKeys.anthropic || aiKeys.google);
 }
+
+/**
+ * AI V2 model configuration. Optional — sensible Anthropic defaults are used
+ * when unset. These only select model names; provider keys still gate whether
+ * a real provider is called (otherwise the engine stays in stub mode).
+ */
+export const aiConfig = {
+  defaultProvider: process.env.AI_DEFAULT_PROVIDER ?? 'anthropic',
+  defaultModel: process.env.AI_DEFAULT_MODEL ?? 'claude-sonnet-4-6',
+  fastModel: process.env.AI_FAST_MODEL ?? 'claude-haiku-4-5-20251001',
+  judgeModel: process.env.AI_JUDGE_MODEL ?? 'claude-sonnet-4-6',
+} as const;

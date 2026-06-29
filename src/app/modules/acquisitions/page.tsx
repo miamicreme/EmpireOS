@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { ModuleCopilotPanel } from '@/components/ui/ai/ModuleCopilotPanel';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -142,6 +143,8 @@ export default function AcquisitionsPage() {
         subtitle="Track your deal pipeline and acquisition targets from watch to close."
         action={<Button onClick={() => setOpen(true)} icon={<span>+</span>}>Add Target</Button>}
       />
+
+      <ModuleCopilotPanel moduleId="acquisitions" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard label="Total" value={targets.length} tone="violet" />

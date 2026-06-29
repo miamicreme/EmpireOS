@@ -7,6 +7,7 @@ Private execution operating system for KJB Empire planning.
 - **Spine** — owns priority. The central nervous system that decides what matters now.
 - **Modules** — own detail. Domain-specific units of work and state.
 - **AI Decision Engine** — a multi-advisor engine that turns information into decisions.
+- **AI Chief of Staff (V2)** — an AI execution layer on top of the Spine that reads your full context, ranks today's actions, generates a daily brief, and drafts actions for you to approve. See [`docs/AI_V2_DESIGN.md`](./docs/AI_V2_DESIGN.md).
 
 Flow: **Decisions create actions → Actions move phases → Phases build the empire.**
 
@@ -29,7 +30,8 @@ Flow: **Decisions create actions → Actions move phases → Phases build the em
 - ✅ Module CRUD + review API routes (auth + RLS + Zod on every write)
 - ✅ Dashboard UI + command center
 - ✅ Individual module UIs (all 6 wired to their APIs)
-- ✅ Test suite — 175 passing (typecheck + build clean)
+- ✅ AI V2 — AI Chief of Staff (context engine, daily brief, recommendations, action drafts, module copilots)
+- ✅ Test suite — 194 passing (typecheck + lint + build clean)
 - ⏭️ Deployment & live Supabase wiring next
 
 See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next steps.
