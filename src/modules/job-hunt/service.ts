@@ -7,7 +7,12 @@ import { appError } from '@/lib/errors';
 import { err, ok, type AppResult } from '@/lib/result';
 import type { ModuleContract } from '@/spine/module-contract';
 import type { JobApplication } from '@/spine/types';
-import { createJobApplicationSchema, type CreateJobApplicationInput } from '@/spine/schemas';
+import {
+  createJobApplicationSchema,
+  updateJobApplicationSchema,
+  type CreateJobApplicationInput,
+  type UpdateJobApplicationInput,
+} from '@/spine/schemas';
 import { emitSystemEvent } from '@/spine/events/event.service';
 import { manifest } from './manifest';
 import { getMetrics, getHealth } from './metrics';
@@ -43,6 +48,58 @@ export async function createJobApplication(
   });
 
   return ok(data as JobApplication);
+}
+
+export async function getJobApplications(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<AppResult<JobApplication[]>> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) return err(appError('db_error', error.message));
+  return ok((data ?? []) as JobApplication[]);
+}
+
+export async function updateJobApplication(
+  supabase: SupabaseClient,
+  userId: string,
+  id: string,
+  input: UpdateJobApplicationInput,
+): Promise<AppResult<JobApplication>> {
+  const parsed = updateJobApplicationSchema.safeParse(input);
+  if (!parsed.success) {
+    return err(appError('validation', 'Invalid job application update.', parsed.error.format()));
+  }
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update(parsed.data)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+
+  if (error) return err(appError('db_error', error.message));
+  if (!data) return err(appError('not_found', 'Job application not found.'));
+  return ok(data as JobApplication);
+}
+
+export async function deleteJobApplication(
+  supabase: SupabaseClient,
+  userId: string,
+  id: string,
+): Promise<AppResult<{ id: string }>> {
+  const { error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+
+  if (error) return err(appError('db_error', error.message));
+  return ok({ id });
 }
 
 export const jobHuntModule: ModuleContract = {

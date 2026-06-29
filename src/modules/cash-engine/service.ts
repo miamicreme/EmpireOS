@@ -9,7 +9,12 @@ import { err, ok, type AppResult } from '@/lib/result';
 import { todayISODate } from '@/lib/dates';
 import type { ModuleContract } from '@/spine/module-contract';
 import type { CashEntry } from '@/spine/types';
-import { createCashEntrySchema, type CreateCashEntryInput } from '@/spine/schemas';
+import {
+  createCashEntrySchema,
+  updateCashEntrySchema,
+  type CreateCashEntryInput,
+  type UpdateCashEntryInput,
+} from '@/spine/schemas';
 import { emitSystemEvent } from '@/spine/events/event.service';
 import { manifest } from './manifest';
 import { getMetrics } from './metrics';
@@ -62,6 +67,44 @@ export async function getCashEntriesForDate(
 
   if (error) return err(appError('db_error', error.message));
   return ok((data ?? []) as CashEntry[]);
+}
+
+export async function updateCashEntry(
+  supabase: SupabaseClient,
+  userId: string,
+  id: string,
+  input: UpdateCashEntryInput,
+): Promise<AppResult<CashEntry>> {
+  const parsed = updateCashEntrySchema.safeParse(input);
+  if (!parsed.success) {
+    return err(appError('validation', 'Invalid cash entry update.', parsed.error.format()));
+  }
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update(parsed.data)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+
+  if (error) return err(appError('db_error', error.message));
+  if (!data) return err(appError('not_found', 'Cash entry not found.'));
+  return ok(data as CashEntry);
+}
+
+export async function deleteCashEntry(
+  supabase: SupabaseClient,
+  userId: string,
+  id: string,
+): Promise<AppResult<{ id: string }>> {
+  const { error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+
+  if (error) return err(appError('db_error', error.message));
+  return ok({ id });
 }
 
 export const cashEngineModule: ModuleContract = {
