@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
-import { jsonError, jsonOk, readJson } from '@/lib/api';
-import { appError } from '@/lib/errors';
+import { jsonError, jsonResult, readJson } from '@/lib/api';
+import { deleteCashEntry, updateCashEntry } from '@/modules/cash-engine/service';
+import type { UpdateCashEntryInput } from '@/spine/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,15 +11,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const auth = await requireUserId(supabase);
   if (!auth.ok) return jsonError(auth.error);
 
-  const body = (await readJson(request)) as Record<string, unknown>;
-  const { error } = await supabase
-    .from('cash_entries')
-    .update(body)
-    .eq('id', params.id)
-    .eq('user_id', auth.data);
-
-  if (error) return jsonError(appError('db_error', error.message));
-  return jsonOk({ updated: true });
+  const body = (await readJson(request)) as UpdateCashEntryInput;
+  return jsonResult(await updateCashEntry(supabase, auth.data, params.id, body));
 }
 
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
@@ -26,12 +20,5 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
   const auth = await requireUserId(supabase);
   if (!auth.ok) return jsonError(auth.error);
 
-  const { error } = await supabase
-    .from('cash_entries')
-    .delete()
-    .eq('id', params.id)
-    .eq('user_id', auth.data);
-
-  if (error) return jsonError(appError('db_error', error.message));
-  return jsonOk({ deleted: true });
+  return jsonResult(await deleteCashEntry(supabase, auth.data, params.id));
 }
