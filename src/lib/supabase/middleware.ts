@@ -12,6 +12,11 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // Not configured yet → no session, but never 500 the app.
+  if (!env.supabaseUrl || !env.supabaseAnonKey) {
+    return { response, user: null };
+  }
+
   const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
     cookies: {
       getAll() {
@@ -31,7 +36,12 @@ export async function updateSession(request: NextRequest) {
 
   // Refreshes the session if needed. Do not run logic between client creation
   // and this call (Supabase SSR requirement).
-  await supabase.auth.getUser();
-
-  return response;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return { response, user };
+  } catch {
+    return { response, user: null };
+  }
 }

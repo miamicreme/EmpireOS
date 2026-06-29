@@ -38,6 +38,33 @@ export function getServiceRoleKey(): string {
   return key;
 }
 
+/**
+ * WebAuthn / passkey relying-party configuration.
+ *
+ * - `rpID` is the effective domain (no scheme/port), e.g. `empire.app` or
+ *   `localhost`. Passkeys are bound to it, so it must match the site origin.
+ * - `origin` is the full origin the browser reports, e.g. `https://empire.app`.
+ *
+ * Read server-side with localhost dev defaults.
+ */
+export function getWebAuthnConfig(): { rpID: string; rpName: string; origin: string } {
+  const origin = process.env.WEBAUTHN_ORIGIN ?? 'http://localhost:3000';
+  let rpID = process.env.WEBAUTHN_RP_ID;
+  if (!rpID) {
+    try {
+      rpID = new URL(origin).hostname;
+    } catch {
+      rpID = 'localhost';
+    }
+  }
+  return { rpID, rpName: process.env.WEBAUTHN_RP_NAME ?? 'Empire OS', origin };
+}
+
+/** Internal owner identity used to bridge a verified passkey to a Supabase session. */
+export function getOwnerEmail(): string {
+  return process.env.OWNER_EMAIL ?? 'owner@empire.local';
+}
+
 /** Optional AI provider keys. Absence means the engine stays in stub mode. */
 export const aiKeys = {
   openai: process.env.OPENAI_API_KEY ?? null,
