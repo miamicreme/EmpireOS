@@ -51,7 +51,9 @@ export default function ProjectsPage() {
   const counts = useMemo(() => {
     const active = projects.filter((p) => p.status === 'active').length;
     const paused = projects.filter((p) => p.status === 'paused').length;
-    const blocked = projects.filter((p) => p.blocker && p.blocker.trim() !== '').length;
+    const blocked = projects.filter(
+      (p) => p.status === 'active' && p.blocker != null && p.blocker.trim() !== '',
+    ).length;
     return { active, paused, blocked };
   }, [projects]);
 
