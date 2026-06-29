@@ -73,6 +73,9 @@ Each exposes `getMetrics` / `getActions` / `getDecisionContext` / `getHealth` /
 
 Ordered by leverage.
 
+> **Deploying?** Follow the step-by-step [`DEPLOYMENT.md`](./DEPLOYMENT.md) guide
+> (env vars, Vercel, first passkey login).
+
 ### A. Deployment & live data _(highest priority)_
 1. Provision a real Supabase project; run the migrations and seed reference
    tables (`modules`, `empire_phases`). **Do not** put private data in seeds.
