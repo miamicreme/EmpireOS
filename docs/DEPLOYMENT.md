@@ -3,21 +3,72 @@
 How to take Empire OS live and register your first passkey. The recommended
 host is **Vercel** (first-class Next.js App Router support); any Node host works.
 
-The Supabase project (`EmpireOS`) is already created and migrated — see
-[`PROGRESS.md`](./PROGRESS.md). This guide covers wiring the app to it and going
-live.
+This guide covers two paths:
+
+- **Existing project** — if you already have the `EmpireOS` Supabase project
+  provisioned and migrated, skip to [§2 Environment variables](#2-environment-variables).
+- **Fresh project** — if you are starting from a brand-new Supabase project,
+  begin at [§1 Supabase setup](#1-supabase-setup-fresh-project-only).
 
 ---
 
-## 1. Prerequisites
+## 1. Supabase setup _(fresh project only)_
 
-- The `EmpireOS` Supabase project (already provisioned, 25 tables, RLS on all).
-- A host account (Vercel recommended).
-- Your production domain, e.g. `https://empire.yourdomain.com`.
+> Skip this section if your Supabase project is already migrated (25 tables, RLS
+> applied). Jump straight to [§2](#2-environment-variables).
+
+### 1a. Create the project
+
+1. Sign in to [supabase.com](https://supabase.com) → **New project**.
+2. Name it `EmpireOS`, choose a region, set a strong DB password. Note the
+   **Project URL** and **anon key** shown after creation.
+
+### 1b. Apply migrations
+
+All migrations live in `supabase/migrations/`. Apply them in order (0001 → 0010):
+
+**Option A — Supabase CLI** (recommended for local dev):
+```bash
+# Link to your project (run once)
+supabase link --project-ref <your-project-ref>
+
+# Push all migrations
+supabase db push
+```
+
+**Option B — Dashboard SQL editor**:
+Open each file in `supabase/migrations/` and paste + run the SQL in
+**Supabase → SQL Editor** in ascending order (0001 first, 0010 last).
+
+### 1c. Seed reference tables
+
+After migrations, seed the two reference tables the app reads at startup:
+
+```sql
+-- Run in Supabase SQL editor
+INSERT INTO public.modules (id, name, slug, description, icon, sort_order) VALUES
+  (gen_random_uuid(), 'Cash Engine',    'cash-engine',    'Daily cash flow tracking',   '💵', 1),
+  (gen_random_uuid(), 'Job Hunt',       'job-hunt',       'Job application tracker',    '🎯', 2),
+  (gen_random_uuid(), 'Follow-up CRM',  'followup-crm',   'Relationship management',    '🤝', 3),
+  (gen_random_uuid(), 'Credit & Funding','credit-funding', 'Credit and funding tracker', '💳', 4),
+  (gen_random_uuid(), 'Projects',       'projects',       'Project execution tracker',  '🏗️', 5),
+  (gen_random_uuid(), 'Acquisitions',   'acquisitions',   'Deal pipeline',              '🏢', 6)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.empire_phases (id, name, slug, sort_order) VALUES
+  (gen_random_uuid(), 'Foundation', 'foundation', 1),
+  (gen_random_uuid(), 'Growth',     'growth',     2),
+  (gen_random_uuid(), 'Scale',      'scale',      3),
+  (gen_random_uuid(), 'Empire',     'empire',     4)
+ON CONFLICT DO NOTHING;
+```
+
+After migrations and seeding, run **Database → Advisors → Security** in the
+Supabase dashboard — it should report zero lint warnings.
 
 ---
 
-## 2. Environment variables
+## 3. Environment variables
 
 Set these on the host (Vercel → Project → Settings → Environment Variables).
 **Never commit them.** The service-role key and AI keys are server-only secrets.
@@ -43,13 +94,13 @@ Set these on the host (Vercel → Project → Settings → Environment Variables
 
 ---
 
-## 3. Deploy to Vercel
+## 4. Deploy to Vercel
 
 1. Push `main` to GitHub (already done).
 2. In Vercel: **New Project → Import** the `miamicreme/EmpireOS` repo.
 3. Framework preset: **Next.js** (auto-detected). Build command `next build`,
    output handled automatically.
-4. Add all environment variables from section 2 (Production scope).
+4. Add all environment variables from section 3 (Production scope).
 5. **Deploy.**
 6. Add your custom domain under **Settings → Domains** and confirm
    `WEBAUTHN_ORIGIN` / `WEBAUTHN_RP_ID` match it. Redeploy if you change them.
@@ -67,7 +118,7 @@ TLS at your proxy and set `WEBAUTHN_ORIGIN`/`WEBAUTHN_RP_ID` to the public host.
 
 ---
 
-## 4. First login (claim the owner account)
+## 5. First login (claim the owner account)
 
 1. Open your deployed site → you'll be redirected to `/login`.
 2. Tap **Create passkey** → approve with Face ID / Touch ID / Windows Hello.
@@ -81,7 +132,7 @@ If `/login` shows "auth not configured", a server env var is missing — recheck
 
 ---
 
-## 5. Post-deploy verification
+## 6. Post-deploy verification
 
 - Visit `/` — dashboard renders (empty states until you add data).
 - Log a cash entry in **Cash Engine** → it persists and the stats update.
@@ -91,7 +142,7 @@ If `/login` shows "auth not configured", a server env var is missing — recheck
 
 ---
 
-## 6. Database migrations (future changes)
+## 7. Database migrations (future changes)
 
 Migrations live in `supabase/migrations/`. For a new migration:
 
@@ -102,7 +153,7 @@ Always run the security + performance advisors afterward.
 
 ---
 
-## 7. CI note
+## 8. CI note
 
 The repo ships a CI workflow (`.github/workflows/ci.yml`: typecheck, lint,
 build). GitHub Actions must be **enabled** for the repo (Settings → Actions) and
