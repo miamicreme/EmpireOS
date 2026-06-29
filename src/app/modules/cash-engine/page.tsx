@@ -12,21 +12,31 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SkeletonRows } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { api, usd } from '@/lib/api-client';
-import type { CashEntry } from '@/spine/types';
+import type { CashEntry, ModuleMetric } from '@/spine/types';
 
-const TARGET = 250;
+const DEFAULT_TARGET = 250;
 
 export default function CashEnginePage() {
   const { success, error } = useToast();
   const [entries, setEntries] = useState<CashEntry[]>([]);
+  const [target, setTarget] = useState(DEFAULT_TARGET);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await api.get<CashEntry[]>('/api/cash-entries');
-    if (res.ok) setEntries(res.data);
-    else error(res.error.message);
+    // Pull entries plus the user's daily cash target so this page agrees with
+    // module health / the dashboard (which read profiles.daily_cash_target).
+    const [entriesRes, metricsRes] = await Promise.all([
+      api.get<CashEntry[]>('/api/cash-entries'),
+      api.get<{ metrics: ModuleMetric[] }>('/api/modules/metrics'),
+    ]);
+    if (entriesRes.ok) setEntries(entriesRes.data);
+    else error(entriesRes.error.message);
+    if (metricsRes.ok) {
+      const cashToday = metricsRes.data.metrics.find((m) => m.metric_key === 'cash_today');
+      if (cashToday?.target_value != null) setTarget(cashToday.target_value);
+    }
     setLoading(false);
   }, [error]);
 
@@ -41,7 +51,7 @@ export default function CashEnginePage() {
     return { net, gross, expenses };
   }, [entries]);
 
-  const pct = Math.min(1, totals.net / TARGET);
+  const pct = target > 0 ? Math.min(1, totals.net / target) : 0;
   const tone = pct >= 0.75 ? 'green' : pct >= 0.4 ? 'yellow' : 'red';
 
   async function handleDelete(entry: CashEntry) {
@@ -120,7 +130,7 @@ export default function CashEnginePage() {
         <StatCard
           label="Net Today"
           value={usd(totals.net)}
-          sub={`${usd(TARGET)} target · ${Math.round(pct * 100)}%`}
+          sub={`${usd(target)} target · ${Math.round(pct * 100)}%`}
           tone={tone}
         />
         <StatCard label="Gross" value={usd(totals.gross)} tone="blue" />
