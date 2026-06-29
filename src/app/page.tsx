@@ -4,6 +4,7 @@ import { ModuleHealthGrid } from '@/components/ui/ModuleHealthGrid';
 import { ActionQueue } from '@/components/ui/ActionQueue';
 import { DecisionList } from '@/components/ui/DecisionList';
 import { Card, CardHeader } from '@/components/ui/Card';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { MODULE_IDS } from '@/spine/constants';
 import type { ModuleHealthResult } from '@/spine/types';
 import Link from 'next/link';
@@ -35,17 +36,14 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold text-gray-100">Command Center</h1>
-        <p className="text-sm text-empire-muted">{today}</p>
-      </div>
+      <PageHeader title="Command Center" subtitle={today} />
 
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-fade-in">
         {/* Left col: score + module health */}
         <div className="col-span-1 flex flex-col gap-5">
           <EmpireScoreCard result={empireScore} date={today} />
 
-          <Card>
+          <Card hover>
             <CardHeader title="Module Health" />
             <div className="p-3">
               <ModuleHealthGrid healthMap={healthMap} />
@@ -55,7 +53,7 @@ export default async function DashboardPage() {
 
         {/* Right col: actions + decisions */}
         <div className="col-span-2 flex flex-col gap-5">
-          <Card>
+          <Card hover>
             <CardHeader
               title="Action Queue"
               subtitle={`${openActions.length} open`}
@@ -71,7 +69,7 @@ export default async function DashboardPage() {
             <ActionQueue actions={openActions} limit={8} />
           </Card>
 
-          <Card>
+          <Card hover>
             <CardHeader
               title="Decisions"
               subtitle={`${decisions.length} total`}
