@@ -427,6 +427,110 @@ describe('saveMemoryItem', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Pipeline trace — assert EVERY runtime step runs, in order, per path.
+// The orchestrator emits one agent_run_events row per step, so the trace is the
+// source of truth for "every step is followed".
+// ---------------------------------------------------------------------------
+function orderedEventTypes(seed: Record<string, Record<string, unknown>[]>): {
+  types: string[];
+  orders: number[];
+} {
+  const ev = (seed.agent_run_events ?? [])
+    .slice()
+    .sort((a, b) => (a.event_order as number) - (b.event_order as number));
+  return { types: ev.map((e) => e.event_type as string), orders: ev.map((e) => e.event_order as number) };
+}
+
+/** Assert `required` appears as an ordered subsequence of `actual`. */
+function expectOrderedSubsequence(actual: string[], required: string[]) {
+  let i = 0;
+  for (const t of actual) if (i < required.length && t === required[i]) i++;
+  expect({ matched: i, of: required.length, trace: actual }).toEqual({
+    matched: required.length,
+    of: required.length,
+    trace: actual,
+  });
+}
+
+const CORE_STEPS = [
+  'intent_detected',
+  'capability_plan',
+  'permission_check',
+  'context_built',
+  'memory_gate',
+  'research_gate',
+  'provider_selected',
+  'final_synthesized',
+];
+
+describe('agent pipeline trace', () => {
+  it('runs every core step in order on the fast path, with no specialists', async () => {
+    const { runAgent } = await import('@/spine/ai/agent/agent-orchestrator.service');
+    const seed = seedSpine();
+    const res = await runAgent(makeDb(seed), USER, { command: 'What should I do today?' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.runtimePath).toBe('fast_path');
+
+    const { types, orders } = orderedEventTypes(seed);
+    // Every core step, in order, plus the drafts step (seeded action → drafts).
+    expectOrderedSubsequence(types, [...CORE_STEPS, 'action_drafts_created']);
+    // No specialist council on the fast path.
+    expect(types).not.toContain('specialist_vote');
+
+    // event_order is strictly increasing and unique.
+    const sorted = [...orders].sort((a, b) => a - b);
+    expect(orders).toEqual(sorted);
+    expect(new Set(orders).size).toBe(orders.length);
+
+    // Write policy: always one run, one artifact, ≥1 provider run.
+    expect((seed.agent_runs ?? []).length).toBe(1);
+    expect((seed.agent_artifacts ?? []).length).toBe(1);
+    expect((seed.agent_provider_runs ?? []).length).toBeGreaterThan(0);
+  });
+
+  it('convenes the specialist council between provider_selected and final_synthesized on the deep path', async () => {
+    const { runAgent } = await import('@/spine/ai/agent/agent-orchestrator.service');
+    const seed = seedSpine();
+    const res = await runAgent(makeDb(seed), USER, { command: 'Should I trade this stock setup?' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.runtimePath).toBe('deep_path');
+
+    const { types } = orderedEventTypes(seed);
+    expectOrderedSubsequence(types, CORE_STEPS);
+    expect(types).toContain('specialist_vote');
+    // Specialists run strictly after provider selection and before synthesis.
+    const firstVote = types.indexOf('specialist_vote');
+    expect(firstVote).toBeGreaterThan(types.indexOf('provider_selected'));
+    expect(firstVote).toBeLessThan(types.indexOf('final_synthesized'));
+    expect(res.data.specialistVotes.length).toBeGreaterThan(0);
+  });
+
+  it('surfaces a research request on the research path instead of faking facts', async () => {
+    const { runAgent } = await import('@/spine/ai/agent/agent-orchestrator.service');
+    const seed = seedSpine();
+    const res = await runAgent(makeDb(seed), USER, { command: 'What is the current stock price now?' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.researchRequests.length).toBeGreaterThan(0);
+    expect(res.data.status).toBe('blocked_research_required');
+    expect(orderedEventTypes(seed).types).toContain('research_gate');
+  });
+
+  it('asks for missing durable memory on a high-stakes run with no profile', async () => {
+    const { runAgent } = await import('@/spine/ai/agent/agent-orchestrator.service');
+    const seed = seedSpine();
+    seed.profiles = []; // no durable profile
+    const res = await runAgent(makeDb(seed), USER, { command: 'Should I trade this setup?' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.memoryRequests.length).toBeGreaterThan(0);
+    expect(res.data.memoryRequests.length).toBeLessThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // API auth
 // ---------------------------------------------------------------------------
 describe('agent API auth', () => {
