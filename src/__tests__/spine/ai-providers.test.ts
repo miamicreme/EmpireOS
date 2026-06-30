@@ -59,12 +59,14 @@ function withId(row: Record<string, unknown> | null) {
 
 function makeClient(
   tables: Record<string, Record<string, unknown>[]>,
-  opts: { user?: { id: string } | null } = {},
+  opts: { user?: { id: string } | null; tableErrors?: Record<string, { message: string }> } = {},
 ): SupabaseClient {
   const user = opts.user === undefined ? { id: 'user-1' } : opts.user;
+  const tableErrors = opts.tableErrors ?? {};
 
   function chainFor(table: string) {
     const rows = tables[table] ?? [];
+    const tableError = tableErrors[table] ?? null;
     let inserted: Record<string, unknown>[] | null = null;
     let head = false;
     const chain: Record<string, unknown> = {};
@@ -76,20 +78,30 @@ function makeClient(
       inserted = Array.isArray(payload) ? payload : [payload];
       return chain;
     };
+    chain.upsert = (payload: Record<string, unknown> | Record<string, unknown>[]) => {
+      inserted = Array.isArray(payload) ? payload : [payload];
+      return chain;
+    };
     chain.update = () => chain;
     chain.delete = () => chain;
     for (const m of ['eq', 'in', 'is', 'order', 'limit', 'gte', 'gt', 'lt', 'neq']) {
       chain[m] = () => chain;
     }
     chain.single = () =>
-      Promise.resolve({ data: withId(inserted?.[0] ?? rows[0] ?? null), error: null });
+      Promise.resolve({
+        data: tableError ? null : withId(inserted?.[0] ?? rows[0] ?? null),
+        error: tableError,
+      });
     chain.maybeSingle = () =>
-      Promise.resolve({ data: withId(inserted?.[0] ?? rows[0] ?? null), error: null });
+      Promise.resolve({
+        data: tableError ? null : withId(inserted?.[0] ?? rows[0] ?? null),
+        error: tableError,
+      });
     chain.then = (resolve: (v: unknown) => unknown) =>
       Promise.resolve({
-        data: inserted ?? rows,
+        data: tableError ? null : inserted ?? rows,
         count: head ? rows.length : undefined,
-        error: null,
+        error: tableError,
       }).then(resolve);
     return chain;
   }
@@ -111,22 +123,28 @@ function makeClient(
 describe('provider-config.service', () => {
   it('creates a provider and never returns the cipher', async () => {
     const { createProvider } = await import('@/spine/ai/providers/provider-config.service');
-    const client = makeClient({ ai_providers: [] });
-    const result = await createProvider(client, 'user-1', {
-      label: 'Claude',
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-6',
-      apiKey: 'sk-ant-abcd1234',
-      isDefault: true,
-      enabled: true,
-    });
+    const client = makeClient({ ai_providers: [], ai_provider_secrets: [] });
+    // Pass the mock as the admin client so the secret write stays in-test.
+    const result = await createProvider(
+      client,
+      'user-1',
+      {
+        label: 'Claude',
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-abcd1234',
+        isDefault: true,
+        enabled: true,
+      },
+      client,
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.provider).toBe('anthropic');
     expect(result.data.hasOwnKey).toBe(true);
     expect(result.data.apiKeyHint).toBe('••••1234');
     // The secret-free public shape must not carry the cipher.
-    expect('api_key_cipher' in (result.data as Record<string, unknown>)).toBe(false);
+    expect('api_key_cipher' in (result.data as unknown as Record<string, unknown>)).toBe(false);
   });
 
   it('enforces the 5-provider cap', async () => {
@@ -154,26 +172,63 @@ describe('provider-config.service', () => {
           id: 'p1',
           provider: 'anthropic',
           model: 'claude-opus-4-8',
-          api_key_cipher: encryptSecret('sk-ant-live-9999'),
+          has_own_key: true,
           enabled: true,
           is_default: true,
           rank: 0,
         },
       ],
+      ai_provider_secrets: [
+        { provider_id: 'p1', api_key_cipher: encryptSecret('sk-ant-live-9999') },
+      ],
     });
-    const cred = await resolveUserCredential(client, 'user-1');
+    // Pass the mock as the admin client used to read the locked secrets table.
+    const cred = await resolveUserCredential(client, 'user-1', client);
     expect(cred).not.toBeNull();
     expect(cred?.provider).toBe('anthropic');
     expect(cred?.model).toBe('claude-opus-4-8');
     expect(cred?.apiKey).toBe('sk-ant-live-9999');
   });
 
+  it('surfaces a failed secret write and rolls back the provider', async () => {
+    const { createProvider } = await import('@/spine/ai/providers/provider-config.service');
+    const client = makeClient(
+      { ai_providers: [], ai_provider_secrets: [] },
+      { tableErrors: { ai_provider_secrets: { message: 'boom' } } },
+    );
+    const result = await createProvider(
+      client,
+      'user-1',
+      { label: 'Claude', provider: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant-abcd1234', isDefault: true, enabled: true },
+      client,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('db_error');
+  });
+
+  it('propagates a secret read failure instead of masking the key', async () => {
+    const { resolveCredentialForId } = await import('@/spine/ai/providers/provider-config.service');
+    const client = makeClient(
+      {
+        ai_providers: [
+          { id: 'p1', provider: 'anthropic', model: 'claude-opus-4-8', has_own_key: true, enabled: true, is_default: true, rank: 0 },
+        ],
+      },
+      { tableErrors: { ai_provider_secrets: { message: 'read fail' } } },
+    );
+    const result = await resolveCredentialForId(client, 'user-1', 'p1', client);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('db_error');
+  });
+
   it('returns null when no provider has a usable key', async () => {
     const { resolveUserCredential } = await import('@/spine/ai/providers/provider-config.service');
-    // api_key_cipher null + no env key for google → unusable.
+    // No own key + no env key for google → unusable.
     const client = makeClient({
       ai_providers: [
-        { id: 'p1', provider: 'google', model: 'gemini-2.5-flash', api_key_cipher: null, enabled: true, is_default: true, rank: 0 },
+        { id: 'p1', provider: 'google', model: 'gemini-2.5-flash', has_own_key: false, enabled: true, is_default: true, rank: 0 },
       ],
     });
     const cred = await resolveUserCredential(client, 'user-1');
