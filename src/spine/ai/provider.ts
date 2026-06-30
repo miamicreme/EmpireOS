@@ -11,6 +11,14 @@ import { aiKeys } from '@/lib/env';
 
 export type AIProvider = 'anthropic' | 'openai' | 'google' | 'stub';
 
+/** A resolved, ready-to-use credential — a provider + the key to call it with. */
+export interface AICredential {
+  provider: Exclude<AIProvider, 'stub'>;
+  apiKey: string;
+  /** The user-selected model for this provider (honored for any provider). */
+  model?: string;
+}
+
 export interface AIMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -21,6 +29,11 @@ export interface AICallOptions {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
+  /**
+   * Explicit credential (a user-configured provider). When present it overrides
+   * the env-based provider selection. Absent → fall back to env keys.
+   */
+  credential?: AICredential;
 }
 
 export interface AIResponse {
@@ -46,9 +59,10 @@ export function activeProvider(): AIProvider {
 async function callAnthropic(
   messages: AIMessage[],
   opts: AICallOptions,
+  apiKey: string,
 ): Promise<AIResponse> {
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  const client = new Anthropic({ apiKey: aiKeys.anthropic! });
+  const client = new Anthropic({ apiKey });
 
   const model = opts.model ?? 'claude-sonnet-4-6';
   const systemPrompt = opts.systemPrompt;
@@ -81,9 +95,10 @@ async function callAnthropic(
 async function callOpenAI(
   messages: AIMessage[],
   opts: AICallOptions,
+  apiKey: string,
 ): Promise<AIResponse> {
   const { default: OpenAI } = await import('openai');
-  const client = new OpenAI({ apiKey: aiKeys.openai! });
+  const client = new OpenAI({ apiKey });
 
   const model = opts.model ?? 'gpt-4o-mini';
   const msgs = opts.systemPrompt
@@ -114,9 +129,10 @@ async function callOpenAI(
 async function callGoogle(
   messages: AIMessage[],
   opts: AICallOptions,
+  apiKey: string,
 ): Promise<AIResponse> {
   const { GoogleGenerativeAI } = await import('@google/generative-ai');
-  const client = new GoogleGenerativeAI(aiKeys.google!);
+  const client = new GoogleGenerativeAI(apiKey);
   const model = opts.model ?? 'gemini-1.5-flash';
   const genModel = client.getGenerativeModel({ model });
 
@@ -149,20 +165,24 @@ function callStub(messages: AIMessage[], _opts: AICallOptions): AIResponse {
 
 /**
  * Call the best available AI provider with a conversation.
- * Context MUST already be redacted before reaching this function.
+ *
+ * An explicit `opts.credential` (a user-configured provider) takes precedence;
+ * otherwise the env keys pick the provider. Context MUST already be redacted
+ * before reaching this function.
  */
 export async function callAI(
   messages: AIMessage[],
   opts: AICallOptions = {},
 ): Promise<AIResponse> {
-  const provider = activeProvider();
+  const credential = opts.credential;
+  const provider = credential?.provider ?? activeProvider();
   switch (provider) {
     case 'anthropic':
-      return callAnthropic(messages, opts);
+      return callAnthropic(messages, opts, credential?.apiKey ?? aiKeys.anthropic!);
     case 'openai':
-      return callOpenAI(messages, opts);
+      return callOpenAI(messages, opts, credential?.apiKey ?? aiKeys.openai!);
     case 'google':
-      return callGoogle(messages, opts);
+      return callGoogle(messages, opts, credential?.apiKey ?? aiKeys.google!);
     default:
       return callStub(messages, opts);
   }

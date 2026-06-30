@@ -78,11 +78,35 @@ AI_JUDGE_MODEL=claude-sonnet-4-6
 Model names are configurable; provider keys gate whether a real provider is
 called (otherwise stub mode).
 
+## Provider management (configure up to 5 LLMs)
+
+Operators can configure up to **5 LLM providers/models** from Settings → **AI
+Providers** and pick which one the AI layer uses, instead of relying solely on
+env keys.
+
+- Table `ai_providers` (migration `0012_ai_providers.sql`): label, provider
+  (anthropic/openai/google), model, encrypted key, default flag, enabled, rank.
+  RLS-isolated by `auth.uid()`; one default per user (partial unique index);
+  5-cap enforced in the service.
+- **Keys are encrypted at rest** (AES-256-GCM, `src/lib/crypto.ts`) keyed by
+  `AI_PROVIDER_ENCRYPTION_KEY` or derived from the service-role key. The API
+  maps rows to a secret-free shape — the cipher is **never** returned to the
+  client. A blank key means "use the env key for this provider".
+- `resolveUserCredential()` is the server-only path that hands the AI layer a
+  decrypted credential (prefers the enabled default, then highest rank). It
+  threads through `callAI`/`runStructured` (both passes), so Chief of Staff,
+  Daily Brief, and Module Copilots all honor the chosen provider/model. No
+  config → env keys → stub, exactly as before.
+- Routes: `GET/POST /api/ai/providers`, `PATCH/DELETE /api/ai/providers/[id]`,
+  `POST /api/ai/providers/[id]/test` (live connectivity check, returns latency,
+  never the key).
+
 ## UI
 
 - Dashboard widget: **AI Chief of Staff** (run plan, risks, drafts, ask). Shows a
   derived-facts strip (cash, overdue, done today, open) + momentum chips.
 - Pages: `/ai`, `/ai/brief`, `/ai/recommendations`, `/ai/decisions`, `/ai/chat`.
+- Settings: `/settings/ai` — **AI Providers** manager (add/test/default/delete).
 - Each module page carries an **AI Copilot** panel.
 
 ## Intelligence layer (V2.1 — "make it smarter")

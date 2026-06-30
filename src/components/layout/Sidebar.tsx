@@ -96,6 +96,11 @@ function NavBody({
             active={isActive('/settings/passkeys')}
             onNavigate={onNavigate}
           />
+          <NavLink
+            item={{ href: '/settings/ai' as Route, label: 'AI Providers', icon: '✦' }}
+            active={isActive('/settings/ai')}
+            onNavigate={onNavigate}
+          />
           <button
             onClick={onLogout}
             className="group flex w-[calc(100%-1rem)] items-center gap-3 px-3 py-2 mx-2 rounded-lg text-sm text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-all duration-150"
