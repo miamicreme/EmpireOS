@@ -105,6 +105,17 @@ Set these on the host (Vercel → Project → Settings → Environment Variables
 6. Add your custom domain under **Settings → Domains** and confirm
    `WEBAUTHN_ORIGIN` / `WEBAUTHN_RP_ID` match it. Redeploy if you change them.
 
+### Render (Blueprint)
+
+A `render.yaml` Blueprint is committed at the repo root. In Render: **New →
+Blueprint**, point it at `miamicreme/EmpireOS`, and Render provisions a web
+service running `npm run build` / `npm run start` with a health check on
+`/api/health`. Fill in the secret env vars (those marked `sync: false`) from
+section 3 in the Render dashboard **before the first build** — the
+`NEXT_PUBLIC_*` values are baked into the client bundle at build time. Set
+`WEBAUTHN_ORIGIN`/`WEBAUTHN_RP_ID` to your Render URL (or custom domain) before
+registering a passkey. Supabase is still managed separately (sections 1–2).
+
 ### Self-hosted alternative
 
 ```bash

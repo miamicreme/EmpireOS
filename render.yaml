@@ -1,0 +1,77 @@
+# Render Blueprint for Empire OS (Next.js 14 App Router).
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Deploy: push this file, then in Render → New → Blueprint, point at this repo.
+# Render reads this file and provisions the service. Fill in the secret env vars
+# (sync: false) in the Render dashboard before the first build — the
+# NEXT_PUBLIC_* values are baked into the client bundle at build time, so they
+# must be set prior to deploying.
+#
+# Supabase is managed separately (not provisioned here): create the project,
+# apply supabase/migrations in order, then paste its URL/keys below.
+
+services:
+  - type: web
+    name: empire-os
+    runtime: node
+    plan: starter # free tier also works (spins down when idle); bump for always-on
+    region: oregon
+    branch: main
+    # next start honors $PORT (Render injects it); no -p flag needed.
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: false # flip to true to deploy on every push to `branch`
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+
+      # --- Supabase (required) -------------------------------------------------
+      # NEXT_PUBLIC_* are public and baked into the client bundle at build time.
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      # Server-only secret. Never exposed to the client.
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # --- Passkey / WebAuthn (required) --------------------------------------
+      # WEBAUTHN_RP_ID must equal the site's registrable domain; WEBAUTHN_ORIGIN
+      # is the full origin (scheme + host). Set these to your Render URL or your
+      # custom domain BEFORE registering a passkey.
+      - key: WEBAUTHN_ORIGIN
+        sync: false
+      - key: WEBAUTHN_RP_ID
+        sync: false
+      - key: WEBAUTHN_RP_NAME
+        value: Empire OS
+      - key: OWNER_EMAIL
+        sync: false
+
+      # --- AI provider keys (optional) ----------------------------------------
+      # Absent → the AI layer runs in deterministic stub mode. Users can also add
+      # their own keys at runtime via Settings → AI Providers.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_GENERATIVE_AI_API_KEY
+        sync: false
+
+      # --- AI model + encryption config ---------------------------------------
+      - key: AI_DEFAULT_PROVIDER
+        value: anthropic
+      - key: AI_DEFAULT_MODEL
+        value: claude-sonnet-4-6
+      - key: AI_FAST_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: AI_JUDGE_MODEL
+        value: claude-sonnet-4-6
+      # Encrypts user-entered provider API keys at rest (AES-256-GCM). Optional:
+      # if unset, a key is derived from SUPABASE_SERVICE_ROLE_KEY. To set one,
+      # generate with: openssl rand -base64 32
+      - key: AI_PROVIDER_ENCRYPTION_KEY
+        sync: false
