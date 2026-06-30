@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   startRegistration,
@@ -44,8 +44,6 @@ export default function LoginPage() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
-  // Whether we've already fired the one automatic sign-in attempt on load.
-  const autoTried = useRef(false);
 
   const busy = status === 'scanning';
 
@@ -104,57 +102,30 @@ export default function LoginPage() {
     }
   }
 
-  // `auto` is the silent attempt fired on page load. Only *pre-prompt* failures
-  // (browser needs a user gesture, or the prompt is dismissed/cancelled) stay
-  // quiet so we don't flash an error the user didn't cause. Once the device has
-  // confirmed, any failure — a stale/replaced challenge, expiry, or a failed
-  // session exchange — is always surfaced, even on the auto attempt.
-  const handleSignIn = useCallback(
-    async (auto = false) => {
-      setStatus('scanning');
-      setError(null);
-      // Becomes true the moment startAuthentication() resolves — i.e. the user
-      // has actually confirmed with their biometric.
-      let confirmed = false;
-      try {
-        const opt = await api.post<PublicKeyCredentialRequestOptionsJSON>(
-          '/api/auth/authenticate/options',
-          {},
-        );
-        if (!opt.ok) {
-          setStatus(auto ? 'idle' : 'error');
-          if (!auto) setError(opt.error.message);
-          return;
-        }
-        const assResp = await startAuthentication({ optionsJSON: opt.data });
-        confirmed = true;
-        const verify = await api.post('/api/auth/authenticate/verify', { response: assResp });
-        if (!verify.ok) {
-          setStatus('error');
-          setError(verify.error.message);
-          return;
-        }
-        succeed();
-      } catch (e) {
-        // A throw before confirmation is a gesture/cancel — stay quiet on auto.
-        const quiet = auto && !confirmed;
-        setStatus(quiet ? 'idle' : 'error');
-        if (!quiet) setError(friendly(e));
+  async function handleSignIn() {
+    setStatus('scanning');
+    setError(null);
+    try {
+      const opt = await api.post<PublicKeyCredentialRequestOptionsJSON>(
+        '/api/auth/authenticate/options',
+        {},
+      );
+      if (!opt.ok) {
+        setStatus('error');
+        return setError(opt.error.message);
       }
-    },
-    [succeed],
-  );
-
-  // Frictionless sign-in: the moment the screen is ready, surface the passkey
-  // prompt automatically so returning owners just glance at their device. The
-  // visible button remains as a fallback for browsers that block the prompt
-  // until a user gesture.
-  useEffect(() => {
-    if (phase === 'signin' && supported && !autoTried.current) {
-      autoTried.current = true;
-      void handleSignIn(true);
+      const assResp = await startAuthentication({ optionsJSON: opt.data });
+      const verify = await api.post('/api/auth/authenticate/verify', { response: assResp });
+      if (!verify.ok) {
+        setStatus('error');
+        return setError(verify.error.message);
+      }
+      succeed();
+    } catch (e) {
+      setStatus('error');
+      setError(friendly(e));
     }
-  }, [phase, supported, handleSignIn]);
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0 p-6">
@@ -220,7 +191,7 @@ export default function LoginPage() {
                     </p>
                   </div>
                   {status !== 'success' && (
-                    <Button onClick={() => handleSignIn(false)} loading={busy} className="w-full" size="lg">
+                    <Button onClick={handleSignIn} loading={busy} className="w-full" size="lg">
                       {status === 'error' ? 'Try again' : `Sign in with ${biometricName()}`}
                     </Button>
                   )}
@@ -287,7 +258,7 @@ function statusCopy(status: Status): string {
     case 'error':
       return 'That didn’t go through. Give it another try.';
     default:
-      return `Glance at your device to sign in with ${biometricName()}.`;
+      return `Tap below and confirm with ${biometricName()}.`;
   }
 }
 
