@@ -105,10 +105,20 @@ async function callOpenAI(
     ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages]
     : messages;
 
+  // o-series reasoning models (o1/o3/o4-…) reject `max_tokens` (require
+  // `max_completion_tokens`) and only accept the default temperature, so omit
+  // it. Chat-completions models use the classic params.
+  const isOSeries = /^o\d/i.test(model);
+  const maxTokens = opts.maxTokens ?? 1024;
+  const tokenParam = isOSeries
+    ? { max_completion_tokens: maxTokens }
+    : { max_tokens: maxTokens };
+  const tempParam = isOSeries ? {} : { temperature: opts.temperature ?? 0.3 };
+
   const response = await client.chat.completions.create({
     model,
-    max_tokens: opts.maxTokens ?? 1024,
-    temperature: opts.temperature ?? 0.3,
+    ...tokenParam,
+    ...tempParam,
     messages: msgs.map((message) => ({
       role: message.role,
       content: message.content,

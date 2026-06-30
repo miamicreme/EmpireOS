@@ -76,6 +76,10 @@ function makeClient(
       inserted = Array.isArray(payload) ? payload : [payload];
       return chain;
     };
+    chain.upsert = (payload: Record<string, unknown> | Record<string, unknown>[]) => {
+      inserted = Array.isArray(payload) ? payload : [payload];
+      return chain;
+    };
     chain.update = () => chain;
     chain.delete = () => chain;
     for (const m of ['eq', 'in', 'is', 'order', 'limit', 'gte', 'gt', 'lt', 'neq']) {
@@ -111,22 +115,28 @@ function makeClient(
 describe('provider-config.service', () => {
   it('creates a provider and never returns the cipher', async () => {
     const { createProvider } = await import('@/spine/ai/providers/provider-config.service');
-    const client = makeClient({ ai_providers: [] });
-    const result = await createProvider(client, 'user-1', {
-      label: 'Claude',
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-6',
-      apiKey: 'sk-ant-abcd1234',
-      isDefault: true,
-      enabled: true,
-    });
+    const client = makeClient({ ai_providers: [], ai_provider_secrets: [] });
+    // Pass the mock as the admin client so the secret write stays in-test.
+    const result = await createProvider(
+      client,
+      'user-1',
+      {
+        label: 'Claude',
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-abcd1234',
+        isDefault: true,
+        enabled: true,
+      },
+      client,
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.provider).toBe('anthropic');
     expect(result.data.hasOwnKey).toBe(true);
     expect(result.data.apiKeyHint).toBe('••••1234');
     // The secret-free public shape must not carry the cipher.
-    expect('api_key_cipher' in (result.data as Record<string, unknown>)).toBe(false);
+    expect('api_key_cipher' in (result.data as unknown as Record<string, unknown>)).toBe(false);
   });
 
   it('enforces the 5-provider cap', async () => {
@@ -154,14 +164,18 @@ describe('provider-config.service', () => {
           id: 'p1',
           provider: 'anthropic',
           model: 'claude-opus-4-8',
-          api_key_cipher: encryptSecret('sk-ant-live-9999'),
+          has_own_key: true,
           enabled: true,
           is_default: true,
           rank: 0,
         },
       ],
+      ai_provider_secrets: [
+        { provider_id: 'p1', api_key_cipher: encryptSecret('sk-ant-live-9999') },
+      ],
     });
-    const cred = await resolveUserCredential(client, 'user-1');
+    // Pass the mock as the admin client used to read the locked secrets table.
+    const cred = await resolveUserCredential(client, 'user-1', client);
     expect(cred).not.toBeNull();
     expect(cred?.provider).toBe('anthropic');
     expect(cred?.model).toBe('claude-opus-4-8');
@@ -170,10 +184,10 @@ describe('provider-config.service', () => {
 
   it('returns null when no provider has a usable key', async () => {
     const { resolveUserCredential } = await import('@/spine/ai/providers/provider-config.service');
-    // api_key_cipher null + no env key for google → unusable.
+    // No own key + no env key for google → unusable.
     const client = makeClient({
       ai_providers: [
-        { id: 'p1', provider: 'google', model: 'gemini-2.5-flash', api_key_cipher: null, enabled: true, is_default: true, rank: 0 },
+        { id: 'p1', provider: 'google', model: 'gemini-2.5-flash', has_own_key: false, enabled: true, is_default: true, rank: 0 },
       ],
     });
     const cred = await resolveUserCredential(client, 'user-1');
