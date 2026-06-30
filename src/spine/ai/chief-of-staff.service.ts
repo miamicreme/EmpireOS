@@ -12,6 +12,7 @@ import { aiConfig } from '@/lib/env';
 import { buildEmpireContext } from './context/empire-context.service';
 import { saveContextSnapshot } from './context/context-snapshot.service';
 import { runStructured } from './ai-runner';
+import { resolveUserCredential } from './providers/provider-config.service';
 import { chiefOfStaffOutputSchema } from './ai.schemas';
 import { persistRecommendations } from './recommendation.service';
 import { createDraftsFromSuggestions, type ActionDraft } from './action-draft.service';
@@ -134,6 +135,8 @@ export async function runChiefOfStaff(
   if (!ctxResult.ok) return ctxResult;
   const context = ctxResult.data;
 
+  const credential = await resolveUserCredential(supabase, userId);
+
   const run = await runStructured({
     feature: 'chief_of_staff',
     systemPrompt: SYSTEM_PROMPT,
@@ -145,6 +148,7 @@ export async function runChiefOfStaff(
     model: aiConfig.defaultModel,
     maxTokens: 2048,
     verify: true,
+    credential,
   });
 
   const output = run.data;

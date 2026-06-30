@@ -13,7 +13,13 @@
 import type { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { aiConfig } from '@/lib/env';
-import { callAI, activeProvider, modelForAdvisor, type AIProvider } from './provider';
+import {
+  callAI,
+  activeProvider,
+  modelForAdvisor,
+  type AIProvider,
+  type AICredential,
+} from './provider';
 import {
   assertNoHighRiskSecrets,
   redactSensitiveText,
@@ -53,6 +59,11 @@ export interface StructuredRunOptions<T> {
    * Skipped automatically in stub mode.
    */
   verify?: boolean;
+  /**
+   * A user-configured provider credential. When present it overrides the
+   * env-based provider/model selection. Absent → env keys → stub.
+   */
+  credential?: AICredential | null;
 }
 
 /** Strip markdown fences and parse the first JSON object/array in the text. */
@@ -88,12 +99,13 @@ No prose, no markdown fences, no commentary before or after the JSON.`;
 export async function runStructured<T>(
   opts: StructuredRunOptions<T>,
 ): Promise<StructuredRunResult<T>> {
-  const provider = activeProvider();
-  // Resolve the model for the *active* provider. A caller-supplied preference
-  // (e.g. the Anthropic fast model) is only honored on Anthropic; OpenAI/Google
-  // fall back to their own provider defaults so single-key envs don't pass an
-  // Anthropic model name into a non-Anthropic API.
-  const model = modelForAdvisor(opts.model ?? aiConfig.defaultModel, provider);
+  const credential = opts.credential ?? undefined;
+  // A user-configured credential takes precedence over env provider selection.
+  const provider = credential?.provider ?? activeProvider();
+  // A user-selected model is honored for ANY provider; otherwise fall back to
+  // the caller's preference resolved against the active provider's default.
+  const model =
+    credential?.model ?? modelForAdvisor(opts.model ?? aiConfig.defaultModel, provider);
 
   // Redaction gate — applies to both the instruction and the context.
   const safeInstruction = redactSensitiveText(opts.instruction);
@@ -113,6 +125,7 @@ ${JSON.stringify(safeContext, null, 2)}`;
     model,
     maxTokens: opts.maxTokens ?? 2048,
     temperature: opts.temperature ?? 0.3,
+    credential,
   });
 
   logger.info('ai_structured_call', {
@@ -133,7 +146,7 @@ ${JSON.stringify(safeContext, null, 2)}`;
 
   // Optional grounding pass — only worth running when the first pass parsed.
   if (opts.verify && parsed.success) {
-    const verified = await verifyAndGround(opts, safeContext, data, provider);
+    const verified = await verifyAndGround(opts, safeContext, data, provider, credential);
     if (verified) {
       data = verified.data;
       inputTokens = sumTokens(inputTokens, verified.inputTokens);
@@ -166,9 +179,12 @@ async function verifyAndGround<T>(
   safeContext: Record<string, unknown>,
   candidate: T,
   provider: AIProvider,
+  credential?: AICredential,
 ): Promise<VerifyResult<T> | null> {
   try {
-    const judgeModel = modelForAdvisor(aiConfig.judgeModel, provider);
+    // With a user-configured provider, ground with that same model; otherwise
+    // use the env judge model resolved against the active provider.
+    const judgeModel = credential?.model ?? modelForAdvisor(aiConfig.judgeModel, provider);
     const prompt = `EMPIRE CONTEXT (redacted):
 ${JSON.stringify(safeContext, null, 2)}
 
@@ -180,6 +196,7 @@ ${JSON.stringify(candidate, null, 2)}`;
       model: judgeModel,
       maxTokens: opts.maxTokens ?? 2048,
       temperature: 0,
+      credential,
     });
 
     const parsed = opts.schema.safeParse(extractJson(response.text));

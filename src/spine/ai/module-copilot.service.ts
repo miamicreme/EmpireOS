@@ -17,6 +17,7 @@ import { aiConfig } from '@/lib/env';
 import { MODULE_IDS } from '../constants';
 import { buildEmpireContext } from './context/empire-context.service';
 import { runStructured } from './ai-runner';
+import { resolveUserCredential } from './providers/provider-config.service';
 import { moduleCopilotOutputSchema } from './ai.schemas';
 import { persistRecommendations } from './recommendation.service';
 import { createDraftsFromSuggestions, type ActionDraft } from './action-draft.service';
@@ -108,6 +109,7 @@ export async function runModuleCopilot(
   if (!ctxResult.ok) return ctxResult;
   const context = ctxResult.data;
   const slice = moduleSlice(context, moduleId);
+  const credential = await resolveUserCredential(supabase, userId);
 
   // Scope the context to this module + shared signals to keep the call focused.
   const scopedContext = {
@@ -131,6 +133,7 @@ export async function runModuleCopilot(
     model: aiConfig.fastModel,
     maxTokens: 1536,
     verify: true,
+    credential,
   });
 
   const output: ModuleCopilotOutput = { ...run.data, moduleId };
