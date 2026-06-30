@@ -50,6 +50,11 @@ services:
         value: Empire OS
       - key: OWNER_EMAIL
         sync: false
+      # Break-glass recovery code. Set this to let a locked-out owner (lost or
+      # replaced device) clear the old passkey from the login screen and
+      # re-register. Leave unset to disable recovery. Generate: openssl rand -hex 16
+      - key: OWNER_RECOVERY_CODE
+        sync: false
 
       # --- AI provider keys (optional) ----------------------------------------
       # Absent → the AI layer runs in deterministic stub mode. Users can also add

@@ -221,6 +221,9 @@ function AssistantBubble({ message }: { message: ChatMessage }) {
 
       {meta && !message.streaming && (
         <div className="flex flex-wrap items-center gap-2 pl-1 text-[11px] text-empire-muted">
+          <span className="font-mono text-empire-green/80" title="This answer was grounded in your live Empire OS data">
+            ◍ read your Empire
+          </span>
           <Badge variant={confidenceTone(meta.confidence)}>
             {Math.round(meta.confidence * 100)}% confident
           </Badge>
