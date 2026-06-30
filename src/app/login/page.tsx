@@ -44,6 +44,10 @@ export default function LoginPage() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
+  // Break-glass recovery (lost/replaced device).
+  const [showRecover, setShowRecover] = useState(false);
+  const [recoverCode, setRecoverCode] = useState('');
+  const [recovering, setRecovering] = useState(false);
 
   const busy = status === 'scanning';
 
@@ -127,6 +131,28 @@ export default function LoginPage() {
     }
   }
 
+  // Clear the stored passkey(s) with the owner recovery code, then drop back to
+  // first-time setup so this device can register fresh (with Face ID / Hello).
+  async function handleRecover() {
+    setRecovering(true);
+    setError(null);
+    try {
+      const res = await api.post('/api/auth/recover', { code: recoverCode.trim() });
+      if (!res.ok) {
+        setError(res.error.message);
+        return;
+      }
+      setShowRecover(false);
+      setRecoverCode('');
+      setStatus('idle');
+      await refresh(); // account is now unclaimed → flips to the setup screen
+    } catch {
+      setError('Recovery failed. Try again.');
+    } finally {
+      setRecovering(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0 p-6">
       <div className="pointer-events-none absolute inset-0 bg-grid-faint [background-size:32px_32px]" />
@@ -194,6 +220,56 @@ export default function LoginPage() {
                     <Button onClick={handleSignIn} loading={busy} className="w-full" size="lg">
                       {status === 'error' ? 'Try again' : `Sign in with ${biometricName()}`}
                     </Button>
+                  )}
+
+                  {status !== 'success' && !showRecover && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRecover(true);
+                        setError(null);
+                      }}
+                      className="block w-full text-center text-xs text-empire-muted hover:text-gray-300 transition-colors"
+                    >
+                      New device, or lost access? Reset
+                    </button>
+                  )}
+
+                  {showRecover && (
+                    <div className="space-y-3 rounded-xl border border-border bg-surface-0 p-3">
+                      <p className="text-xs text-empire-muted leading-relaxed">
+                        Enter your recovery code to clear the old passkey and set up this device
+                        fresh. This signs out every other device.
+                      </p>
+                      <input
+                        type="password"
+                        autoFocus
+                        value={recoverCode}
+                        onChange={(e) => setRecoverCode(e.target.value)}
+                        placeholder="Recovery code"
+                        className="w-full rounded-lg bg-surface-1 border border-border px-3 py-2 text-sm text-gray-100 placeholder:text-empire-muted/60 outline-none focus:border-empire-blue"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleRecover}
+                          loading={recovering}
+                          disabled={!recoverCode.trim()}
+                          className="flex-1"
+                        >
+                          Reset device access
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setShowRecover(false);
+                            setRecoverCode('');
+                            setError(null);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

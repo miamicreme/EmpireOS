@@ -123,4 +123,15 @@ export async function deleteCredential(
   if (error) throw new Error(`deleteCredential failed: ${error.message}`);
 }
 
+/**
+ * Remove every stored passkey, returning the account to the unclaimed state so
+ * the next registration re-bootstraps the owner. Used by break-glass recovery.
+ * Returns how many credentials were deleted.
+ */
+export async function wipeAllCredentials(admin: SupabaseClient): Promise<number> {
+  const { data, error } = await admin.from(TABLE).delete().not('id', 'is', null).select('id');
+  if (error) throw new Error(`wipeAllCredentials failed: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export { createAdminClient };

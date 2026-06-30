@@ -60,8 +60,12 @@ export async function buildRegistrationOptions(
       transports: transportsOf(c),
     })),
     authenticatorSelection: {
-      residentKey: 'preferred',
-      userVerification: 'preferred',
+      // Bind to the device's built-in authenticator (Face ID / Touch ID /
+      // Windows Hello) and require user verification, so sign-in is biometric
+      // by default rather than falling back to a roaming security key.
+      authenticatorAttachment: 'platform',
+      residentKey: 'required',
+      userVerification: 'required',
     },
   });
 
@@ -122,7 +126,8 @@ export async function buildAuthenticationOptions(
       id: c.credential_id,
       transports: transportsOf(c),
     })),
-    userVerification: 'preferred',
+    // Require the biometric/PIN gesture on sign-in too (Face ID / Hello).
+    userVerification: 'required',
   });
 
   setChallenge(options.challenge);

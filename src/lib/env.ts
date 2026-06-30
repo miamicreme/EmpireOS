@@ -65,6 +65,17 @@ export function getOwnerEmail(): string {
   return process.env.OWNER_EMAIL ?? 'owner@empire.local';
 }
 
+/**
+ * Optional break-glass recovery secret. When set, a locked-out owner (e.g. a
+ * lost or wiped device whose passkey no longer exists locally) can clear the
+ * stored passkeys and re-register on a fresh device by proving knowledge of
+ * this code. Absent → recovery is disabled, so there is no open reset path.
+ */
+export function getOwnerRecoveryCode(): string | null {
+  const code = process.env.OWNER_RECOVERY_CODE?.trim();
+  return code && code.length > 0 ? code : null;
+}
+
 /** Optional AI provider keys. Absence means the engine stays in stub mode. */
 export const aiKeys = {
   openai: process.env.OPENAI_API_KEY ?? null,
