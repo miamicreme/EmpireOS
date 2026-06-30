@@ -11,7 +11,7 @@
  * usable provider + decrypted key.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { appError } from '@/lib/errors';
+import { appError, type AppError } from '@/lib/errors';
 import { err, ok, type AppResult } from '@/lib/result';
 import { aiKeys } from '@/lib/env';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -78,19 +78,23 @@ function toPublic(row: ProviderRow): ProviderConfig {
   };
 }
 
-/** Server-only secret writer (upsert one provider's encrypted key). */
+/**
+ * Server-only secret writer (upsert one provider's encrypted key). Returns an
+ * AppError if the write failed so callers don't report a saved key that isn't.
+ */
 async function writeSecret(
   admin: SupabaseClient,
   userId: string,
   providerId: string,
   plaintext: string,
-): Promise<void> {
-  await admin
+): Promise<AppError | null> {
+  const { error } = await admin
     .from(SECRETS)
     .upsert(
       { provider_id: providerId, user_id: userId, api_key_cipher: encryptSecret(plaintext) },
       { onConflict: 'provider_id' },
     );
+  return error ? appError('db_error', `Failed to store provider key: ${error.message}`) : null;
 }
 
 export async function listProviders(
@@ -164,7 +168,12 @@ export async function createProvider(
 
   const created = data as ProviderRow;
   if (v.apiKey) {
-    await writeSecret(admin ?? createAdminClient(), userId, created.id, v.apiKey);
+    const secretErr = await writeSecret(admin ?? createAdminClient(), userId, created.id, v.apiKey);
+    if (secretErr) {
+      // Roll back so we never leave a provider flagged has_own_key with no secret.
+      await supabase.from(TABLE).delete().eq('id', created.id).eq('user_id', userId);
+      return err(secretErr);
+    }
   }
   return ok(toPublic(created));
 }
@@ -183,6 +192,21 @@ export async function updateProvider(
   const v = parsed.data;
 
   if (v.isDefault === true) await clearDefault(supabase, userId);
+
+  // Persist the secret BEFORE flipping has_own_key, so a failed write can't
+  // leave the metadata claiming a key that isn't stored.
+  if (v.apiKey !== undefined) {
+    const { data: existing } = await supabase
+      .from(TABLE)
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!existing) return err(appError('not_found', 'Provider not found.'));
+
+    const secretErr = await writeSecret(admin ?? createAdminClient(), userId, id, v.apiKey);
+    if (secretErr) return err(secretErr);
+  }
 
   const patch: Record<string, unknown> = {};
   if (v.label !== undefined) patch.label = v.label;
@@ -205,10 +229,6 @@ export async function updateProvider(
 
   if (error) return err(appError('db_error', error.message));
   if (!data) return err(appError('not_found', 'Provider not found.'));
-
-  if (v.apiKey !== undefined) {
-    await writeSecret(admin ?? createAdminClient(), userId, id, v.apiKey);
-  }
   return ok(toPublic(data as ProviderRow));
 }
 
@@ -264,15 +284,22 @@ export async function deleteProvider(
   return ok({ id });
 }
 
-/** Fetch a user's decrypted keys by provider_id (server-only, via admin). */
+/**
+ * Fetch a user's decrypted keys by provider_id (server-only, via admin). A read
+ * failure is propagated as an AppError — converting it to an empty map would
+ * make every stored key look absent and silently mislead resolution.
+ */
 async function fetchSecrets(
   admin: SupabaseClient,
   userId: string,
-): Promise<Map<string, string>> {
-  const { data } = await admin
+): Promise<{ map: Map<string, string>; error: AppError | null }> {
+  const { data, error } = await admin
     .from(SECRETS)
     .select('provider_id, api_key_cipher')
     .eq('user_id', userId);
+  if (error) {
+    return { map: new Map(), error: appError('db_error', `Failed to read provider keys: ${error.message}`) };
+  }
   const map = new Map<string, string>();
   for (const row of (data ?? []) as Array<{ provider_id: string; api_key_cipher: string }>) {
     try {
@@ -281,7 +308,7 @@ async function fetchSecrets(
       // Skip undecryptable rows (key rotation / tamper) — falls back to env.
     }
   }
-  return map;
+  return { map, error: null };
 }
 
 /** Build a credential for a provider row, given its decrypted own-key (if any). */
@@ -319,9 +346,14 @@ export async function resolveUserCredential(
 
   // Only reach for the admin client / secrets when a stored key is needed.
   const needsSecret = rows.some((r) => r.has_own_key);
-  const secrets = needsSecret
-    ? await fetchSecrets(admin ?? createAdminClient(), userId)
-    : new Map<string, string>();
+  let secrets = new Map<string, string>();
+  if (needsSecret) {
+    const res = await fetchSecrets(admin ?? createAdminClient(), userId);
+    // Surface a real read failure rather than silently falling back to env keys
+    // (which would route AI calls to the wrong provider).
+    if (res.error) throw res.error;
+    secrets = res.map;
+  }
 
   for (const row of rows) {
     const cred = toCredential(row, secrets.get(row.id));
@@ -350,7 +382,8 @@ export async function resolveCredentialForId(
   let ownKey: string | undefined;
   if (row.has_own_key) {
     const secrets = await fetchSecrets(admin ?? createAdminClient(), userId);
-    ownKey = secrets.get(row.id);
+    if (secrets.error) return err(secrets.error);
+    ownKey = secrets.map.get(row.id);
   }
   const cred = toCredential(row, ownKey);
   if (!cred) {
