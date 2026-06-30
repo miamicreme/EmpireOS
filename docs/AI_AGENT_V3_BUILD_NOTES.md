@@ -82,3 +82,15 @@ lost:
    captured but not yet auto-promoted into `agent_memory_items`.
 7. **Specialist-vote → event payloads** could be promoted to a dedicated table
    only if a screen needs to query them directly (per the doc's promotion rule).
+8. **Run-event write latency.** `appendEvent` is awaited inline (~9 sequential
+   inserts per run). Kept awaited for trace integrity (un-awaited inserts can be
+   cut off when a serverless response returns); a batched single multi-row insert
+   at the end would remove the latency without losing the trace.
+9. **Interrupted-run replay.** If a process dies between `createRun` and
+   `finalizeRun`, an idempotent replay reconstructs the non-terminal run as-is.
+   A sweeper that marks stale `running` rows `failed` (or re-runs them) would
+   harden crash recovery.
+10. **Share `postJson`/normalizers across V2.** The V2 AI components still inline
+    their own `postJson`, and V2 `action-draft.service` still has its own
+    category/priority normalizers; point them at `@/lib/http` and
+    `@/spine/ai/draft-normalizers` in a cleanup branch.

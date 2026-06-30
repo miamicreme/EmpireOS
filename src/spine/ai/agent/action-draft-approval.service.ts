@@ -9,24 +9,21 @@ import { err, ok, type AppResult } from '@/lib/result';
 import { nowISO } from '@/lib/dates';
 import { createAction } from '../../actions/action.service';
 import { createGlobalActionSchema } from '../../schemas';
-import { MODULE_IDS } from '../../constants';
-import type { GlobalAction, ActionCategory, ActionPriority } from '../../types';
+import {
+  normalizeModuleId,
+  normalizeCategory,
+  normalizePriority,
+} from '../draft-normalizers';
+import type { GlobalAction } from '../../types';
 import { getActionDraftById, type AgentActionDraftRow } from './agent-repository.service';
 
 const TABLE = 'agent_action_drafts';
-const VALID_CATEGORIES: ActionCategory[] = [
-  'cash', 'job', 'followup', 'credit', 'project', 'acquisition', 'review', 'admin', 'general',
-];
-const VALID_PRIORITIES: ActionPriority[] = ['low', 'medium', 'high', 'critical'];
 
-function normalizeModuleId(id: string | null | undefined): string | null {
-  return id && (MODULE_IDS as readonly string[]).includes(id) ? id : null;
-}
-function normalizeCategory(c: string): ActionCategory {
-  return (VALID_CATEGORIES as string[]).includes(c) ? (c as ActionCategory) : 'general';
-}
-function normalizePriority(p: string): ActionPriority {
-  return (VALID_PRIORITIES as string[]).includes(p) ? (p as ActionPriority) : 'medium';
+/** timestamptz from Postgres ("…+00") -> RFC3339 the global-action schema accepts. */
+function toIsoOrNull(due: string | null): string | null {
+  if (!due) return null;
+  const t = Date.parse(due);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
 }
 
 export interface DraftEdits {
@@ -85,13 +82,23 @@ export async function approveAgentDraft(
   }
 
   const d = claimed as AgentActionDraftRow;
-  const input = createGlobalActionSchema.parse({
+
+  const releaseClaim = () =>
+    supabase
+      .from(TABLE)
+      .update({ approval_status: 'pending', approved_at: null })
+      .eq('id', id)
+      .eq('user_id', userId);
+
+  // Validate via safeParse so a bad field releases the claim instead of throwing
+  // out of the function and stranding the draft as approved with no action.
+  const parsed = createGlobalActionSchema.safeParse({
     module_id: normalizeModuleId(d.module_id),
     title: edits?.title ?? d.title,
     description: edits?.description !== undefined ? edits.description : d.description,
     category: normalizeCategory(edits?.category ?? d.category),
     priority: normalizePriority(edits?.priority ?? d.priority),
-    due_at: d.due_at,
+    due_at: toIsoOrNull(d.due_at),
     impact_score: d.impact_score,
     urgency_score: d.urgency_score,
     effort_score: d.effort_score,
@@ -99,15 +106,15 @@ export async function approveAgentDraft(
     source_type: 'agent_draft',
     source_id: d.id,
   });
+  if (!parsed.success) {
+    await releaseClaim();
+    return err(appError('validation', 'Draft could not be converted to an action.', parsed.error.format()));
+  }
 
-  const created = await createAction(supabase, userId, input);
+  const created = await createAction(supabase, userId, parsed.data);
   if (!created.ok) {
     // Release the claim so the user can retry after a transient failure.
-    await supabase
-      .from(TABLE)
-      .update({ approval_status: 'pending', approved_at: null })
-      .eq('id', id)
-      .eq('user_id', userId);
+    await releaseClaim();
     return created;
   }
 

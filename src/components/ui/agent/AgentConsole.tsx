@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { postJson } from '@/lib/http';
 
 interface ActionDraft {
   id: string;
@@ -49,17 +50,6 @@ const QUICK_ACTIONS = [
   'Run deep strategy.',
 ];
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error?.message ?? 'Request failed');
-  return json.data as T;
-}
-
 function confidenceTone(n: number): 'green' | 'yellow' | 'red' {
   return n >= 0.66 ? 'green' : n >= 0.4 ? 'yellow' : 'red';
 }
@@ -72,9 +62,13 @@ export function AgentConsole() {
   const [drafts, setDrafts] = useState<ActionDraft[]>([]);
   const [showWhy, setShowWhy] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+  // The actual command last submitted — so "Go deeper"/"Use research" re-run the
+  // original question even after the input box is cleared (never the answer text).
+  const [lastCommand, setLastCommand] = useState('');
 
   async function run(cmd: string, opts: { goDeeper?: boolean; useResearch?: boolean } = {}) {
     if (!cmd.trim()) return;
+    setLastCommand(cmd.trim());
     setLoading(true);
     setError(null);
     try {
@@ -194,10 +188,10 @@ export function AgentConsole() {
             </div>
 
             <div className="flex flex-wrap gap-1.5">
-              <Button size="sm" variant="secondary" onClick={() => run(command || output.answer, { goDeeper: true })}>
+              <Button size="sm" variant="secondary" onClick={() => run(lastCommand, { goDeeper: true })}>
                 Go deeper
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => run(command, { useResearch: true })}>
+              <Button size="sm" variant="secondary" onClick={() => run(lastCommand, { useResearch: true })}>
                 Use research
               </Button>
               <Button size="sm" variant="ghost" onClick={saveMemory}>

@@ -60,6 +60,7 @@ export async function runSpecialistCouncil(
 
   const results = await Promise.allSettled(
     specialists.map(async (specialist) => {
+      const sv = stubVote(specialist, pack);
       const run = await runStructured({
         feature: `specialist:${specialist}`,
         systemPrompt: systemPrompt(specialist),
@@ -67,11 +68,11 @@ export async function runSpecialistCouncil(
         context: pack as unknown as Record<string, unknown>,
         schema: specialistVoteSchema,
         stub: {
-          recommendation: stubVote(specialist, pack).recommendation,
-          reasoningSummary: stubVote(specialist, pack).reasoningSummary,
-          confidence: 0.5,
-          risks: pack.openRisks.slice(0, 2),
-          missingData: [],
+          recommendation: sv.recommendation,
+          reasoningSummary: sv.reasoningSummary,
+          confidence: sv.confidence,
+          risks: sv.risks,
+          missingData: sv.missingData,
         },
         model,
         maxTokens: 900,

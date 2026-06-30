@@ -23,11 +23,25 @@ import { runSpecialistCouncil } from './specialist-council.service';
 import { synthesizeFinal } from './final-synthesizer.service';
 import * as repo from './agent-repository.service';
 import type {
+  AgentActionDraftView,
   AgentRunInput,
   AgentRunOutput,
   RunStatus,
   SpecialistVote,
 } from './agent.types';
+
+/** Map a persisted action-draft row to the API view (one source of truth). */
+function toDraftView(d: repo.AgentActionDraftRow): AgentActionDraftView {
+  return {
+    id: d.id,
+    title: d.title,
+    description: d.description,
+    category: d.category,
+    priority: d.priority,
+    reason: d.reason,
+    approvalStatus: d.approval_status,
+  };
+}
 
 export async function runAgent(
   supabase: SupabaseClient,
@@ -36,7 +50,17 @@ export async function runAgent(
 ): Promise<AppResult<AgentRunOutput>> {
   const startedAt = Date.now();
 
-  // 1. Thread + idempotent run.
+  // 1. Idempotent replay — short-circuit BEFORE creating a thread, so a retry
+  // without a threadId doesn't orphan a fresh thread, and the run is reported
+  // under its original thread.
+  if (input.idempotency) {
+    const existing = await repo.findRunByIdempotency(supabase, userId, input.idempotency);
+    if (existing) {
+      return ok(await reconstructOutput(supabase, userId, existing, existing.thread_id ?? ''));
+    }
+  }
+
+  // 2. Thread + run.
   const thread = await repo.upsertThread(supabase, userId, {
     threadId: input.threadId,
     mode: input.modeHint ?? 'general',
@@ -50,7 +74,12 @@ export async function runAgent(
   });
   if (!runResult.ok) return runResult;
   if (runResult.data.reused) {
-    return ok(await reconstructOutput(supabase, userId, runResult.data.run, thread.data.id));
+    // Won by a concurrent request — report the reused run's own thread.
+    return ok(
+      await reconstructOutput(
+        supabase, userId, runResult.data.run, runResult.data.run.thread_id ?? thread.data.id,
+      ),
+    );
   }
   const runId = runResult.data.run.id;
 
@@ -81,6 +110,10 @@ export async function runAgent(
     await event('capability_plan', 'read_internal_data, build_context_pack, reason, draft_actions');
     await event('permission_check', 'reads approved; external actions are draft-only (approval-gated)');
 
+    // Resolve the credential in parallel — it depends only on the user, not on
+    // the context build or gates below.
+    const credentialPromise = resolveStrategyCredential(supabase, userId);
+
     // 3. Context pack (compact, redacted, hash-reusable).
     const packResult = await buildContextPack(supabase, userId, route.intent);
     if (!packResult.ok) {
@@ -90,9 +123,10 @@ export async function runAgent(
     const { pack, context } = packResult.data;
     await event('context_built', pack.summary, { contextHash: pack.contextHash, tokenEstimate: pack.tokenEstimate });
 
-    // Save the pack only when it's new (hash-reuse avoids churn) or deep path.
+    // Save the pack only when its hash is new — identical situations reuse the
+    // existing pack (hash-reuse avoids churn and duplicate rows).
     const existingPack = await repo.findContextPackByHash(supabase, userId, pack.contextHash);
-    if (!existingPack || route.runtimePath === 'deep_path') {
+    if (!existingPack) {
       await repo.saveContextPack(supabase, userId, runId, pack);
     }
 
@@ -112,7 +146,7 @@ export async function runAgent(
       research.needsResearch,
       memoryRequests.length > 0,
     );
-    const credential = await resolveStrategyCredential(supabase, userId);
+    const credential = await credentialPromise;
     const providerName = effectiveProviderName(credential);
     await event('provider_selected', strategy.reason, { provider: providerName, model: strategy.model });
 
@@ -213,15 +247,7 @@ export async function runAgent(
       risks: out.risks,
       opportunities: out.opportunities,
       nextActions: out.nextActions,
-      actionDrafts: drafts.map((d) => ({
-        id: d.id,
-        title: d.title,
-        description: d.description,
-        category: d.category,
-        priority: d.priority,
-        reason: d.reason,
-        approvalStatus: d.approval_status,
-      })),
+      actionDrafts: drafts.map(toDraftView),
       memoryRequests,
       researchRequests: research.requests,
       specialistVotes: votes
@@ -306,15 +332,7 @@ async function reconstructOutput(
     risks: (content?.risks as string[]) ?? [],
     opportunities: (content?.opportunities as string[]) ?? [],
     nextActions: (content?.nextActions as AgentRunOutput['nextActions']) ?? [],
-    actionDrafts: ((draftRows ?? []) as repo.AgentActionDraftRow[]).map((d) => ({
-      id: d.id,
-      title: d.title,
-      description: d.description,
-      category: d.category,
-      priority: d.priority,
-      reason: d.reason,
-      approvalStatus: d.approval_status,
-    })),
+    actionDrafts: ((draftRows ?? []) as repo.AgentActionDraftRow[]).map(toDraftView),
     memoryRequests: [],
     researchRequests: [],
     specialistVotes: [],

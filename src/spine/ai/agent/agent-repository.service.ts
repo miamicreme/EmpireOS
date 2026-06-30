@@ -7,7 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { appError } from '@/lib/errors';
 import { err, ok, type AppResult } from '@/lib/result';
 import { nowISO } from '@/lib/dates';
-import { MODULE_IDS } from '../../constants';
+import { normalizeModuleId, normalizeCategory, normalizePriority } from '../draft-normalizers';
 import type {
   RuntimePath,
   RunStatus,
@@ -230,6 +230,21 @@ export async function finalizeRun(
   return ok(data as RunRow);
 }
 
+/** Look up an existing run by idempotency key (for replay before any writes). */
+export async function findRunByIdempotency(
+  supabase: SupabaseClient,
+  userId: string,
+  idempotencyKey: string,
+): Promise<RunRow | null> {
+  const { data } = await supabase
+    .from('agent_runs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('idempotency_key', idempotencyKey)
+    .maybeSingle();
+  return (data ?? null) as RunRow | null;
+}
+
 export async function getRunsForThread(
   supabase: SupabaseClient,
   userId: string,
@@ -389,10 +404,8 @@ export async function createActionDrafts(
   drafts: SuggestedDraft[],
 ): Promise<AppResult<AgentActionDraftRow[]>> {
   if (drafts.length === 0) return ok([]);
-  // module_id is an FK to public.modules; coerce hallucinated ids (or the
-  // literal string "null") to null so one bad draft can't fail the whole batch.
-  const normalizeModuleId = (id: string | null | undefined): string | null =>
-    id && (MODULE_IDS as readonly string[]).includes(id) ? id : null;
+  // Normalize to the Spine's enums + FK so a hallucinated module/category/
+  // priority (or the literal "null") can't fail the batch or surface raw.
   const rows = drafts.map((d) => ({
     user_id: userId,
     run_id: runId,
@@ -400,8 +413,8 @@ export async function createActionDrafts(
     module_id: normalizeModuleId(d.moduleId),
     title: d.title.slice(0, 300),
     description: d.description ? d.description.slice(0, 5000) : null,
-    category: d.category,
-    priority: d.priority,
+    category: normalizeCategory(d.category),
+    priority: normalizePriority(d.priority),
     reason: d.reason ?? null,
     impact_score: d.impactScore ?? 5,
     urgency_score: d.urgencyScore ?? 5,

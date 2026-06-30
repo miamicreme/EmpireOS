@@ -11,7 +11,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { ok, type AppResult } from '@/lib/result';
 import { buildEmpireContext } from '../context/empire-context.service';
 import { redactObject } from '../redaction';
-import { assertNoHighRiskSecrets } from '../../decisions/context-redaction.service';
+import {
+  assertNoHighRiskSecrets,
+  redactSensitiveText,
+} from '../../decisions/context-redaction.service';
 import { getActiveMemory } from './agent-repository.service';
 import type { EmpireContext } from '../ai.types';
 import type { ContextPack } from './agent.types';
@@ -55,10 +58,11 @@ export async function buildContextPack(
   const ctx = ctxResult.data;
 
   const memory = await getActiveMemory(supabase, userId);
+  // Memory is free user text — redact it like any other model-bound content.
   const relevantMemory = memory.map((m) => ({
     id: m.id,
     memoryType: m.memory_type,
-    summary: m.summary ?? m.content ?? '',
+    summary: redactSensitiveText(m.summary ?? m.content ?? ''),
   }));
 
   const relevantFacts = redactObject({
@@ -69,8 +73,6 @@ export async function buildContextPack(
     dailyReview: ctx.dailyReview,
     weeklyReview: ctx.weeklyReview,
   });
-  // Final gate before anything is persisted or sent.
-  assertNoHighRiskSecrets(JSON.stringify(relevantFacts));
 
   const priorities = ctx.prioritized.slice(0, 8).map((a) =>
     a.priorityReasons.length ? `${a.title} (${a.priorityReasons.join(', ')})` : a.title,
@@ -111,10 +113,22 @@ export async function buildContextPack(
     relevantMemory,
     sourceRefs: [],
     recordRefs,
-    redactionSummary: { applied: true, fields: ['profile', 'facts'] },
+    redactionSummary: { applied: true, fields: ['profile', 'facts', 'memory'] },
     tokenEstimate: 0,
     contextHash: '',
   };
+  // Final gate over EVERYTHING that gets persisted or sent to a provider —
+  // facts, memory, module signals, priorities, summary — not just the facts.
+  assertNoHighRiskSecrets(
+    JSON.stringify({
+      summary: pack.summary,
+      relevantFacts,
+      relevantMemory,
+      moduleSignals,
+      priorities,
+      openRisks,
+    }),
+  );
   pack.tokenEstimate = tokenEstimate(pack);
   pack.contextHash = computeContextHash(ctx, relevantMemory.map((m) => m.id), intent);
 

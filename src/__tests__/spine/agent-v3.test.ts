@@ -257,12 +257,16 @@ describe('runAgent', () => {
 
   it('is idempotent — replaying the same key returns the same run', async () => {
     const { runAgent } = await import('@/spine/ai/agent/agent-orchestrator.service');
-    const db = makeDb(seedSpine());
+    const seed = seedSpine();
+    const db = makeDb(seed);
     const a = await runAgent(db, USER, { command: 'What today?', idempotency: 'k-1' });
     const b = await runAgent(db, USER, { command: 'What today?', idempotency: 'k-1' });
     expect(a.ok && b.ok).toBe(true);
     if (!a.ok || !b.ok) return;
     expect(b.data.runId).toBe(a.data.runId);
+    // Replay must not orphan a second thread, and reports the original thread.
+    expect((seed.agent_threads ?? []).length).toBe(1);
+    expect(b.data.threadId).toBe(a.data.threadId);
   });
 
   it('writes provider runs and a compact event trace', async () => {
@@ -335,6 +339,18 @@ describe('context pack', () => {
     expect(a.data.pack.contextHash).toBe(b.data.pack.contextHash);
     expect(a.data.pack.contextHash.length).toBe(64);
   });
+
+  it('redacts PII in memory before it enters the pack', async () => {
+    const { buildContextPack } = await import('@/spine/ai/agent/context-pack.service');
+    const seed = seedSpine();
+    seed.agent_memory_items = [
+      { id: 'm1', user_id: USER, memory_type: 'profile', summary: 'reach me at k@example.com', content: '', status: 'active' },
+    ];
+    const res = await buildContextPack(makeDb(seed), USER, 'daily_planning');
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.pack.relevantMemory[0]!.summary).not.toContain('k@example.com');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -360,6 +376,23 @@ describe('approveAgentDraft', () => {
     expect(res.data.draft.approval_status).toBe('approved');
     // a real global_action row now exists
     expect((seed.global_actions ?? []).some((a) => (a as { source_id?: string }).source_id === 'd1')).toBe(true);
+  });
+
+  it('converts a Postgres-style due_at without throwing', async () => {
+    const { approveAgentDraft } = await import('@/spine/ai/agent/action-draft-approval.service');
+    const seed = seedSpine();
+    seed.agent_action_drafts = [
+      {
+        id: 'd3', user_id: USER, run_id: 'r1', source_artifact_id: null, module_id: null,
+        title: 'Timed task', description: null, category: 'general', priority: 'medium',
+        impact_score: 5, urgency_score: 5, effort_score: 5, confidence_score: 0.5,
+        approval_status: 'pending', created_action_id: null,
+        // timestamptz as Postgres returns it (space + offset, not RFC3339 'T')
+        due_at: '2026-07-01 12:00:00+00',
+      },
+    ];
+    const res = await approveAgentDraft(makeDb(seed), USER, 'd3');
+    expect(res.ok).toBe(true);
   });
 
   it('refuses to approve a rejected draft', async () => {
