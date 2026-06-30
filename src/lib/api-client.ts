@@ -12,8 +12,18 @@ async function request<T>(url: string, init?: RequestInit): Promise<ApiResult<T>
       ...init,
       headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     });
-    const json = (await res.json()) as ApiResult<T>;
-    return json;
+    // A non-JSON response (e.g. an HTML 5xx/proxy error page) makes res.json()
+    // throw; tolerate it and only trust a well-formed { ok } envelope. Anything
+    // else surfaces as a clean error instead of being mis-cast as success.
+    const json = (await res.json().catch(() => null)) as ApiResult<T> | null;
+    if (json && typeof (json as { ok?: unknown }).ok === 'boolean') {
+      return json;
+    }
+    const status = (res as { status?: number }).status;
+    return {
+      ok: false,
+      error: { message: `Unexpected response from server${status ? ` (${status})` : ''}.` },
+    };
   } catch {
     return { ok: false, error: { message: 'Network error' } };
   }

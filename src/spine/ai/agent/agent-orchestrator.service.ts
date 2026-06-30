@@ -56,7 +56,17 @@ export async function runAgent(
   if (input.idempotency) {
     const existing = await repo.findRunByIdempotency(supabase, userId, input.idempotency);
     if (existing) {
-      return ok(await reconstructOutput(supabase, userId, existing, existing.thread_id ?? ''));
+      // Prefer the stored thread; fall back to the caller's threadId rather than
+      // '' so an idempotent replay doesn't echo an empty id that would orphan
+      // the next message into a brand-new thread.
+      return ok(
+        await reconstructOutput(
+          supabase,
+          userId,
+          existing,
+          existing.thread_id ?? input.threadId ?? '',
+        ),
+      );
     }
   }
 

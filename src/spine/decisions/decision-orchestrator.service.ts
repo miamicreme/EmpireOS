@@ -306,11 +306,22 @@ export async function runFullDecisionAnalysis(
       .eq('id', decisionId)
       .eq('user_id', userId);
 
+  // decision_votes has no user_id column; RLS scopes deletes to the caller's
+  // own votes via the parent decisions.user_id, so filtering by decision_id is
+  // safe (a foreign decision id matches no rows for this user).
   const deleteVotes = () =>
     supabase.from('decision_votes').delete().eq('decision_id', decisionId);
 
+  // Surface rollback failures instead of letting them vanish — a silently
+  // failed rollback leaves the decision stuck in 'analyzing' and un-retryable.
   const rollback = async () => {
-    await Promise.all([restorePriorStatus(), deleteVotes()]);
+    const [restore, votes] = await Promise.all([restorePriorStatus(), deleteVotes()]);
+    if (restore.error || votes.error) {
+      console.error(
+        '[decision-orchestrator] rollback failed:',
+        restore.error?.message ?? votes.error?.message,
+      );
+    }
   };
 
   const { data: claimed } = await supabase
