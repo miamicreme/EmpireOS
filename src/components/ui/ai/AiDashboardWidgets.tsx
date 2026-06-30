@@ -21,9 +21,27 @@ interface Draft {
   status: string;
 }
 
+interface DerivedFacts {
+  cashTargetToday: number | null;
+  cashCollectedToday: number | null;
+  cashGapToday: number | null;
+  overdueActionCount: number;
+  completedTodayCount: number;
+  openActionCount: number;
+}
+
+interface Trend {
+  label: string;
+  direction: 'up' | 'down' | 'flat';
+  delta: number | null;
+  streakDays: number;
+}
+
 interface CosResponse {
   output: ChiefOfStaffOutput;
   drafts: Draft[];
+  derived?: DerivedFacts;
+  trends?: Trend[];
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -46,6 +64,8 @@ export function AiChiefOfStaffWidget() {
   const [error, setError] = useState<string | null>(null);
   const [output, setOutput] = useState<ChiefOfStaffOutput | null>(null);
   const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [derived, setDerived] = useState<DerivedFacts | null>(null);
+  const [trends, setTrends] = useState<Trend[]>([]);
   const [question, setQuestion] = useState('');
 
   async function run(q?: string) {
@@ -55,6 +75,8 @@ export function AiChiefOfStaffWidget() {
       const data = await postJson<CosResponse>('/api/ai/chief-of-staff', q ? { question: q } : {});
       setOutput(data.output);
       setDrafts(data.drafts ?? []);
+      setDerived(data.derived ?? null);
+      setTrends(data.trends ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to run AI Chief of Staff');
     } finally {
@@ -127,6 +149,8 @@ export function AiChiefOfStaffWidget() {
               </div>
             </div>
 
+            {derived && <DerivedStrip derived={derived} trends={trends} />}
+
             {output.risks.length > 0 && (
               <div className="rounded-lg border border-empire-red/25 bg-empire-red/10 p-3">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-empire-red mb-1">
@@ -176,6 +200,56 @@ export function AiChiefOfStaffWidget() {
         )}
       </div>
     </Card>
+  );
+}
+
+function DerivedStrip({ derived, trends }: { derived: DerivedFacts; trends: Trend[] }) {
+  const cash =
+    derived.cashCollectedToday != null && derived.cashTargetToday != null
+      ? `$${derived.cashCollectedToday}/${derived.cashTargetToday}`
+      : '—';
+  const cells: Array<{ label: string; value: string; tone?: string }> = [
+    {
+      label: 'cash',
+      value: cash,
+      tone: derived.cashGapToday && derived.cashGapToday > 0 ? 'text-empire-yellow' : 'text-empire-green',
+    },
+    {
+      label: 'overdue',
+      value: String(derived.overdueActionCount),
+      tone: derived.overdueActionCount > 0 ? 'text-empire-red' : 'text-gray-300',
+    },
+    { label: 'done today', value: String(derived.completedTodayCount), tone: 'text-empire-green' },
+    { label: 'open', value: String(derived.openActionCount), tone: 'text-gray-300' },
+  ];
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-4 gap-2">
+        {cells.map((c) => (
+          <div key={c.label} className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-center">
+            <div className={`text-sm font-mono ${c.tone ?? 'text-gray-100'}`}>{c.value}</div>
+            <div className="text-[9px] font-mono uppercase tracking-widest text-empire-muted">{c.label}</div>
+          </div>
+        ))}
+      </div>
+      {trends.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {trends.map((t, i) => (
+            <span
+              key={i}
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                t.direction === 'down'
+                  ? 'border-empire-red/25 text-empire-red'
+                  : 'border-empire-green/25 text-empire-green'
+              }`}
+            >
+              {t.direction === 'down' ? '↓' : '↑'} {t.label} {t.streakDays}d
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

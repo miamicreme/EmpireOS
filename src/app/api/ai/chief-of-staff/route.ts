@@ -39,5 +39,9 @@ export async function POST(request: Request) {
     output: result.data.output,
     drafts: result.data.drafts,
     empireScore: result.data.context.empireScore,
+    derived: result.data.context.derived,
+    trends: result.data.context.trends
+      .filter((t) => t.direction !== 'flat' && t.streakDays >= 2)
+      .slice(0, 4),
   });
 }

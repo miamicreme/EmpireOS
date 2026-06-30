@@ -46,6 +46,13 @@ export interface StructuredRunOptions<T> {
   model?: string;
   maxTokens?: number;
   temperature?: number;
+  /**
+   * Run a second grounding/critique pass that checks the first output against
+   * the context, strips unsupported claims, corrects numbers to the derived
+   * facts, and recalibrates confidence. Raises accuracy at ~2x token cost.
+   * Skipped automatically in stub mode.
+   */
+  verify?: boolean;
 }
 
 /** Strip markdown fences and parse the first JSON object/array in the text. */
@@ -116,16 +123,90 @@ ${JSON.stringify(safeContext, null, 2)}`;
   });
 
   const parsed = opts.schema.safeParse(extractJson(response.text));
-  const data = (parsed.success ? parsed.data : opts.stub) as T;
+  let data = (parsed.success ? parsed.data : opts.stub) as T;
   if (!parsed.success) {
     logger.warn('ai_structured_parse_failed', { feature: opts.feature, provider });
   }
 
-  return {
-    data,
-    provider,
-    model,
-    inputTokens: response.inputTokens,
-    outputTokens: response.outputTokens,
-  };
+  let inputTokens = response.inputTokens;
+  let outputTokens = response.outputTokens;
+
+  // Optional grounding pass — only worth running when the first pass parsed.
+  if (opts.verify && parsed.success) {
+    const verified = await verifyAndGround(opts, safeContext, data, provider);
+    if (verified) {
+      data = verified.data;
+      inputTokens = sumTokens(inputTokens, verified.inputTokens);
+      outputTokens = sumTokens(outputTokens, verified.outputTokens);
+    }
+  }
+
+  return { data, provider, model, inputTokens, outputTokens };
+}
+
+const VERIFY_SYSTEM = `You are a strict fact-checker for an AI Chief of Staff.
+You receive the redacted EMPIRE CONTEXT and a CANDIDATE JSON answer produced from it.
+Return a CORRECTED version of the same JSON shape that:
+- removes or fixes any claim, action, risk, or opportunity NOT supported by the context,
+- replaces every number with the matching value from context.derived (the authoritative
+  figures) when one exists — never invent or recompute numbers,
+- keeps wording specific and grounded in the actual facts,
+- recalibrates "confidence" downward if the candidate over-reached.
+Preserve the exact JSON structure and field names. Output ONLY the corrected JSON.`;
+
+interface VerifyResult<T> {
+  data: T;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
+/** Second pass: ask the judge model to ground/correct the candidate output. */
+async function verifyAndGround<T>(
+  opts: StructuredRunOptions<T>,
+  safeContext: Record<string, unknown>,
+  candidate: T,
+  provider: AIProvider,
+): Promise<VerifyResult<T> | null> {
+  try {
+    const judgeModel = modelForAdvisor(aiConfig.judgeModel, provider);
+    const prompt = `EMPIRE CONTEXT (redacted):
+${JSON.stringify(safeContext, null, 2)}
+
+CANDIDATE JSON:
+${JSON.stringify(candidate, null, 2)}`;
+
+    const response = await callAI([{ role: 'user', content: prompt }], {
+      systemPrompt: `${VERIFY_SYSTEM}\n\n${JSON_ONLY}`,
+      model: judgeModel,
+      maxTokens: opts.maxTokens ?? 2048,
+      temperature: 0,
+    });
+
+    const parsed = opts.schema.safeParse(extractJson(response.text));
+    if (!parsed.success) return null;
+
+    logger.info('ai_verify_pass', {
+      feature: opts.feature,
+      provider,
+      model: judgeModel,
+      outputTokens: response.outputTokens,
+    });
+
+    return {
+      data: parsed.data as T,
+      inputTokens: response.inputTokens,
+      outputTokens: response.outputTokens,
+    };
+  } catch (error) {
+    logger.warn('ai_verify_failed', {
+      feature: opts.feature,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+function sumTokens(a?: number, b?: number): number | undefined {
+  if (a == null && b == null) return undefined;
+  return (a ?? 0) + (b ?? 0);
 }

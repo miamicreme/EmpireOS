@@ -22,6 +22,64 @@ export interface ContextAction {
   rankScore: number | null;
   dueAt: string | null;
   moduleId: string | null;
+  phaseId: string | null;
+}
+
+/**
+ * An action enriched with a deterministic priority score + human-readable
+ * reasons. Computed in code (phase/deadline/cash-gap/health/feedback aware) so
+ * the AI starts from a correct baseline instead of re-deriving ranking.
+ */
+export interface PrioritizedAction extends ContextAction {
+  priorityScore: number; // 0..100
+  priorityReasons: string[];
+}
+
+/** Deterministically computed facts. Numbers the model must not re-derive. */
+export interface DerivedFacts {
+  cashTargetToday: number | null;
+  cashCollectedToday: number | null;
+  cashGapToday: number | null; // max(0, target - collected)
+  cashTargetHitPct: number | null; // 0..1
+  openActionCount: number;
+  overdueActionCount: number;
+  dueTodayActionCount: number;
+  completedTodayCount: number;
+  completionRateToday: number | null; // done / (done + open)
+  followUpsDueCount: number | null;
+  activeApplications: number | null;
+  blockedProjects: number | null;
+  openDisputes: number | null;
+  redModuleCount: number;
+}
+
+/** A metric's movement over the trailing window. */
+export interface MetricTrend {
+  moduleId: string | null;
+  key: string;
+  label: string;
+  current: number | null;
+  previous: number | null;
+  delta: number | null;
+  direction: 'up' | 'down' | 'flat';
+  streakDays: number; // consecutive days moving in `direction`
+  samples: number;
+}
+
+/**
+ * What the operator actually acts on — learned from accepted/dismissed
+ * recommendations and approved/rejected drafts. Feeds the prompt so the AI
+ * adapts to revealed preferences.
+ */
+export interface FeedbackSignals {
+  acceptedCount: number;
+  dismissedCount: number;
+  approvedDraftCount: number;
+  rejectedDraftCount: number;
+  preferredCategories: string[];
+  avoidedCategories: string[];
+  recentAccepted: string[];
+  recentDismissed: string[];
 }
 
 /** A module's contribution to the context: health + key metrics + signals. */
@@ -84,6 +142,14 @@ export interface EmpireContext {
     cashTarget: number | null;
     highlights: string | null;
   } | null;
+  /** Deterministic, authoritative numbers — the model must use these as-is. */
+  derived: DerivedFacts;
+  /** Momentum signals over the trailing window. */
+  trends: MetricTrend[];
+  /** Code-ranked action baseline (phase/deadline/cash/health/feedback aware). */
+  prioritized: PrioritizedAction[];
+  /** Revealed preferences learned from prior accept/dismiss/approve/reject. */
+  feedback: FeedbackSignals | null;
 }
 
 // ---------------------------------------------------------------------------
