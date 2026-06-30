@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   startRegistration,
@@ -15,6 +15,8 @@ import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui/Button';
 
 type Phase = 'loading' | 'unconfigured' | 'setup' | 'signin';
+// Visual state of the biometric orb, independent of which phase we're in.
+type Status = 'idle' | 'scanning' | 'success' | 'error';
 
 function deviceLabel(): string {
   if (typeof navigator === 'undefined') return 'Device';
@@ -26,12 +28,26 @@ function deviceLabel(): string {
   return 'This device';
 }
 
+/** Names the platform authenticator so copy reads naturally per device. */
+function biometricName(): string {
+  if (typeof navigator === 'undefined') return 'your device';
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|Macintosh/.test(ua)) return 'Face ID or Touch ID';
+  if (/Windows/.test(ua)) return 'Windows Hello';
+  if (/Android/.test(ua)) return 'your fingerprint';
+  return 'your device';
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('loading');
-  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
+  // Whether we've already fired the one automatic sign-in attempt on load.
+  const autoTried = useRef(false);
+
+  const busy = status === 'scanning';
 
   const refresh = useCallback(async () => {
     const res = await api.get<{ configured: boolean; claimed: boolean; authenticated: boolean }>(
@@ -53,48 +69,92 @@ export default function LoginPage() {
     void refresh();
   }, [refresh]);
 
+  // Brief success beat before navigating, so the win is felt, not skipped.
+  const succeed = useCallback(() => {
+    setStatus('success');
+    setError(null);
+    window.setTimeout(() => router.replace('/'), 650);
+  }, [router]);
+
   async function handleSetup() {
-    setBusy(true);
+    setStatus('scanning');
     setError(null);
     try {
       const opt = await api.post<PublicKeyCredentialCreationOptionsJSON>(
         '/api/auth/register/options',
         {},
       );
-      if (!opt.ok) return setError(opt.error.message);
+      if (!opt.ok) {
+        setStatus('error');
+        return setError(opt.error.message);
+      }
       const attResp = await startRegistration({ optionsJSON: opt.data });
       const verify = await api.post('/api/auth/register/verify', {
         response: attResp,
         label: deviceLabel(),
       });
-      if (!verify.ok) return setError(verify.error.message);
-      router.replace('/');
+      if (!verify.ok) {
+        setStatus('error');
+        return setError(verify.error.message);
+      }
+      succeed();
     } catch (e) {
+      setStatus('error');
       setError(friendly(e));
-    } finally {
-      setBusy(false);
     }
   }
 
-  async function handleSignIn() {
-    setBusy(true);
-    setError(null);
-    try {
-      const opt = await api.post<PublicKeyCredentialRequestOptionsJSON>(
-        '/api/auth/authenticate/options',
-        {},
-      );
-      if (!opt.ok) return setError(opt.error.message);
-      const assResp = await startAuthentication({ optionsJSON: opt.data });
-      const verify = await api.post('/api/auth/authenticate/verify', { response: assResp });
-      if (!verify.ok) return setError(verify.error.message);
-      router.replace('/');
-    } catch (e) {
-      setError(friendly(e));
-    } finally {
-      setBusy(false);
+  // `auto` is the silent attempt fired on page load. Only *pre-prompt* failures
+  // (browser needs a user gesture, or the prompt is dismissed/cancelled) stay
+  // quiet so we don't flash an error the user didn't cause. Once the device has
+  // confirmed, any failure — a stale/replaced challenge, expiry, or a failed
+  // session exchange — is always surfaced, even on the auto attempt.
+  const handleSignIn = useCallback(
+    async (auto = false) => {
+      setStatus('scanning');
+      setError(null);
+      // Becomes true the moment startAuthentication() resolves — i.e. the user
+      // has actually confirmed with their biometric.
+      let confirmed = false;
+      try {
+        const opt = await api.post<PublicKeyCredentialRequestOptionsJSON>(
+          '/api/auth/authenticate/options',
+          {},
+        );
+        if (!opt.ok) {
+          setStatus(auto ? 'idle' : 'error');
+          if (!auto) setError(opt.error.message);
+          return;
+        }
+        const assResp = await startAuthentication({ optionsJSON: opt.data });
+        confirmed = true;
+        const verify = await api.post('/api/auth/authenticate/verify', { response: assResp });
+        if (!verify.ok) {
+          setStatus('error');
+          setError(verify.error.message);
+          return;
+        }
+        succeed();
+      } catch (e) {
+        // A throw before confirmation is a gesture/cancel — stay quiet on auto.
+        const quiet = auto && !confirmed;
+        setStatus(quiet ? 'idle' : 'error');
+        if (!quiet) setError(friendly(e));
+      }
+    },
+    [succeed],
+  );
+
+  // Frictionless sign-in: the moment the screen is ready, surface the passkey
+  // prompt automatically so returning owners just glance at their device. The
+  // visible button remains as a fallback for browsers that block the prompt
+  // until a user gesture.
+  useEffect(() => {
+    if (phase === 'signin' && supported && !autoTried.current) {
+      autoTried.current = true;
+      void handleSignIn(true);
     }
-  }
+  }, [phase, supported, handleSignIn]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0 p-6">
@@ -128,41 +188,49 @@ export default function LoginPage() {
             </div>
           )}
 
-          {!supported && phase !== 'unconfigured' && phase !== 'loading' && (
-            <p className="text-xs text-empire-red font-mono mb-4 text-center">
-              This browser doesn&apos;t support passkeys.
-            </p>
-          )}
+          {(phase === 'setup' || phase === 'signin') && (
+            <div className="flex flex-col items-center space-y-5">
+              <BiometricOrb status={status} />
 
-          {phase === 'setup' && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <p className="text-sm font-medium text-gray-100">Set up your passkey</p>
-                <p className="text-xs text-empire-muted mt-1 leading-relaxed">
-                  Use Face ID, Touch ID, or Windows Hello. Your biometric never leaves this device —
-                  this first passkey claims the account.
+              {!supported ? (
+                <p className="text-xs text-empire-red font-mono text-center">
+                  This browser doesn&apos;t support passkeys.
                 </p>
-              </div>
-              <Button onClick={handleSetup} loading={busy} disabled={!supported} className="w-full" size="lg">
-                Create passkey
-              </Button>
-            </div>
-          )}
+              ) : phase === 'setup' ? (
+                <div className="w-full space-y-4">
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-gray-100">Set up your passkey</p>
+                    <p className="text-xs text-empire-muted mt-1 leading-relaxed">
+                      Use {biometricName()}. Your biometric never leaves this device — this first
+                      passkey claims the account.
+                    </p>
+                  </div>
+                  <Button onClick={handleSetup} loading={busy} className="w-full" size="lg">
+                    Create passkey
+                  </Button>
+                </div>
+              ) : (
+                <div className="w-full space-y-4">
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-gray-100">
+                      {status === 'success' ? 'Signed in' : 'Welcome back'}
+                    </p>
+                    <p className="text-xs text-empire-muted mt-1 leading-relaxed">
+                      {statusCopy(status)}
+                    </p>
+                  </div>
+                  {status !== 'success' && (
+                    <Button onClick={() => handleSignIn(false)} loading={busy} className="w-full" size="lg">
+                      {status === 'error' ? 'Try again' : `Sign in with ${biometricName()}`}
+                    </Button>
+                  )}
+                </div>
+              )}
 
-          {phase === 'signin' && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <p className="text-sm font-medium text-gray-100">Welcome back</p>
-                <p className="text-xs text-empire-muted mt-1">Look at your device to sign in.</p>
-              </div>
-              <Button onClick={handleSignIn} loading={busy} disabled={!supported} className="w-full" size="lg">
-                Sign in with passkey
-              </Button>
+              {error && (
+                <p className="text-xs text-empire-red font-mono text-center leading-relaxed">{error}</p>
+              )}
             </div>
-          )}
-
-          {error && (
-            <p className="mt-4 text-xs text-empire-red font-mono text-center leading-relaxed">{error}</p>
           )}
         </div>
 
@@ -171,6 +239,78 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+/** The animated biometric indicator at the heart of the sign-in card. */
+function BiometricOrb({ status }: { status: Status }) {
+  const ring =
+    status === 'success'
+      ? 'border-empire-green/40 bg-empire-green/10 text-empire-green'
+      : status === 'error'
+        ? 'border-empire-red/40 bg-empire-red/10 text-empire-red'
+        : 'border-empire-blue/30 bg-empire-blue/10 text-empire-blue';
+
+  return (
+    <div className={`relative flex h-20 w-20 items-center justify-center ${status === 'error' ? 'animate-shake' : ''}`}>
+      {/* Radiating rings while the OS prompt is open. */}
+      {status === 'scanning' && (
+        <>
+          <span className="absolute inset-0 rounded-full border border-empire-blue/40 animate-radiate" />
+          <span
+            className="absolute inset-0 rounded-full border border-empire-blue/30 animate-radiate"
+            style={{ animationDelay: '0.6s' }}
+          />
+        </>
+      )}
+      <div
+        className={`relative flex h-16 w-16 items-center justify-center rounded-full border ${ring} ${
+          status === 'scanning' ? 'animate-breathe' : ''
+        } transition-colors duration-300`}
+      >
+        {status === 'success' ? (
+          <CheckIcon className="h-7 w-7 animate-pop-in" />
+        ) : (
+          <FingerprintIcon className="h-8 w-8" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function statusCopy(status: Status): string {
+  switch (status) {
+    case 'scanning':
+      return 'Confirm with your device…';
+    case 'success':
+      return 'Taking you in.';
+    case 'error':
+      return 'That didn’t go through. Give it another try.';
+    default:
+      return `Glance at your device to sign in with ${biometricName()}.`;
+  }
+}
+
+function FingerprintIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 10a2 2 0 0 0-2 2c0 1.5.5 3 1 4" />
+      <path d="M12 6a6 6 0 0 0-6 6c0 2 .5 3.5 1 5" />
+      <path d="M12 6a6 6 0 0 1 6 6c0 1 0 2-.2 3" />
+      <path d="M8 13c0 2 .5 3.5 1.5 5.5" />
+      <path d="M16 12a4 4 0 0 0-4-4" />
+      <path d="M15.5 16c-.3 1-.7 1.8-1.2 2.6" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   );
 }
 
