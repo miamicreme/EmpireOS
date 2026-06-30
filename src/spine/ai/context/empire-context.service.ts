@@ -15,6 +15,10 @@ import { todayISODate, nowISO } from '@/lib/dates';
 import { calculateEmpireScore } from '../../empire-score.service';
 import { getModuleHealthSummary, getAllModuleMetrics } from '../../module-registry';
 import { MODULE_IDS } from '../../constants';
+import { isoDateDaysAgo } from '@/lib/dates';
+import { computeDerivedFacts, computeTrends } from '../insight/derived-metrics.service';
+import { prioritizeActions } from '../insight/prioritizer.service';
+import { summarizeFeedback } from '../insight/feedback.service';
 import type {
   Profile,
   GlobalAction,
@@ -29,6 +33,7 @@ import type {
   ContextAction,
   ModuleContextSlice,
   ContextDecision,
+  FeedbackSignals,
 } from '../ai.types';
 
 function toContextAction(a: GlobalAction): ContextAction {
@@ -41,11 +46,12 @@ function toContextAction(a: GlobalAction): ContextAction {
     rankScore: a.rank_score,
     dueAt: a.due_at,
     moduleId: a.module_id,
+    phaseId: a.phase_id,
   };
 }
 
-function isOverdue(a: GlobalAction, now: string): boolean {
-  return Boolean(a.due_at && a.due_at < now && a.status !== 'done' && a.status !== 'archived');
+function isOverdue(a: ContextAction, now: string): boolean {
+  return Boolean(a.dueAt && a.dueAt < now && a.status !== 'done' && a.status !== 'archived');
 }
 
 async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
@@ -67,25 +73,63 @@ export async function buildEmpireContext(
   const today = todayISODate();
   const now = nowISO();
 
-  const [profileRow, actions, doneToday, decisions, daily, weekly, health, metrics] =
-    await Promise.all([
-      safe(fetchProfile(supabase, userId), null),
-      safe(fetchOpenActions(supabase, userId), [] as GlobalAction[]),
-      safe(fetchActionsCompletedToday(supabase, userId, today), [] as GlobalAction[]),
-      safe(fetchRecentDecisions(supabase, userId), [] as Decision[]),
-      safe(fetchDailyReview(supabase, userId, today), null as DailyReview | null),
-      safe(fetchWeeklyReview(supabase, userId), null as WeeklyReview | null),
-      safe(getModuleHealthSummary(userId), [] as ModuleHealthResult[]),
-      safe(getAllModuleMetrics(userId), [] as ModuleMetric[]),
-    ]);
+  const [
+    profileRow,
+    actions,
+    doneToday,
+    decisions,
+    daily,
+    weekly,
+    health,
+    metrics,
+    metricHistory,
+    feedback,
+  ] = await Promise.all([
+    safe(fetchProfile(supabase, userId), null),
+    safe(fetchOpenActions(supabase, userId), [] as GlobalAction[]),
+    safe(fetchActionsCompletedToday(supabase, userId, today), [] as GlobalAction[]),
+    safe(fetchRecentDecisions(supabase, userId), [] as Decision[]),
+    safe(fetchDailyReview(supabase, userId, today), null as DailyReview | null),
+    safe(fetchWeeklyReview(supabase, userId), null as WeeklyReview | null),
+    safe(getModuleHealthSummary(userId), [] as ModuleHealthResult[]),
+    safe(getAllModuleMetrics(userId), [] as ModuleMetric[]),
+    safe(fetchMetricHistory(supabase, userId), [] as ModuleMetric[]),
+    safe(fetchFeedback(supabase, userId), null as FeedbackSignals | null),
+  ]);
 
-  const overdueActions = actions.filter((a) => isOverdue(a, now)).map(toContextAction);
-  const topActions = [...actions]
-    .sort((a, b) => (b.rank_score ?? 0) - (a.rank_score ?? 0))
-    .slice(0, 10)
-    .map(toContextAction);
+  const contextActions = actions.map(toContextAction);
+  const overdueActions = contextActions.filter((a) => isOverdue(a, now));
+  const topActions = [...contextActions]
+    .sort((a, b) => (b.rankScore ?? 0) - (a.rankScore ?? 0))
+    .slice(0, 10);
 
   const modules = buildModuleSlices(health, metrics);
+  const redModuleCount = health.filter((h) => h.health === 'red').length;
+
+  // Authoritative numbers — computed in code, not by the model.
+  const derived = computeDerivedFacts({
+    liveMetrics: metrics,
+    openActions: contextActions,
+    completedTodayCount: doneToday.length,
+    redModuleCount,
+    dailyCashTarget: profileRow?.daily_cash_target ?? null,
+    today,
+    nowISO: now,
+  });
+
+  const trends = computeTrends(metricHistory);
+
+  // Code-ranked baseline the AI starts from (phase/deadline/cash/health/feedback).
+  const prioritized = prioritizeActions({
+    actions: contextActions,
+    currentPhase: profileRow?.current_phase ?? null,
+    derived,
+    modules,
+    feedback,
+    nowISO: now,
+    today,
+  }).slice(0, 12);
+
   // Score from open + today's completed actions so completion is credited
   // (fetchOpenActions excludes done; scoring on it alone would always read 0).
   const empireScore = computeEmpireScore(actions, doneToday, health, daily);
@@ -127,6 +171,10 @@ export async function buildEmpireContext(
           highlights: weekly.highlights,
         }
       : null,
+    derived,
+    trends,
+    prioritized,
+    feedback,
   };
 
   return ok(context);
@@ -212,6 +260,29 @@ async function fetchOpenActions(supabase: SupabaseClient, userId: string): Promi
     .order('rank_score', { ascending: false })
     .limit(50);
   return (data ?? []) as GlobalAction[];
+}
+
+async function fetchMetricHistory(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<ModuleMetric[]> {
+  const since = isoDateDaysAgo(7);
+  const { data } = await supabase
+    .from('module_metrics')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', since)
+    .order('date', { ascending: true })
+    .limit(500);
+  return (data ?? []) as ModuleMetric[];
+}
+
+async function fetchFeedback(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<FeedbackSignals | null> {
+  const result = await summarizeFeedback(supabase, userId);
+  return result.ok ? result.data : null;
 }
 
 async function fetchActionsCompletedToday(

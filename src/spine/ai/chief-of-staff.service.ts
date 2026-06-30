@@ -25,6 +25,19 @@ You sit ON TOP of the Spine. The Spine owns priority; you read it and think with
 the operator. You do not flatter. You are direct, specific, and ruthless about
 leverage. Reference the actual facts in the context — never give generic advice.
 
+ACCURACY RULES (non-negotiable):
+- Use ONLY facts present in the context. Never invent metrics, deadlines, or names.
+- For every number (cash gap, overdue count, completion rate, follow-ups due),
+  use context.derived verbatim — it is authoritative. Do NOT recompute.
+- context.prioritized is a code-ranked baseline with priorityScore + reasons.
+  Treat it as the strong default ordering; only reorder when you can justify why
+  from the facts, and explain the change in "reasoning".
+- context.trends shows momentum (direction/delta/streak). Weight worsening
+  streaks and widening gaps higher.
+- context.feedback shows what the operator actually accepts vs dismisses. Bias
+  toward preferredCategories; avoid avoidedCategories unless a fact forces it.
+- If the context is thin, say so and lower "confidence" rather than guessing.
+
 Answer, through the lens of the context:
 - What is the single highest-value action right now?
 - What is falling behind or leaking cash?
@@ -46,10 +59,13 @@ Return JSON with this exact shape:
 Return at most 5 topActions, ranked highest-value first.`;
 
 function stubOutput(ctx: EmpireContext): ChiefOfStaffOutput {
-  const target = ctx.profile?.dailyCashTarget ?? 250;
-  const top: SuggestedAction[] = ctx.topActions.slice(0, 5).map((a) => ({
+  const target = ctx.derived.cashTargetToday ?? ctx.profile?.dailyCashTarget ?? 250;
+  // Use the deterministic prioritizer baseline — accurate with no model at all.
+  const top: SuggestedAction[] = ctx.prioritized.slice(0, 5).map((a) => ({
     title: a.title,
-    description: `Surfaced from the Spine (rank ${a.rankScore ?? 0}). Configure an AI provider for model-backed analysis.`,
+    description: a.priorityReasons.length
+      ? `Prioritized: ${a.priorityReasons.join(', ')}.`
+      : `Surfaced from the Spine (priority ${a.priorityScore}).`,
     category: a.category,
     priority: a.priority,
     moduleId: a.moduleId,
@@ -60,7 +76,7 @@ function stubOutput(ctx: EmpireContext): ChiefOfStaffOutput {
   }));
   if (top.length === 0) {
     top.push({
-      title: `Generate $${target} today`,
+      title: `Generate $${ctx.derived.cashGapToday ?? target} today`,
       description: 'No open actions in the Spine. Start the Cash Engine and log a first entry.',
       category: 'cash',
       priority: 'high',
@@ -71,13 +87,28 @@ function stubOutput(ctx: EmpireContext): ChiefOfStaffOutput {
       confidenceScore: 0.5,
     });
   }
+
+  const risks: string[] = [];
+  if (ctx.derived.overdueActionCount > 0) {
+    risks.push(`${ctx.derived.overdueActionCount} action(s) overdue`);
+  }
+  if (ctx.derived.cashGapToday && ctx.derived.cashGapToday > 0) {
+    risks.push(`$${ctx.derived.cashGapToday} short of today's cash target`);
+  }
+  if (ctx.derived.redModuleCount > 0) {
+    risks.push(`${ctx.derived.redModuleCount} module(s) in the red`);
+  }
+  const worsening = ctx.trends
+    .filter((t) => t.direction === 'down' && t.streakDays >= 2)
+    .map((t) => `${t.label} down ${t.streakDays}d`);
+
   return {
-    executiveSummary: `[STUB] ${ctx.overdueActions.length} overdue action(s), ${ctx.topActions.length} open. Empire score ${ctx.empireScore?.score ?? 'n/a'}. Configure an AI provider for live analysis.`,
+    executiveSummary: `[STUB] ${ctx.derived.openActionCount} open, ${ctx.derived.overdueActionCount} overdue, ${ctx.derived.completedTodayCount} done today. Cash ${ctx.derived.cashCollectedToday ?? 0}/${target}. Empire score ${ctx.empireScore?.score ?? 'n/a'}. Configure an AI provider for live analysis.`,
     topActions: top,
-    risks: ctx.overdueActions.length > 0 ? [`${ctx.overdueActions.length} action(s) overdue`] : [],
-    opportunities: [],
+    risks,
+    opportunities: worsening.length ? [`Reverse momentum: ${worsening.join('; ')}`] : [],
     focusRecommendation: top[0]?.title ?? `Hit today's $${target} cash target`,
-    reasoning: 'Deterministic stub ranking by Spine rank_score.',
+    reasoning: 'Deterministic stub ranking by the code prioritizer (phase/deadline/cash/health/feedback aware).',
     confidence: 0.5,
   };
 }
@@ -113,6 +144,7 @@ export async function runChiefOfStaff(
     stub: stubOutput(context),
     model: aiConfig.defaultModel,
     maxTokens: 2048,
+    verify: true,
   });
 
   const output = run.data;

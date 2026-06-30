@@ -52,6 +52,9 @@ function systemPrompt(moduleId: ModuleId): string {
   return `${MODULE_LENS[moduleId]}
 
 You read a redacted slice of Empire context. Reference the real metrics. No generic advice.
+ACCURACY: use numbers from context.derived verbatim; never invent figures. Start from
+context.prioritized (code-ranked) and context.trends (momentum); respect context.feedback.
+If the data is thin, say so and lower confidence rather than guessing.
 
 Return JSON with this exact shape:
 {
@@ -110,9 +113,12 @@ export async function runModuleCopilot(
   const scopedContext = {
     generatedFor: context.generatedFor,
     profile: context.profile,
+    derived: context.derived,
     module: slice,
-    relatedActions: context.topActions.filter((a) => a.moduleId === moduleId),
+    trends: context.trends.filter((t) => t.moduleId === moduleId),
+    prioritized: context.prioritized.filter((a) => a.moduleId === moduleId),
     overdueActions: context.overdueActions.filter((a) => a.moduleId === moduleId),
+    feedback: context.feedback,
   };
 
   const run = await runStructured({
@@ -124,6 +130,7 @@ export async function runModuleCopilot(
     stub: { ...stubOutput(moduleId, slice) },
     model: aiConfig.fastModel,
     maxTokens: 1536,
+    verify: true,
   });
 
   const output: ModuleCopilotOutput = { ...run.data, moduleId };

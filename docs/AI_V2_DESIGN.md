@@ -80,6 +80,24 @@ called (otherwise stub mode).
 
 ## UI
 
-- Dashboard widget: **AI Chief of Staff** (run plan, risks, drafts, ask).
+- Dashboard widget: **AI Chief of Staff** (run plan, risks, drafts, ask). Shows a
+  derived-facts strip (cash, overdue, done today, open) + momentum chips.
 - Pages: `/ai`, `/ai/brief`, `/ai/recommendations`, `/ai/decisions`, `/ai/chat`.
 - Each module page carries an **AI Copilot** panel.
+
+## Intelligence layer (V2.1 — "make it smarter")
+
+The AI no longer reads a raw JSON dump and guesses. Five deterministic, fully
+unit-tested layers sharpen accuracy and let the system learn:
+
+| Layer | File | What it adds |
+| --- | --- | --- |
+| Derived facts | `insight/derived-metrics.service.ts` | Computes authoritative numbers in code (cash gap, overdue/due-today counts, completion rate, follow-ups due) so the model never does arithmetic. Exposed as `context.derived`; prompts require using it verbatim. |
+| Trends | `insight/derived-metrics.service.ts` | Per-metric direction/delta/streak over a 7-day window (`context.trends`) so the AI reasons about momentum, not just today. |
+| Prioritizer | `insight/prioritizer.service.ts` | Deterministic 0–100 priority score with reasons, weighting phase alignment, deadline pressure, today's cash gap, module health, and learned preferences (`context.prioritized`). The AI starts from this baseline; the stub uses it directly. |
+| Feedback learning | `insight/feedback.service.ts` | Distills accept/dismiss + approve/reject history into preferred/avoided categories (`context.feedback`), closing the loop so the system adapts to what the operator actually does. |
+| Grounding pass | `ai-runner.ts` (`verify`) | An optional second judge-model pass that strips unsupported claims, corrects numbers to `context.derived`, and recalibrates confidence. Enabled on Chief of Staff, Daily Brief, and Module Copilots. |
+
+Net effect: the stub path is now accurate with no model at all, the model is
+constrained to grounded facts, and recommendations get better the more the
+operator accepts/rejects them.

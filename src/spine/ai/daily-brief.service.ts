@@ -43,7 +43,15 @@ export interface AiBrief {
 
 function systemPrompt(briefType: BriefType): string {
   return `You are the AI Chief of Staff generating the operator's ${briefType} brief for Empire OS.
-Be concise and operational. Use the real numbers in the context. No fluff.
+Be concise and operational. No fluff.
+
+ACCURACY RULES:
+- Use ONLY facts in the context. Never invent numbers, names, or deadlines.
+- Every number must come from context.derived verbatim (cashTargetToday,
+  cashGapToday, overdueActionCount, followUpsDueCount, etc). Do NOT recompute.
+- Start from context.prioritized (code-ranked, with reasons) for topActions.
+- Use context.trends for momentum and context.feedback for what the operator
+  actually acts on. Lower "confidence" when the context is thin.
 
 Return JSON with this exact shape:
 {
@@ -62,23 +70,35 @@ Return at most 5 topActions.`;
 }
 
 function stubBrief(ctx: EmpireContext): DailyBriefOutput {
-  const target = ctx.profile?.dailyCashTarget ?? 250;
+  const target = ctx.derived.cashTargetToday ?? ctx.profile?.dailyCashTarget ?? 250;
+  const risks: string[] = [];
+  if (ctx.derived.overdueActionCount > 0) {
+    risks.push(`${ctx.derived.overdueActionCount} overdue action(s)`);
+  }
+  if (ctx.derived.cashGapToday && ctx.derived.cashGapToday > 0) {
+    risks.push(`$${ctx.derived.cashGapToday} short of today's cash target`);
+  }
   return {
-    summary: `[STUB] ${ctx.topActions.length} open actions, ${ctx.overdueActions.length} overdue. Configure an AI provider for a model-written brief.`,
+    summary: `[STUB] ${ctx.derived.openActionCount} open, ${ctx.derived.overdueActionCount} overdue, ${ctx.derived.completedTodayCount} done today. Configure an AI provider for a model-written brief.`,
     cashTarget: target,
-    topActions: ctx.topActions.slice(0, 5).map((a) => ({
+    topActions: ctx.prioritized.slice(0, 5).map((a) => ({
       title: a.title,
-      description: `From the Spine (rank ${a.rankScore ?? 0}).`,
+      description: a.priorityReasons.length
+        ? `Prioritized: ${a.priorityReasons.join(', ')}.`
+        : `From the Spine (priority ${a.priorityScore}).`,
       category: a.category,
       priority: a.priority,
       moduleId: a.moduleId,
     })),
-    followUps: [],
+    followUps:
+      ctx.derived.followUpsDueCount && ctx.derived.followUpsDueCount > 0
+        ? [`${ctx.derived.followUpsDueCount} follow-up(s) due`]
+        : [],
     jobHuntPriority: 'Advance the highest-priority application.',
     projectPriority: 'Push the project with the nearest deadline.',
-    risks: ctx.overdueActions.length > 0 ? [`${ctx.overdueActions.length} overdue action(s)`] : [],
+    risks,
     opportunities: [],
-    recommendedFocus: ctx.topActions[0]?.title ?? `Hit today's $${target} cash target`,
+    recommendedFocus: ctx.prioritized[0]?.title ?? `Hit today's $${target} cash target`,
     confidence: 0.5,
   };
 }
@@ -110,6 +130,7 @@ export async function generateDailyBrief(
     stub: stubBrief(context),
     model: aiConfig.defaultModel,
     maxTokens: 1536,
+    verify: true,
   });
 
   const brief = run.data;
