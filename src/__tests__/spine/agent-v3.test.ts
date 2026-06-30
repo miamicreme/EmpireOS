@@ -278,6 +278,50 @@ describe('runAgent', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Repository safety
+// ---------------------------------------------------------------------------
+describe('createActionDrafts', () => {
+  it('coerces an unknown module id to null (FK safety)', async () => {
+    const { createActionDrafts } = await import('@/spine/ai/agent/agent-repository.service');
+    const seed = seedSpine();
+    const db = makeDb(seed);
+    const res = await createActionDrafts(db, USER, 'r1', null, [
+      { title: 'Do thing', description: '', category: 'general', priority: 'medium', moduleId: 'not-a-module' },
+      { title: 'Cash thing', description: '', category: 'cash', priority: 'high', moduleId: 'cash-engine' },
+    ]);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data[0]!.module_id).toBeNull();
+    expect(res.data[1]!.module_id).toBe('cash-engine');
+  });
+});
+
+describe('createRun concurrency', () => {
+  it('replays the original run when the unique key races (23505)', async () => {
+    const { createRun } = await import('@/spine/ai/agent/agent-repository.service');
+    const winner = { id: 'run-win', user_id: USER, idempotency_key: 'k', user_command: 'x', status: 'running' };
+    let selects = 0;
+    const racingDb = {
+      from: () => {
+        const chain: Record<string, unknown> = {};
+        for (const m of ['select', 'eq', 'insert']) chain[m] = () => chain;
+        // First lookup: empty (we lost the race). After the insert conflict, the
+        // re-read finds the winner's row.
+        chain.maybeSingle = () => Promise.resolve({ data: selects++ === 0 ? null : winner, error: null });
+        chain.single = () => Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate key' } });
+        return chain;
+      },
+    } as unknown as import('@supabase/supabase-js').SupabaseClient;
+
+    const res = await createRun(racingDb, USER, { threadId: 't', command: 'x', idempotencyKey: 'k' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.reused).toBe(true);
+    expect(res.data.run.id).toBe('run-win');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Context hash reuse
 // ---------------------------------------------------------------------------
 describe('context pack', () => {

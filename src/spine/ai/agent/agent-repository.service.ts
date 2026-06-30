@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { appError } from '@/lib/errors';
 import { err, ok, type AppResult } from '@/lib/result';
 import { nowISO } from '@/lib/dates';
+import { MODULE_IDS } from '../../constants';
 import type {
   RuntimePath,
   RunStatus,
@@ -139,30 +140,47 @@ export async function createRun(
     idempotencyKey?: string | null;
   },
 ): Promise<AppResult<{ run: RunRow; reused: boolean }>> {
-  // Idempotency: replaying the same key returns the original run untouched.
-  if (input.idempotencyKey) {
-    const { data: existing } = await supabase
+  const key = input.idempotencyKey ?? null;
+
+  const readExisting = async (): Promise<RunRow | null> => {
+    if (!key) return null;
+    const { data } = await supabase
       .from('agent_runs')
       .select('*')
       .eq('user_id', userId)
-      .eq('idempotency_key', input.idempotencyKey)
+      .eq('idempotency_key', key)
       .maybeSingle();
-    if (existing) return ok({ run: existing as RunRow, reused: true });
-  }
+    return (data ?? null) as RunRow | null;
+  };
+
+  // Idempotency: replaying the same key returns the original run untouched.
+  const existing = await readExisting();
+  if (existing) return ok({ run: existing, reused: true });
 
   const { data, error } = await supabase
     .from('agent_runs')
     .insert({
       user_id: userId,
       thread_id: input.threadId,
-      idempotency_key: input.idempotencyKey ?? null,
+      idempotency_key: key,
       user_command: input.command,
       status: 'running',
       started_at: nowISO(),
     })
     .select('*')
     .single();
-  if (error) return err(appError('db_error', error.message));
+
+  if (error) {
+    // Concurrency: a simultaneous request with the same key won the insert and
+    // we hit the unique(user_id, idempotency_key) constraint — replay theirs.
+    const isUniqueViolation =
+      (error as { code?: string }).code === '23505' || /duplicate|unique/i.test(error.message);
+    if (isUniqueViolation) {
+      const raced = await readExisting();
+      if (raced) return ok({ run: raced, reused: true });
+    }
+    return err(appError('db_error', error.message));
+  }
   return ok({ run: data as RunRow, reused: false });
 }
 
@@ -371,11 +389,15 @@ export async function createActionDrafts(
   drafts: SuggestedDraft[],
 ): Promise<AppResult<AgentActionDraftRow[]>> {
   if (drafts.length === 0) return ok([]);
+  // module_id is an FK to public.modules; coerce hallucinated ids (or the
+  // literal string "null") to null so one bad draft can't fail the whole batch.
+  const normalizeModuleId = (id: string | null | undefined): string | null =>
+    id && (MODULE_IDS as readonly string[]).includes(id) ? id : null;
   const rows = drafts.map((d) => ({
     user_id: userId,
     run_id: runId,
     source_artifact_id: artifactId,
-    module_id: d.moduleId ?? null,
+    module_id: normalizeModuleId(d.moduleId),
     title: d.title.slice(0, 300),
     description: d.description ? d.description.slice(0, 5000) : null,
     category: d.category,

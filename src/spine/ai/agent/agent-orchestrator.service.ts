@@ -58,6 +58,16 @@ export async function runAgent(
   const event = (type: Parameters<typeof repo.appendEvent>[4], summary?: string, payload?: Record<string, unknown>) =>
     repo.appendEvent(supabase, userId, runId, order++, type, { summary, payload });
 
+  // Mark the run failed (no stale 'running' rows) before returning a DB error.
+  const failRun = async (message: string): Promise<void> => {
+    await repo.appendEvent(supabase, userId, runId, order++, 'error', { summary: message, status: 'failed' });
+    await repo.finalizeRun(supabase, userId, runId, {
+      status: 'failed',
+      errorMessage: message,
+      latencyMs: Date.now() - startedAt,
+    });
+  };
+
   try {
     // 2. Intent.
     const route = routeIntent({
@@ -73,7 +83,10 @@ export async function runAgent(
 
     // 3. Context pack (compact, redacted, hash-reusable).
     const packResult = await buildContextPack(supabase, userId, route.intent);
-    if (!packResult.ok) return packResult;
+    if (!packResult.ok) {
+      await failRun(packResult.error.message);
+      return packResult;
+    }
     const { pack, context } = packResult.data;
     await event('context_built', pack.summary, { contextHash: pack.contextHash, tokenEstimate: pack.tokenEstimate });
 
@@ -143,7 +156,10 @@ export async function runAgent(
       confidence: out.confidence,
       riskLevel: out.riskLevel,
     });
-    if (!artifact.ok) return artifact;
+    if (!artifact.ok) {
+      await failRun(artifact.error.message);
+      return artifact;
+    }
 
     // 10. Action drafts (only when proposed).
     const draftsResult = await repo.createActionDrafts(
@@ -152,6 +168,12 @@ export async function runAgent(
     const drafts = draftsResult.ok ? draftsResult.data : [];
     if (drafts.length > 0) {
       await event('action_drafts_created', `${drafts.length} action draft(s)`);
+    } else if (!draftsResult.ok) {
+      // Don't silently drop proposed actions — record the failure in the trace.
+      await repo.appendEvent(supabase, userId, runId, order++, 'error', {
+        summary: `action draft creation failed: ${draftsResult.error.message}`,
+        status: 'failed',
+      });
     }
 
     // 11. Finalize.
