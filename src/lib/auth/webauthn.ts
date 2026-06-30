@@ -90,7 +90,10 @@ export async function verifyRegistration(
       expectedChallenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
-      requireUserVerification: false,
+      // Enforce the biometric/PIN gesture on the server, not just in the
+      // browser options — a tampered client can't downgrade to a non-UV
+      // assertion.
+      requireUserVerification: true,
     });
   } finally {
     clearChallenge();
@@ -157,7 +160,9 @@ export async function verifyAuthentication(
       expectedChallenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
-      requireUserVerification: false,
+      // Enforce UV server-side so a tampered client can't present a non-UV
+      // assertion to bypass the biometric/PIN gesture.
+      requireUserVerification: true,
       credential: {
         id: stored.credential_id,
         publicKey: isoBase64URL.toBuffer(stored.public_key),

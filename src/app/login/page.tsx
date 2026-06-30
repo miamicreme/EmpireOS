@@ -239,7 +239,7 @@ export default function LoginPage() {
                     <div className="space-y-3 rounded-xl border border-border bg-surface-0 p-3">
                       <p className="text-xs text-empire-muted leading-relaxed">
                         Enter your recovery code to clear the old passkey and set up this device
-                        fresh. This signs out every other device.
+                        fresh. Old devices can no longer sign in with their passkey.
                       </p>
                       <input
                         type="password"
