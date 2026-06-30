@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
 import { jsonError, jsonResult, readJson } from '@/lib/api';
+import { appError } from '@/lib/errors';
 import {
   updateProvider,
   deleteProvider,
@@ -19,7 +20,11 @@ export async function PATCH(
   if (!auth.ok) return jsonError(auth.error);
 
   const body = (await readJson(request)) as UpdateProviderInput;
-  return jsonResult(await updateProvider(supabase, auth.data, params.id, body));
+  try {
+    return jsonResult(await updateProvider(supabase, auth.data, params.id, body));
+  } catch (e) {
+    return jsonError(appError('internal', `Could not update provider: ${(e as Error).message}`));
+  }
 }
 
 /** DELETE a provider. */

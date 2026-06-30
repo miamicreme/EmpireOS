@@ -83,15 +83,32 @@ function toPublic(row: ProviderRow): ProviderConfig {
  * AppError if the write failed so callers don't report a saved key that isn't.
  */
 async function writeSecret(
-  admin: SupabaseClient,
+  admin: SupabaseClient | undefined,
   userId: string,
   providerId: string,
   plaintext: string,
 ): Promise<AppError | null> {
-  const { error } = await admin
+  // Acquiring the service-role client and encrypting both throw when the server
+  // is missing SUPABASE_SERVICE_ROLE_KEY / a valid AI_PROVIDER_ENCRYPTION_KEY.
+  // Convert that into a clear error instead of an opaque 500 so the UI can say
+  // what's actually wrong.
+  let client: SupabaseClient;
+  let cipher: string;
+  try {
+    client = admin ?? createAdminClient();
+    cipher = encryptSecret(plaintext);
+  } catch (e) {
+    return appError(
+      'internal',
+      `Key storage isn't configured on the server (${(e as Error).message}). ` +
+        'Set SUPABASE_SERVICE_ROLE_KEY (and optionally AI_PROVIDER_ENCRYPTION_KEY), then redeploy.',
+    );
+  }
+
+  const { error } = await client
     .from(SECRETS)
     .upsert(
-      { provider_id: providerId, user_id: userId, api_key_cipher: encryptSecret(plaintext) },
+      { provider_id: providerId, user_id: userId, api_key_cipher: cipher },
       { onConflict: 'provider_id' },
     );
   return error ? appError('db_error', `Failed to store provider key: ${error.message}`) : null;
@@ -168,7 +185,7 @@ export async function createProvider(
 
   const created = data as ProviderRow;
   if (v.apiKey) {
-    const secretErr = await writeSecret(admin ?? createAdminClient(), userId, created.id, v.apiKey);
+    const secretErr = await writeSecret(admin, userId, created.id, v.apiKey);
     if (secretErr) {
       // Roll back so we never leave a provider flagged has_own_key with no secret.
       await supabase.from(TABLE).delete().eq('id', created.id).eq('user_id', userId);
@@ -204,7 +221,7 @@ export async function updateProvider(
       .maybeSingle();
     if (!existing) return err(appError('not_found', 'Provider not found.'));
 
-    const secretErr = await writeSecret(admin ?? createAdminClient(), userId, id, v.apiKey);
+    const secretErr = await writeSecret(admin, userId, id, v.apiKey);
     if (secretErr) return err(secretErr);
   }
 

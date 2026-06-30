@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
 import { jsonError, jsonResult, readJson } from '@/lib/api';
+import { appError } from '@/lib/errors';
 import {
   listProviders,
   createProvider,
@@ -25,5 +26,10 @@ export async function POST(request: Request) {
   if (!auth.ok) return jsonError(auth.error);
 
   const body = (await readJson(request)) as CreateProviderInput;
-  return jsonResult(await createProvider(supabase, auth.data, body), 201);
+  try {
+    return jsonResult(await createProvider(supabase, auth.data, body), 201);
+  } catch (e) {
+    // Never leak an opaque 500 — surface a usable message to the settings UI.
+    return jsonError(appError('internal', `Could not save provider: ${(e as Error).message}`));
+  }
 }
