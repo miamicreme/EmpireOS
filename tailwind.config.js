@@ -66,12 +66,38 @@ module.exports = {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.4' },
         },
+        // Auth orb: a soft breathing glow while waiting for the biometric.
+        'breathe': {
+          '0%, 100%': { transform: 'scale(1)', opacity: '0.6' },
+          '50%': { transform: 'scale(1.08)', opacity: '1' },
+        },
+        // Expanding ring that radiates out of the orb while scanning.
+        'radiate': {
+          '0%': { transform: 'scale(0.8)', opacity: '0.5' },
+          '100%': { transform: 'scale(1.9)', opacity: '0' },
+        },
+        // Error nudge.
+        'shake': {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '20%, 60%': { transform: 'translateX(-6px)' },
+          '40%, 80%': { transform: 'translateX(6px)' },
+        },
+        // Success check pop.
+        'pop-in': {
+          from: { transform: 'scale(0.4)', opacity: '0' },
+          '70%': { transform: 'scale(1.1)', opacity: '1' },
+          to: { transform: 'scale(1)', opacity: '1' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out both',
         'slide-in': 'slide-in 0.25s ease-out both',
         'scale-in': 'scale-in 0.2s ease-out both',
         'pulse-dot': 'pulse-dot 2s ease-in-out infinite',
+        'breathe': 'breathe 2.4s ease-in-out infinite',
+        'radiate': 'radiate 1.8s ease-out infinite',
+        'shake': 'shake 0.4s ease-in-out',
+        'pop-in': 'pop-in 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
       },
     },
   },
