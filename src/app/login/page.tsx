@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   startRegistration,
@@ -32,6 +32,8 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
+  // Whether we've already fired the one automatic sign-in attempt on load.
+  const autoTried = useRef(false);
 
   const refresh = useCallback(async () => {
     const res = await api.get<{ configured: boolean; claimed: boolean; authenticated: boolean }>(
@@ -76,25 +78,48 @@ export default function LoginPage() {
     }
   }
 
-  async function handleSignIn() {
-    setBusy(true);
-    setError(null);
-    try {
-      const opt = await api.post<PublicKeyCredentialRequestOptionsJSON>(
-        '/api/auth/authenticate/options',
-        {},
-      );
-      if (!opt.ok) return setError(opt.error.message);
-      const assResp = await startAuthentication({ optionsJSON: opt.data });
-      const verify = await api.post('/api/auth/authenticate/verify', { response: assResp });
-      if (!verify.ok) return setError(verify.error.message);
-      router.replace('/');
-    } catch (e) {
-      setError(friendly(e));
-    } finally {
-      setBusy(false);
+  // `auto` is the silent attempt fired on page load: if the browser needs a
+  // user gesture (Safari) or the prompt is dismissed, we quietly fall back to
+  // the button instead of flashing a scary error the user didn't cause.
+  const handleSignIn = useCallback(
+    async (auto = false) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const opt = await api.post<PublicKeyCredentialRequestOptionsJSON>(
+          '/api/auth/authenticate/options',
+          {},
+        );
+        if (!opt.ok) {
+          if (!auto) setError(opt.error.message);
+          return;
+        }
+        const assResp = await startAuthentication({ optionsJSON: opt.data });
+        const verify = await api.post('/api/auth/authenticate/verify', { response: assResp });
+        if (!verify.ok) {
+          if (!auto) setError(verify.error.message);
+          return;
+        }
+        router.replace('/');
+      } catch (e) {
+        if (!auto) setError(friendly(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [router],
+  );
+
+  // Frictionless sign-in: the moment the screen is ready, surface the passkey
+  // prompt automatically so returning owners just glance at their device. The
+  // visible button remains as a fallback for browsers that block the prompt
+  // until a user gesture.
+  useEffect(() => {
+    if (phase === 'signin' && supported && !autoTried.current) {
+      autoTried.current = true;
+      void handleSignIn(true);
     }
-  }
+  }, [phase, supported, handleSignIn]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0 p-6">
@@ -153,10 +178,18 @@ export default function LoginPage() {
             <div className="space-y-4">
               <div className="text-center">
                 <p className="text-sm font-medium text-gray-100">Welcome back</p>
-                <p className="text-xs text-empire-muted mt-1">Look at your device to sign in.</p>
+                <p className="text-xs text-empire-muted mt-1">
+                  {busy ? 'Confirm with your device…' : 'Glance at your device to sign in.'}
+                </p>
               </div>
-              <Button onClick={handleSignIn} loading={busy} disabled={!supported} className="w-full" size="lg">
-                Sign in with passkey
+              <Button
+                onClick={() => handleSignIn(false)}
+                loading={busy}
+                disabled={!supported}
+                className="w-full"
+                size="lg"
+              >
+                {error ? 'Try again' : 'Sign in with passkey'}
               </Button>
             </div>
           )}
