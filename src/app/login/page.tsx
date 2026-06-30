@@ -104,13 +104,18 @@ export default function LoginPage() {
     }
   }
 
-  // `auto` is the silent attempt fired on page load: if the browser needs a
-  // user gesture (Safari) or the prompt is dismissed, we quietly return to idle
-  // instead of flashing an error the user didn't cause.
+  // `auto` is the silent attempt fired on page load. Only *pre-prompt* failures
+  // (browser needs a user gesture, or the prompt is dismissed/cancelled) stay
+  // quiet so we don't flash an error the user didn't cause. Once the device has
+  // confirmed, any failure — a stale/replaced challenge, expiry, or a failed
+  // session exchange — is always surfaced, even on the auto attempt.
   const handleSignIn = useCallback(
     async (auto = false) => {
       setStatus('scanning');
       setError(null);
+      // Becomes true the moment startAuthentication() resolves — i.e. the user
+      // has actually confirmed with their biometric.
+      let confirmed = false;
       try {
         const opt = await api.post<PublicKeyCredentialRequestOptionsJSON>(
           '/api/auth/authenticate/options',
@@ -122,16 +127,19 @@ export default function LoginPage() {
           return;
         }
         const assResp = await startAuthentication({ optionsJSON: opt.data });
+        confirmed = true;
         const verify = await api.post('/api/auth/authenticate/verify', { response: assResp });
         if (!verify.ok) {
-          setStatus(auto ? 'idle' : 'error');
-          if (!auto) setError(verify.error.message);
+          setStatus('error');
+          setError(verify.error.message);
           return;
         }
         succeed();
       } catch (e) {
-        setStatus(auto ? 'idle' : 'error');
-        if (!auto) setError(friendly(e));
+        // A throw before confirmation is a gesture/cancel — stay quiet on auto.
+        const quiet = auto && !confirmed;
+        setStatus(quiet ? 'idle' : 'error');
+        if (!quiet) setError(friendly(e));
       }
     },
     [succeed],
