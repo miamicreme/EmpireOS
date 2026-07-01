@@ -96,10 +96,23 @@ export async function runIntake(
   });
 
   const output = run.data;
-  const moduleId = output.destinationModule === 'none' ? null : output.destinationModule;
+  const routedModule = output.destinationModule === 'none' ? null : output.destinationModule;
 
   if (!persist) {
     return ok({ output, documentId: null, drafts: [] });
+  }
+
+  // documents.module_id is a FK to modules(id); if the registry row isn't
+  // present, tag the document with null and keep the intended module in
+  // metadata rather than failing the whole intake on a FK violation.
+  let moduleId: string | null = null;
+  if (routedModule) {
+    const { data: mod } = await supabase
+      .from('modules')
+      .select('id')
+      .eq('id', routedModule)
+      .maybeSingle();
+    if (mod) moduleId = routedModule;
   }
 
   const { data: doc, error } = await supabase
@@ -113,6 +126,7 @@ export async function runIntake(
       sensitive: output.sensitive,
       metadata: {
         source: 'intake',
+        routedModule,
         content: input.content,
         extractedFields: output.extractedFields,
         reasoning: output.reasoning,
