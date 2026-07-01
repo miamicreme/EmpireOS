@@ -9,7 +9,14 @@ async function send<T>(url: string, method: string, body?: unknown): Promise<T> 
     headers: { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const json = await res.json();
+  // A server error can respond with an empty or non-JSON body (e.g. a crashed
+  // route, a proxy's HTML error page). res.json() would throw "Unexpected end
+  // of JSON input" with no useful message; tolerate it and only trust a
+  // well-formed { ok } envelope.
+  const json = (await res.json().catch(() => null)) as { ok?: boolean; data?: T; error?: { message?: string } } | null;
+  if (!json || typeof json.ok !== 'boolean') {
+    throw new Error(`Unexpected response from server${res.status ? ` (${res.status})` : ''}.`);
+  }
   if (!json.ok) throw new Error(json.error?.message ?? 'Request failed');
   return json.data as T;
 }

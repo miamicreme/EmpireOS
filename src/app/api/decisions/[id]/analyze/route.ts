@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
 import { jsonError, jsonOk, jsonResult, readJson } from '@/lib/api';
+import { appError } from '@/lib/errors';
 import { runFullDecisionAnalysis } from '@/spine/decisions/decision-orchestrator.service';
 import { createActionsFromDecision } from '@/spine/decisions/decision.service';
 
@@ -38,21 +39,25 @@ export async function POST(
   if (!auth.ok) return jsonError(auth.error);
 
   const body = parseAnalyzeBody(await readJson(request));
-  const analysis = await runFullDecisionAnalysis(supabase, auth.data, params.id);
-  if (!analysis.ok) return jsonResult(analysis);
+  try {
+    const analysis = await runFullDecisionAnalysis(supabase, auth.data, params.id);
+    if (!analysis.ok) return jsonResult(analysis);
 
-  if (!body.createActions) {
+    if (!body.createActions) {
+      return jsonOk({
+        analysis: analysis.data,
+        actionsCreated: [],
+      });
+    }
+
+    const actions = await createActionsFromDecision(supabase, auth.data, params.id);
+    if (!actions.ok) return jsonResult(actions);
+
     return jsonOk({
       analysis: analysis.data,
-      actionsCreated: [],
+      actionsCreated: actions.data,
     });
+  } catch (e) {
+    return jsonError(appError('internal', `Decision analysis failed: ${(e as Error).message}`));
   }
-
-  const actions = await createActionsFromDecision(supabase, auth.data, params.id);
-  if (!actions.ok) return jsonResult(actions);
-
-  return jsonOk({
-    analysis: analysis.data,
-    actionsCreated: actions.data,
-  });
 }
