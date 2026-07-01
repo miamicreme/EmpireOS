@@ -3,22 +3,12 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { postJson } from '@/lib/http';
 import type { ChiefOfStaffOutput } from '@/spine/ai/ai.types';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-}
-
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error?.message ?? 'Request failed');
-  return json.data as T;
 }
 
 function formatReply(o: ChiefOfStaffOutput): string {

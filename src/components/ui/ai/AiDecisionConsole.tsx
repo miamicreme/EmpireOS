@@ -5,6 +5,7 @@ import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { TopActions } from '@/components/ui/ai/AiDashboardWidgets';
+import { postJson } from '@/lib/http';
 import type { ChiefOfStaffOutput } from '@/spine/ai/ai.types';
 
 interface Draft {
@@ -23,16 +24,6 @@ const EXAMPLES = [
   'Should I push this recruiter?',
 ];
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error?.message ?? 'Request failed');
-  return json.data as T;
-}
 
 export function AiDecisionConsole() {
   const [question, setQuestion] = useState('');

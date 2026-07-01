@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
 import { jsonError, jsonOk, jsonResult, readJson } from '@/lib/api';
+import { appError } from '@/lib/errors';
 import { runChiefOfStaff } from '@/spine/ai/chief-of-staff.service';
 import { askInputSchema } from '@/spine/ai/ai.schemas';
 
@@ -32,16 +33,22 @@ export async function POST(request: Request) {
     persist = parsed.data.persist;
   }
 
-  const result = await runChiefOfStaff(supabase, auth.data, { question, persist });
-  if (!result.ok) return jsonResult(result);
+  try {
+    const result = await runChiefOfStaff(supabase, auth.data, { question, persist });
+    if (!result.ok) return jsonResult(result);
 
-  return jsonOk({
-    output: result.data.output,
-    drafts: result.data.drafts,
-    empireScore: result.data.context.empireScore,
-    derived: result.data.context.derived,
-    trends: result.data.context.trends
-      .filter((t) => t.direction !== 'flat' && t.streakDays >= 2)
-      .slice(0, 4),
-  });
+    return jsonOk({
+      output: result.data.output,
+      drafts: result.data.drafts,
+      empireScore: result.data.context.empireScore,
+      derived: result.data.context.derived,
+      trends: result.data.context.trends
+        .filter((t) => t.direction !== 'flat' && t.streakDays >= 2)
+        .slice(0, 4),
+    });
+  } catch (e) {
+    // A provider/network failure would otherwise throw uncaught, returning an
+    // empty/HTML body the client can't parse ("Unexpected end of JSON input").
+    return jsonError(appError('internal', `Chief of Staff failed: ${(e as Error).message}`));
+  }
 }
