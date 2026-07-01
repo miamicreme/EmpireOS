@@ -8,7 +8,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { aiConfig } from '@/lib/env';
-import { resolveUserCredential } from '../providers/provider-config.service';
+import { resolveUserCredentials } from '../providers/provider-config.service';
 import { activeProvider, type AICredential } from '../provider';
 import type {
   AgentIntent,
@@ -81,15 +81,19 @@ export function buildProviderStrategy(
   };
 }
 
-/** Resolve the user-configured credential (or null → env keys → stub). */
-export async function resolveStrategyCredential(
+/**
+ * Resolve the ordered failover chain of user-configured credentials
+ * (default-first). Empty → env keys → stub. The council/synthesizer walk this
+ * list so a rate-limited default falls through to the next working provider.
+ */
+export async function resolveStrategyCredentials(
   supabase: SupabaseClient,
   userId: string,
-): Promise<AICredential | null> {
-  return resolveUserCredential(supabase, userId);
+): Promise<AICredential[]> {
+  return resolveUserCredentials(supabase, userId);
 }
 
 /** The provider name that will actually be used, for logging/summaries. */
-export function effectiveProviderName(credential: AICredential | null): string {
-  return credential?.provider ?? activeProvider();
+export function effectiveProviderName(credentials: AICredential[]): string {
+  return credentials[0]?.provider ?? activeProvider();
 }

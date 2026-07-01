@@ -82,7 +82,7 @@ export async function synthesizeFinal(
   votes: SpecialistVote[],
   model: string,
   runtimePath: RuntimePath,
-  credential: AICredential | null,
+  credentials: AICredential[],
 ): Promise<SynthesisResult> {
   const run = await runStructured({
     feature: 'final_synthesizer',
@@ -105,7 +105,7 @@ export async function synthesizeFinal(
     maxTokens: 2048,
     // Ground high-stakes deep-path answers with the verify pass.
     verify: runtimePath === 'deep_path',
-    credential,
+    credentials,
   });
 
   await logProviderRun(supabase, userId, runId, {

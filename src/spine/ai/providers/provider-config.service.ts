@@ -348,6 +348,23 @@ export async function resolveUserCredential(
   userId: string,
   admin?: SupabaseClient,
 ): Promise<AICredential | null> {
+  const chain = await resolveUserCredentials(supabase, userId, admin);
+  return chain[0] ?? null;
+}
+
+/**
+ * Server-only: resolve ALL usable credentials for this user, ordered
+ * default-first then by rank. The AI runner walks this list as a failover
+ * chain — if the default provider is rate-limited or erroring (e.g. an
+ * exhausted OpenAI quota), the next enabled provider with a usable key is
+ * tried, which is the whole point of configuring multiple LLMs. Returns [] to
+ * fall back to env-based provider selection.
+ */
+export async function resolveUserCredentials(
+  supabase: SupabaseClient,
+  userId: string,
+  admin?: SupabaseClient,
+): Promise<AICredential[]> {
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
@@ -357,9 +374,9 @@ export async function resolveUserCredential(
     .order('rank', { ascending: true })
     .order('created_at', { ascending: true });
 
-  if (error || !data) return null;
+  if (error || !data) return [];
   const rows = data as ProviderRow[];
-  if (rows.length === 0) return null;
+  if (rows.length === 0) return [];
 
   // Only reach for the admin client / secrets when a stored key is needed.
   const needsSecret = rows.some((r) => r.has_own_key);
@@ -372,11 +389,12 @@ export async function resolveUserCredential(
     secrets = res.map;
   }
 
+  const creds: AICredential[] = [];
   for (const row of rows) {
     const cred = toCredential(row, secrets.get(row.id));
-    if (cred) return cred;
+    if (cred) creds.push(cred);
   }
-  return null;
+  return creds;
 }
 
 /** Resolve the credential for one specific provider config (used by the test route). */

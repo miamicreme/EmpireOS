@@ -13,7 +13,7 @@ import { todayISODate } from '@/lib/dates';
 import { aiConfig } from '@/lib/env';
 import { buildEmpireContext } from './context/empire-context.service';
 import { runStructured } from './ai-runner';
-import { resolveUserCredential } from './providers/provider-config.service';
+import { resolveUserCredentials } from './providers/provider-config.service';
 import { dailyBriefOutputSchema } from './ai.schemas';
 import { recordUsage } from './usage.service';
 import { redactSensitiveText } from '../decisions/context-redaction.service';
@@ -122,7 +122,7 @@ export async function generateDailyBrief(
   if (!ctxResult.ok) return ctxResult;
   const context = ctxResult.data;
 
-  const credential = await resolveUserCredential(supabase, userId);
+  const credentials = await resolveUserCredentials(supabase, userId);
 
   const run = await runStructured({
     feature: `${briefType}_brief`,
@@ -134,7 +134,7 @@ export async function generateDailyBrief(
     model: aiConfig.defaultModel,
     maxTokens: 1536,
     verify: true,
-    credential,
+    credentials,
   });
 
   const brief = run.data;

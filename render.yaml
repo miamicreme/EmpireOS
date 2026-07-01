@@ -65,6 +65,16 @@ services:
         sync: false
       - key: GOOGLE_GENERATIVE_AI_API_KEY
         sync: false
+      # Free-tier fallback providers (OpenAI-API-compatible). Optional; the AI
+      # layer fails over to whichever are configured when a paid quota errors.
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
 
       # --- AI model + encryption config ---------------------------------------
       - key: AI_DEFAULT_PROVIDER
