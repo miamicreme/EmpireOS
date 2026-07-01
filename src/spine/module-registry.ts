@@ -5,6 +5,7 @@
  * ModuleContract; the registry fans out across them for aggregate views.
  */
 import { cashEngineModule } from '@/modules/cash-engine/service';
+import { financesModule } from '@/modules/finances/service';
 import { jobHuntModule } from '@/modules/job-hunt/service';
 import { followupCrmModule } from '@/modules/followup-crm/service';
 import { creditFundingModule } from '@/modules/credit-funding/service';
@@ -21,6 +22,7 @@ import type {
 
 export const moduleRegistry: ReadonlyArray<ModuleContract> = [
   cashEngineModule,
+  financesModule,
   jobHuntModule,
   followupCrmModule,
   creditFundingModule,
