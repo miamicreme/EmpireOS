@@ -1,10 +1,28 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
-import { jsonError, jsonResult, readJson } from '@/lib/api';
+import { jsonError, jsonOk, jsonResult, readJson } from '@/lib/api';
+import { appError } from '@/lib/errors';
 import { deleteJobApplication, updateJobApplication } from '@/modules/job-hunt/service';
 import type { UpdateJobApplicationInput } from '@/spine/schemas';
 
 export const dynamic = 'force-dynamic';
+
+export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const supabase = createClient();
+  const auth = await requireUserId(supabase);
+  if (!auth.ok) return jsonError(auth.error);
+
+  const { data, error } = await supabase
+    .from('job_applications')
+    .select('*')
+    .eq('id', params.id)
+    .eq('user_id', auth.data)
+    .maybeSingle();
+
+  if (error) return jsonError(appError('db_error', error.message));
+  if (!data) return jsonError(appError('not_found', 'Job application not found.'));
+  return jsonOk(data);
+}
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();

@@ -17,8 +17,17 @@ export async function GET() {
   let configured = true;
   let claimed = false;
   try {
+    // Acquiring the admin client is what actually depends on server env
+    // (SUPABASE_SERVICE_ROLE_KEY) — only that failure means "not configured".
     const admin = createAdminClient();
-    claimed = await isAccountClaimed(admin);
+    try {
+      claimed = await isAccountClaimed(admin);
+    } catch (e) {
+      // A transient DB error must NOT masquerade as "auth not configured"
+      // (which shows the wrong setup guidance). Env is present, so keep
+      // configured=true and treat the account as unclaimed for this check.
+      console.error('[auth/status] claim check failed:', (e as Error).message);
+    }
   } catch {
     configured = false;
   }
