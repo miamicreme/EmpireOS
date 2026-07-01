@@ -5,11 +5,14 @@
  * which module it belongs to, extracts the key fields, and drafts next actions.
  * Talks to POST /api/ai/intake.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { postJson } from '@/lib/http';
+
+const MAX_CHARS = 50_000;
+const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|log|rtf|html?)$/i;
 
 interface ExtractedField {
   label: string;
@@ -60,8 +63,46 @@ export function IntakeConsole() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [busy, setBusy] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IntakeResponse | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onFile(file: File) {
+    setError(null);
+    setResult(null);
+    // Plain-text files are read locally; PDFs (and anything else) go to the
+    // server extractor so no heavy parser ships to the browser.
+    const isTextLike = file.type.startsWith('text/') || TEXT_EXT.test(file.name);
+    try {
+      if (isTextLike) {
+        const text = (await file.text()).slice(0, MAX_CHARS);
+        if (!text.trim()) {
+          setError('That file has no readable text.');
+          return;
+        }
+        setContent(text);
+        if (!title.trim()) setTitle(file.name.replace(/\.[^.]+$/, ''));
+      } else {
+        setExtracting(true);
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch('/api/ai/intake/extract', { method: 'POST', body: form });
+        const json = await res.json().catch(() => null);
+        if (!json?.ok) {
+          setError(json?.error?.message ?? 'Could not read that file.');
+          return;
+        }
+        setContent(json.data.text as string);
+        if (!title.trim()) setTitle((json.data.title as string) || file.name);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not read that file.');
+    } finally {
+      setExtracting(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
 
   async function submit() {
     if (!content.trim()) {
@@ -89,6 +130,7 @@ export function IntakeConsole() {
     setTitle('');
     setContent('');
     setError(null);
+    if (fileRef.current) fileRef.current.value = '';
   }
 
   const out = result?.output;
@@ -111,12 +153,32 @@ export function IntakeConsole() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={10}
-            placeholder="Paste the document text here — an invoice, job posting, credit report, deal memo, contact details, project notes…"
+            placeholder="Paste the document text here, or attach a PDF / text file below — an invoice, job posting, credit report, deal memo, contact details, project notes…"
             className="w-full resize-y rounded-lg bg-surface-2 border border-border px-3 py-2.5 text-sm text-gray-100 placeholder:text-empire-muted/70 focus:outline-none focus:border-empire-blue"
           />
-          <div className="flex items-center gap-2">
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.txt,.md,.markdown,.csv,.tsv,.json,.log,.rtf,.html,text/*,application/pdf"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onFile(f);
+            }}
+            className="hidden"
+          />
+
+          <div className="flex flex-wrap items-center gap-2">
             <Button onClick={submit} loading={busy} disabled={!content.trim()} size="lg">
               Review &amp; route
+            </Button>
+            <Button
+              variant="subtle"
+              onClick={() => fileRef.current?.click()}
+              loading={extracting}
+              disabled={busy}
+            >
+              {extracting ? 'Reading file…' : 'Attach PDF / file'}
             </Button>
             {result && (
               <Button onClick={reset} variant="ghost">
