@@ -13,6 +13,7 @@ export const EMPIRE_PHASES = [
 
 export const MODULE_IDS = [
   'cash-engine',
+  'finances',
   'job-hunt',
   'followup-crm',
   'credit-funding',
