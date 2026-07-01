@@ -63,6 +63,35 @@ export const moduleCopilotOutputSchema = z.object({
   suggestedActions: z.array(suggestedActionSchema).default([]),
 });
 
+/** The module a submitted document is routed to (or 'none' when it fits none). */
+export const intakeDestination = z.enum([
+  'cash-engine',
+  'job-hunt',
+  'followup-crm',
+  'credit-funding',
+  'projects',
+  'acquisitions',
+  'none',
+]);
+
+/**
+ * Doc-intake classifier output: where the document belongs, what it is, the
+ * structured fields pulled out of it, and the next actions it implies.
+ */
+export const intakeOutputSchema = z.object({
+  destinationModule: intakeDestination.catch('none'),
+  documentType: z.string().default('document'),
+  title: z.string().default('Untitled document'),
+  summary: z.string().default(''),
+  extractedFields: z
+    .array(z.object({ label: z.string().default(''), value: z.string().default('') }))
+    .default([]),
+  suggestedActions: z.array(suggestedActionSchema).default([]),
+  sensitive: z.boolean().catch(false).default(false),
+  reasoning: z.string().default(''),
+  confidence,
+});
+
 // ---------------------------------------------------------------------------
 // Request input schemas (API boundary)
 // ---------------------------------------------------------------------------
@@ -88,6 +117,14 @@ export const dismissRecommendationSchema = z.object({
   action: z.enum(['accept', 'dismiss']),
 });
 
+export const intakeInputSchema = z.object({
+  title: z.string().max(300).optional(),
+  content: z.string().min(1, 'Paste a document to review.').max(50000),
+  // Persist the document + drafts (default) vs. a dry-run classification.
+  persist: z.boolean().default(true),
+});
+
 export type GenerateBriefInput = z.infer<typeof generateBriefInputSchema>;
 export type AskInput = z.infer<typeof askInputSchema>;
 export type ModuleCopilotInput = z.infer<typeof moduleCopilotInputSchema>;
+export type IntakeInput = z.infer<typeof intakeInputSchema>;
