@@ -16,7 +16,7 @@ import { evaluateMemoryGate } from './memory-gate.service';
 import { evaluateResearchGate } from './research-gate.service';
 import {
   buildProviderStrategy,
-  resolveStrategyCredential,
+  resolveStrategyCredentials,
   effectiveProviderName,
 } from './provider-router.service';
 import { runSpecialistCouncil } from './specialist-council.service';
@@ -120,9 +120,9 @@ export async function runAgent(
     await event('capability_plan', 'read_internal_data, build_context_pack, reason, draft_actions');
     await event('permission_check', 'reads approved; external actions are draft-only (approval-gated)');
 
-    // Resolve the credential in parallel — it depends only on the user, not on
-    // the context build or gates below.
-    const credentialPromise = resolveStrategyCredential(supabase, userId);
+    // Resolve the credential failover chain in parallel — it depends only on
+    // the user, not on the context build or gates below.
+    const credentialPromise = resolveStrategyCredentials(supabase, userId);
 
     // 3. Context pack (compact, redacted, hash-reusable).
     const packResult = await buildContextPack(supabase, userId, route.intent);
@@ -156,15 +156,15 @@ export async function runAgent(
       research.needsResearch,
       memoryRequests.length > 0,
     );
-    const credential = await credentialPromise;
-    const providerName = effectiveProviderName(credential);
+    const credentials = await credentialPromise;
+    const providerName = effectiveProviderName(credentials);
     await event('provider_selected', strategy.reason, { provider: providerName, model: strategy.model });
 
     // 7. Specialist council (deep path only).
     let votes: SpecialistVote[] = [];
     if (route.runtimePath === 'deep_path' && strategy.specialists.length > 0) {
       votes = await runSpecialistCouncil(
-        supabase, userId, runId, strategy.specialists, pack, input.command, strategy.model, credential,
+        supabase, userId, runId, strategy.specialists, pack, input.command, strategy.model, credentials,
       );
       for (const v of votes) {
         await repo.appendEvent(supabase, userId, runId, order++, 'specialist_vote', {
@@ -177,7 +177,7 @@ export async function runAgent(
 
     // 8. Final synthesis.
     const synth = await synthesizeFinal(
-      supabase, userId, runId, input.command, pack, context, votes, strategy.model, route.runtimePath, credential,
+      supabase, userId, runId, input.command, pack, context, votes, strategy.model, route.runtimePath, credentials,
     );
     const out = synth.output;
     await event('final_synthesized', out.answer.slice(0, 160), { confidence: out.confidence });

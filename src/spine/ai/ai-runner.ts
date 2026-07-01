@@ -64,6 +64,13 @@ export interface StructuredRunOptions<T> {
    * env-based provider/model selection. Absent → env keys → stub.
    */
   credential?: AICredential | null;
+  /**
+   * Ordered failover chain of user-configured credentials (default-first). When
+   * present, the runner tries each in turn until one succeeds — so a
+   * rate-limited/erroring default (e.g. an exhausted OpenAI quota) falls through
+   * to the next working provider. Takes precedence over `credential`.
+   */
+  credentials?: AICredential[] | null;
 }
 
 /** Strip markdown fences and parse the first JSON object/array in the text. */
@@ -99,62 +106,88 @@ No prose, no markdown fences, no commentary before or after the JSON.`;
 export async function runStructured<T>(
   opts: StructuredRunOptions<T>,
 ): Promise<StructuredRunResult<T>> {
-  const credential = opts.credential ?? undefined;
-  // A user-configured credential takes precedence over env provider selection.
-  const provider = credential?.provider ?? activeProvider();
-  // A user-selected model is honored for ANY provider; otherwise fall back to
-  // the caller's preference resolved against the active provider's default.
-  const model =
-    credential?.model ?? modelForAdvisor(opts.model ?? aiConfig.defaultModel, provider);
+  // Build the ordered failover chain: an explicit list wins, else the single
+  // credential, else [undefined] (env-based / stub selection).
+  const chain: Array<AICredential | undefined> =
+    opts.credentials && opts.credentials.length > 0
+      ? opts.credentials
+      : [opts.credential ?? undefined];
 
-  // Redaction gate — applies to both the instruction and the context.
+  // Redaction gate — applies to both the instruction and the context. Done once
+  // up front so it isn't repeated per failover attempt.
   const safeInstruction = redactSensitiveText(opts.instruction);
   const safeContext = redactObject(opts.context);
   assertNoHighRiskSecrets(JSON.stringify(safeContext));
   assertNoHighRiskSecrets(safeInstruction);
 
-  if (provider === 'stub') {
-    return { data: opts.stub, provider, model: 'stub' };
-  }
-
   const userPrompt = `${opts.instruction ? `INSTRUCTION:\n${safeInstruction}\n\n` : ''}EMPIRE CONTEXT (redacted):
 ${JSON.stringify(safeContext, null, 2)}`;
 
-  const response = await callAI([{ role: 'user', content: userPrompt }], {
-    systemPrompt: `${opts.systemPrompt}\n\n${JSON_ONLY}`,
-    model,
-    maxTokens: opts.maxTokens ?? 2048,
-    temperature: opts.temperature ?? 0.3,
-    credential,
-  });
+  let lastError: unknown;
+  for (let i = 0; i < chain.length; i++) {
+    const credential = chain[i];
+    const provider = credential?.provider ?? activeProvider();
+    const model =
+      credential?.model ?? modelForAdvisor(opts.model ?? aiConfig.defaultModel, provider);
 
-  logger.info('ai_structured_call', {
-    feature: opts.feature,
-    provider,
-    model,
-    outputTokens: response.outputTokens,
-  });
+    if (provider === 'stub') {
+      return { data: opts.stub, provider, model: 'stub' };
+    }
 
-  const parsed = opts.schema.safeParse(extractJson(response.text));
-  let data = (parsed.success ? parsed.data : opts.stub) as T;
-  if (!parsed.success) {
-    logger.warn('ai_structured_parse_failed', { feature: opts.feature, provider });
-  }
+    try {
+      const response = await callAI([{ role: 'user', content: userPrompt }], {
+        systemPrompt: `${opts.systemPrompt}\n\n${JSON_ONLY}`,
+        model,
+        maxTokens: opts.maxTokens ?? 2048,
+        temperature: opts.temperature ?? 0.3,
+        credential,
+      });
 
-  let inputTokens = response.inputTokens;
-  let outputTokens = response.outputTokens;
+      logger.info('ai_structured_call', {
+        feature: opts.feature,
+        provider,
+        model,
+        outputTokens: response.outputTokens,
+        attempt: i + 1,
+      });
 
-  // Optional grounding pass — only worth running when the first pass parsed.
-  if (opts.verify && parsed.success) {
-    const verified = await verifyAndGround(opts, safeContext, data, provider, credential);
-    if (verified) {
-      data = verified.data;
-      inputTokens = sumTokens(inputTokens, verified.inputTokens);
-      outputTokens = sumTokens(outputTokens, verified.outputTokens);
+      const parsed = opts.schema.safeParse(extractJson(response.text));
+      let data = (parsed.success ? parsed.data : opts.stub) as T;
+      if (!parsed.success) {
+        logger.warn('ai_structured_parse_failed', { feature: opts.feature, provider });
+      }
+
+      let inputTokens = response.inputTokens;
+      let outputTokens = response.outputTokens;
+
+      // Optional grounding pass — only worth running when the first pass parsed.
+      if (opts.verify && parsed.success) {
+        const verified = await verifyAndGround(opts, safeContext, data, provider, credential);
+        if (verified) {
+          data = verified.data;
+          inputTokens = sumTokens(inputTokens, verified.inputTokens);
+          outputTokens = sumTokens(outputTokens, verified.outputTokens);
+        }
+      }
+
+      return { data, provider, model, inputTokens, outputTokens };
+    } catch (e) {
+      // Provider failed (rate limit / quota / network). Try the next configured
+      // provider in the chain; only rethrow once every option is exhausted.
+      lastError = e;
+      logger.warn('ai_structured_provider_failed', {
+        feature: opts.feature,
+        provider,
+        attempt: i + 1,
+        remaining: chain.length - i - 1,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
-  return { data, provider, model, inputTokens, outputTokens };
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('All configured AI providers failed.');
 }
 
 const VERIFY_SYSTEM = `You are a strict fact-checker for an AI Chief of Staff.

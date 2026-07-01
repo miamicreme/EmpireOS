@@ -43,7 +43,11 @@ interface TestResult {
 const PROVIDER_LABELS: Record<AIProviderKind, string> = {
   anthropic: 'Anthropic (Claude)',
   openai: 'OpenAI (GPT)',
-  google: 'Google (Gemini)',
+  google: 'Google (Gemini) · free tier',
+  groq: 'Groq · free',
+  cerebras: 'Cerebras · free',
+  openrouter: 'OpenRouter · free models',
+  mistral: 'Mistral · free tier',
 };
 
 export function ProviderManager() {
