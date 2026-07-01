@@ -54,7 +54,7 @@ export async function runSpecialistCouncil(
   pack: ContextPack,
   command: string,
   model: string,
-  credential: AICredential | null,
+  credentials: AICredential[],
 ): Promise<SpecialistVote[]> {
   if (specialists.length === 0) return [];
 
@@ -76,7 +76,7 @@ export async function runSpecialistCouncil(
         },
         model,
         maxTokens: 900,
-        credential,
+        credentials,
       });
 
       await logProviderRun(supabase, userId, runId, {

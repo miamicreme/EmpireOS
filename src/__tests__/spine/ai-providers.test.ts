@@ -237,6 +237,51 @@ describe('provider-config.service', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Provider failover in the structured runner
+// ---------------------------------------------------------------------------
+describe('runStructured provider failover', () => {
+  it('falls over to the next credential when the first provider throws', async () => {
+    vi.resetModules();
+    const calls: string[] = [];
+    vi.doMock('@/spine/ai/provider', async () => {
+      const actual = await vi.importActual<typeof import('@/spine/ai/provider')>('@/spine/ai/provider');
+      return {
+        ...actual,
+        callAI: vi.fn(async (_messages, opts) => {
+          const provider = opts?.credential?.provider ?? 'env';
+          calls.push(provider);
+          if (provider === 'openai') {
+            throw new Error('429 You exceeded your current quota');
+          }
+          return { text: '{"answer":"ok"}', provider, model: opts?.model ?? 'm' };
+        }),
+      };
+    });
+
+    const { runStructured } = await import('@/spine/ai/ai-runner');
+    const { z } = await import('zod');
+    const result = await runStructured({
+      feature: 'test',
+      systemPrompt: 'sys',
+      instruction: 'hi',
+      context: {},
+      schema: z.object({ answer: z.string().default('') }),
+      stub: { answer: 'stub' },
+      credentials: [
+        { provider: 'openai', apiKey: 'sk-openai', model: 'gpt-4o' },
+        { provider: 'anthropic', apiKey: 'sk-ant', model: 'claude-sonnet-4-6' },
+      ],
+    });
+
+    // Tried openai first (threw), then fell over to anthropic.
+    expect(calls).toEqual(['openai', 'anthropic']);
+    expect(result.provider).toBe('anthropic');
+    expect((result.data as { answer: string }).answer).toBe('ok');
+    vi.doUnmock('@/spine/ai/provider');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // API auth
 // ---------------------------------------------------------------------------
 describe('AI providers API auth', () => {

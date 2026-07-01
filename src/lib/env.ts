@@ -76,15 +76,22 @@ export function getOwnerRecoveryCode(): string | null {
   return code && code.length > 0 ? code : null;
 }
 
-/** Optional AI provider keys. Absence means the engine stays in stub mode. */
+/**
+ * Optional AI provider keys. Absence means the engine stays in stub mode.
+ * The last four are OpenAI-API-compatible free-tier providers used as fallbacks.
+ */
 export const aiKeys = {
   openai: process.env.OPENAI_API_KEY ?? null,
   anthropic: process.env.ANTHROPIC_API_KEY ?? null,
   google: process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? null,
+  groq: process.env.GROQ_API_KEY ?? null,
+  cerebras: process.env.CEREBRAS_API_KEY ?? null,
+  openrouter: process.env.OPENROUTER_API_KEY ?? null,
+  mistral: process.env.MISTRAL_API_KEY ?? null,
 } as const;
 
 export function hasAnyAiProvider(): boolean {
-  return Boolean(aiKeys.openai || aiKeys.anthropic || aiKeys.google);
+  return Object.values(aiKeys).some(Boolean);
 }
 
 /**
