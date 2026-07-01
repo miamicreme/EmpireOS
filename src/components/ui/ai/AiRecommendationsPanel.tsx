@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { patchJson } from '@/lib/http';
 import type { RiskLevel, UpsideLevel } from '@/spine/ai/ai.types';
 
 export interface RecommendationRow {
@@ -16,16 +17,6 @@ export interface RecommendationRow {
   source_type: string;
   accepted_at: string | null;
   dismissed_at: string | null;
-}
-
-async function patchJson(url: string, body: unknown): Promise<void> {
-  const res = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error?.message ?? 'Request failed');
 }
 
 function levelVariant(l: string | null): 'green' | 'yellow' | 'red' | 'muted' {

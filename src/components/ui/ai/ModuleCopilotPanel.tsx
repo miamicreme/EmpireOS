@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { postJson } from '@/lib/http';
 import type { ModuleCopilotOutput } from '@/spine/ai/ai.types';
 
 interface Draft {
@@ -16,17 +17,6 @@ interface Draft {
   title: string;
   category: string;
   priority: string;
-}
-
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error?.message ?? 'Request failed');
-  return json.data as T;
 }
 
 const LABELS: Record<string, string> = {

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
 import { jsonError, jsonResult, readJson } from '@/lib/api';
+import { appError } from '@/lib/errors';
 import {
   getRecommendations,
   setRecommendationState,
@@ -33,7 +34,11 @@ export async function PATCH(request: Request) {
     return jsonError({ code: 'validation', message: 'Expected { id, action }.' });
   }
 
-  return jsonResult(
-    await setRecommendationState(supabase, auth.data, id, parsed.data.action),
-  );
+  try {
+    return jsonResult(
+      await setRecommendationState(supabase, auth.data, id, parsed.data.action),
+    );
+  } catch (e) {
+    return jsonError(appError('internal', `Failed to update recommendation: ${(e as Error).message}`));
+  }
 }

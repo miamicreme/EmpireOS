@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
 import { jsonError, jsonResult, readJson } from '@/lib/api';
+import { appError } from '@/lib/errors';
 import {
   approveActionDraft,
   rejectActionDraft,
@@ -24,9 +25,13 @@ export async function POST(
   if (!auth.ok) return jsonError(auth.error);
 
   const body = (await readJson(request)) as { reject?: boolean };
-  if (body?.reject === true) {
-    return jsonResult(await rejectActionDraft(supabase, auth.data, params.id));
-  }
+  try {
+    if (body?.reject === true) {
+      return jsonResult(await rejectActionDraft(supabase, auth.data, params.id));
+    }
 
-  return jsonResult(await approveActionDraft(supabase, auth.data, params.id), 201);
+    return jsonResult(await approveActionDraft(supabase, auth.data, params.id), 201);
+  } catch (e) {
+    return jsonError(appError('internal', `Failed to update draft: ${(e as Error).message}`));
+  }
 }
