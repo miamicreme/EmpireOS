@@ -3,7 +3,25 @@
  * no LLM. Used by the module metrics, the /summary endpoint, and as the grounded
  * input to the AI financial summary.
  */
-import type { FinanceInsights, FinancialAccount, FinancialTransaction, Cadence } from './types';
+import type {
+  FinanceInsights,
+  FinancialAccount,
+  FinancialTransaction,
+  Cadence,
+  TransactionKind,
+} from './types';
+
+/**
+ * Signed change a one-off transaction applies to its linked account's balance.
+ * - Asset account: income raises the balance, expense lowers it.
+ * - Liability account (balance = amount owed): a charge/expense raises what's
+ *   owed; a payment/income lowers it.
+ */
+export function balanceEffect(kind: TransactionKind, amount: number, isLiability: boolean): number {
+  const amt = Math.abs(Number(amount) || 0);
+  if (isLiability) return kind === 'expense' ? amt : -amt;
+  return kind === 'income' ? amt : -amt;
+}
 
 /** Normalize a recurring amount at some cadence into a monthly figure. */
 export function monthlyFactor(cadence: Cadence): number {

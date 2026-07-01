@@ -13,7 +13,7 @@ import { manifest } from './manifest';
 import { getMetrics, getHealth } from './metrics';
 import { getActions } from './actions';
 import { getDecisionContext } from './decisions';
-import { computeInsights } from './insights';
+import { computeInsights, balanceEffect } from './insights';
 import {
   createAccountSchema,
   updateAccountSchema,
@@ -112,6 +112,35 @@ export async function deleteAccount(
 
 // --- Transactions ----------------------------------------------------------
 
+/**
+ * Apply (sign +1) or reverse (sign -1) a one-off transaction's effect on its
+ * linked account balance. Recurring items are budget templates for burn/runway
+ * and never mutate a balance. Best-effort: a missing/unlinked account is a no-op.
+ */
+async function applyTxnBalance(
+  supabase: SupabaseClient,
+  userId: string,
+  txn: Pick<FinancialTransaction, 'account_id' | 'kind' | 'amount' | 'recurring'>,
+  sign: 1 | -1,
+): Promise<void> {
+  if (txn.recurring || !txn.account_id) return;
+  const { data: acc } = await supabase
+    .from(ACCOUNTS)
+    .select('balance, is_liability')
+    .eq('id', txn.account_id)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!acc) return;
+  const a = acc as Pick<FinancialAccount, 'balance' | 'is_liability'>;
+  const delta = balanceEffect(txn.kind, Number(txn.amount), a.is_liability) * sign;
+  if (delta === 0) return;
+  await supabase
+    .from(ACCOUNTS)
+    .update({ balance: Number(a.balance) + delta })
+    .eq('id', txn.account_id)
+    .eq('user_id', userId);
+}
+
 export async function getTransactions(
   supabase: SupabaseClient,
   userId: string,
@@ -142,15 +171,19 @@ export async function createTransaction(
     .single();
   if (error) return err(appError('db_error', error.message));
 
+  const created = data as FinancialTransaction;
+  // Auto-update the linked account balance for one-off transactions.
+  await applyTxnBalance(supabase, userId, created, 1);
+
   await emitSystemEvent(supabase, userId, {
     event_name: 'finances.transaction.created',
     event_type: 'created',
     module_id: manifest.id,
     entity_type: 'financial_transaction',
-    entity_id: (data as FinancialTransaction).id,
-    payload: { kind: (data as FinancialTransaction).kind, amount: (data as FinancialTransaction).amount },
+    entity_id: created.id,
+    payload: { kind: created.kind, amount: created.amount },
   });
-  return ok(data as FinancialTransaction);
+  return ok(created);
 }
 
 export async function updateTransaction(
@@ -163,6 +196,16 @@ export async function updateTransaction(
   if (!parsed.success) {
     return err(appError('validation', 'Invalid transaction update.', parsed.error.format()));
   }
+
+  // Read the prior row so its balance effect can be reversed before the new one
+  // is applied (amount / kind / account / recurring may all change).
+  const { data: before } = await supabase
+    .from(TXNS)
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from(TXNS)
     .update(parsed.data)
@@ -172,6 +215,10 @@ export async function updateTransaction(
     .single();
   if (error) return err(appError('db_error', error.message));
   if (!data) return err(appError('not_found', 'Transaction not found.'));
+
+  if (before) await applyTxnBalance(supabase, userId, before as FinancialTransaction, -1);
+  await applyTxnBalance(supabase, userId, data as FinancialTransaction, 1);
+
   return ok(data as FinancialTransaction);
 }
 
@@ -180,8 +227,18 @@ export async function deleteTransaction(
   userId: string,
   id: string,
 ): Promise<AppResult<{ id: string }>> {
+  // Read the row first so its balance effect can be reversed on delete.
+  const { data: before } = await supabase
+    .from(TXNS)
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
   const { error } = await supabase.from(TXNS).delete().eq('id', id).eq('user_id', userId);
   if (error) return err(appError('db_error', error.message));
+
+  if (before) await applyTxnBalance(supabase, userId, before as FinancialTransaction, -1);
   return ok({ id });
 }
 
