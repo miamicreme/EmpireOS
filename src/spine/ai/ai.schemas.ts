@@ -63,9 +63,22 @@ export const moduleCopilotOutputSchema = z.object({
   suggestedActions: z.array(suggestedActionSchema).default([]),
 });
 
+/** AI financial summary — a narrative "state of your finances" brief. */
+export const financeSummaryOutputSchema = z.object({
+  headline: z.string().default(''),
+  state: z.string().default(''),
+  strengths: z.array(z.string()).default([]),
+  risks: z.array(z.string()).default([]),
+  moves: z
+    .array(z.object({ title: z.string().default(''), why: z.string().default('') }))
+    .default([]),
+  confidence,
+});
+
 /** The module a submitted document is routed to (or 'none' when it fits none). */
 export const intakeDestination = z.enum([
   'cash-engine',
+  'finances',
   'job-hunt',
   'followup-crm',
   'credit-funding',

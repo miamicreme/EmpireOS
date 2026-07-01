@@ -25,6 +25,7 @@ const CORE: NavItem[] = [
 
 const MODULES: NavItem[] = [
   { href: '/modules/cash-engine' as Route, label: 'Cash Engine', icon: '$' },
+  { href: '/modules/finances' as Route, label: 'Finances', icon: '◕' },
   { href: '/modules/job-hunt' as Route, label: 'Job Hunt', icon: '↗' },
   { href: '/modules/followup-crm' as Route, label: 'Follow-ups', icon: '◎' },
   { href: '/modules/credit-funding' as Route, label: 'Credit', icon: '▲' },

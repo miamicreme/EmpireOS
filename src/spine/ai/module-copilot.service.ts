@@ -33,6 +33,8 @@ type ModuleId = (typeof MODULE_IDS)[number];
 const MODULE_LENS: Record<ModuleId, string> = {
   'cash-engine':
     'You are the Cash AI. Tell the operator exactly how to hit today\'s cash number: which source, how many hours/trips, what to log. Be numeric.',
+  finances:
+    'You are the Finances AI. Read net worth, liquid cash, monthly burn, and runway. Tell the operator the highest-leverage money move: what to cut, what to pay down, where the cash-flow risk is. Be numeric.',
   'job-hunt':
     'You are the Job Hunt AI. Rank applications by leverage, surface the next move per stage, and draft concrete follow-ups to recruiters.',
   'followup-crm':

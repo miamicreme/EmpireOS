@@ -22,7 +22,8 @@ import type { IntakeInput } from './ai.schemas';
 type IntakeOutput = z.infer<typeof intakeOutputSchema>;
 
 const MODULE_GUIDE = `Route the document to exactly ONE destination:
-- cash-engine: income, invoices, receipts, payments, revenue, gig/Uber earnings.
+- cash-engine: daily gig/Uber earnings, single receipts, one-off payments.
+- finances: bank/credit-card/brokerage statements, net worth, bills, budgets, recurring subscriptions, loans.
 - job-hunt: job posts, offers, applications, recruiter emails, resumes.
 - followup-crm: contacts, leads, people to follow up with, networking notes.
 - credit-funding: credit reports, loan/funding docs, statements, disputes.
@@ -38,12 +39,12 @@ ${MODULE_GUIDE}
 
 Return ONLY JSON:
 {
-  "destinationModule": "cash-engine|job-hunt|followup-crm|credit-funding|projects|acquisitions|none",
+  "destinationModule": "cash-engine|finances|job-hunt|followup-crm|credit-funding|projects|acquisitions|none",
   "documentType": "short label, e.g. 'invoice', 'job posting', 'credit report'",
   "title": "a concise title for this document",
   "summary": "2-4 sentences: what this is and why it matters",
   "extractedFields": [ { "label": "field name", "value": "value from the doc" } ],
-  "suggestedActions": [ { "title": "...", "description": "why + how", "category": "cash|job|followup|credit|project|acquisition|general", "priority": "low|medium|high|critical", "moduleId": "cash-engine|job-hunt|followup-crm|credit-funding|projects|acquisitions|null" } ],
+  "suggestedActions": [ { "title": "...", "description": "why + how", "category": "cash|job|followup|credit|project|acquisition|general", "priority": "low|medium|high|critical", "moduleId": "cash-engine|finances|job-hunt|followup-crm|credit-funding|projects|acquisitions|null" } ],
   "sensitive": true|false,
   "reasoning": "why this destination, in 1-2 sentences",
   "confidence": 0.0-1.0
