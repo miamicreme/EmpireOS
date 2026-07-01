@@ -178,6 +178,13 @@ export async function verifyAuthentication(
 
   if (!verified) return { ok: false };
 
-  await updateCredentialCounter(admin, stored.credential_id, newCounter);
+  // Never let the stored signature counter regress (defense in depth on top of
+  // the library's own regression check) while still refreshing last_used_at on
+  // every sign-in — many platform authenticators always report 0.
+  await updateCredentialCounter(
+    admin,
+    stored.credential_id,
+    Math.max(stored.counter, newCounter),
+  );
   return { ok: true, userId: stored.user_id };
 }

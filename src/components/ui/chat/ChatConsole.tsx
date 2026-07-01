@@ -65,10 +65,19 @@ export function ChatConsole() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  // Pending timers (typewriter chain + success redirect) so they can be
+  // cancelled on unmount — otherwise they fire setState/navigation on an
+  // unmounted component.
+  const timers = useRef<number[]>([]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => pending.forEach((t) => window.clearTimeout(t));
+  }, []);
 
   // Reveal an assistant message word-by-word for a live, streamed feel.
   const revealAnswer = useCallback((id: string, full: string) => {
@@ -83,7 +92,7 @@ export function ChatConsole() {
         ),
       );
       if (i < words.length) {
-        window.setTimeout(tick, 18);
+        timers.current.push(window.setTimeout(tick, 18));
       }
     };
     tick();

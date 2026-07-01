@@ -37,6 +37,16 @@ export async function createContact(
     .single();
 
   if (error) return err(appError('db_error', error.message));
+
+  await emitSystemEvent(supabase, userId, {
+    event_name: 'followup.contact.created',
+    event_type: 'created',
+    module_id: manifest.id,
+    entity_type: 'contact',
+    entity_id: (data as Contact).id,
+    payload: { name: (data as Contact).name },
+  });
+
   return ok(data as Contact);
 }
 

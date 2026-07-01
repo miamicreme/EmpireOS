@@ -68,13 +68,18 @@ async function computeEmpireScore(
   // Predicate: include a row if it is due today-or-earlier (or has no due date)
   // OR it was completed today — so future-due actions finished today still earn
   // credit. The JS filter then drops done rows completed before today.
-  const { data: allHighPriority } = await supabase
+  const { data: allHighPriority, error: highPriorityError } = await supabase
     .from('global_actions')
     .select('status, completed_at')
     .eq('user_id', userId)
     .in('priority', ['high', 'critical'])
     .not('status', 'eq', 'archived')
     .or(`due_at.is.null,due_at.lt.${tomorrow},completed_at.gte.${today}`);
+  // A transient query error would otherwise be indistinguishable from "no
+  // high-priority actions" and silently report a 0 actions score.
+  if (highPriorityError) {
+    console.error('[spine-orchestrator] high-priority actions query failed:', highPriorityError.message);
+  }
   const allHP = (allHighPriority ?? []).filter(
     (a) =>
       a.status !== 'done' ||
