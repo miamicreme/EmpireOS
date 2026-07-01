@@ -232,6 +232,7 @@ export default function FinancesPage() {
       )}
       {showTxn && (
         <TxnModal
+          accounts={snap?.accounts ?? []}
           onClose={() => setShowTxn(false)}
           onSaved={() => { setShowTxn(false); void load(); success('Entry added'); }}
           onError={error}
@@ -281,14 +282,15 @@ function AccountModal({ onClose, onSaved, onError, types }: {
   );
 }
 
-function TxnModal({ onClose, onSaved, onError }: {
-  onClose: () => void; onSaved: () => void; onError: (m: string) => void;
+function TxnModal({ accounts, onClose, onSaved, onError }: {
+  accounts: Account[]; onClose: () => void; onSaved: () => void; onError: (m: string) => void;
 }) {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [kind, setKind] = useState<'income' | 'expense'>('expense');
   const [category, setCategory] = useState('');
   const [cadence, setCadence] = useState('monthly');
+  const [accountId, setAccountId] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -298,6 +300,7 @@ function TxnModal({ onClose, onSaved, onError }: {
     const res = await api.post('/api/finances/transactions', {
       description: description.trim(), amount: Number(amount) || 0, kind,
       category: category.trim() || null, recurring, cadence,
+      account_id: accountId || null,
     });
     setSaving(false);
     if (res.ok) onSaved(); else onError(res.error.message);
@@ -329,6 +332,14 @@ function TxnModal({ onClose, onSaved, onError }: {
             </Select>
           </Field>
         </div>
+        <Field label="Account (one-off entries auto-update its balance)">
+          <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            <option value="">— none —</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </Select>
+        </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={save} loading={saving}>Add</Button>
