@@ -1,0 +1,3 @@
+import { createClient } from '@/lib/supabase/server'; import { requireUserId } from '@/lib/security'; import { jsonError, jsonResult, readJson } from '@/lib/api'; import { addSourceDocument } from '@/modules/deal-intel/service'; import type { AddDocumentInput } from '@/modules/deal-intel/schemas';
+export const dynamic = 'force-dynamic';
+export async function POST(request: Request, { params }: { params: { dealId: string } }) { const supabase = createClient(); const auth = await requireUserId(supabase); if (!auth.ok) return jsonError(auth.error); return jsonResult(await addSourceDocument(supabase, auth.data, params.dealId, (await readJson(request)) as AddDocumentInput), 201); }
