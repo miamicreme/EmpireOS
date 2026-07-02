@@ -261,6 +261,99 @@ export async function getRunsForThread(
   return ok((data ?? []) as RunRow[]);
 }
 
+export interface SafeRunDetail {
+  run: RunRow;
+  events: Array<{
+    id: string;
+    event_order: number;
+    event_type: string;
+    status: string;
+    summary: string | null;
+    latency_ms: number | null;
+    created_at: string;
+  }>;
+  artifacts: Array<{
+    id: string;
+    artifact_type: string;
+    title: string | null;
+    summary: string | null;
+    confidence: number | null;
+    risk_level: string | null;
+    status: string;
+    created_at: string;
+  }>;
+  actionDrafts: AgentActionDraftRow[];
+  providerRuns: Array<{
+    id: string;
+    provider: string;
+    model: string;
+    runtime_class: string | null;
+    status: string;
+    latency_ms: number | null;
+    input_tokens: number | null;
+    output_tokens: number | null;
+    cost_estimate: number | null;
+    error_code: string | null;
+    fallback_used: boolean;
+    created_at: string;
+  }>;
+}
+
+/** Safe run detail: summaries and metadata only, never event payloads/raw prompts. */
+export async function getRunDetail(
+  supabase: SupabaseClient,
+  userId: string,
+  runId: string,
+): Promise<AppResult<SafeRunDetail>> {
+  const { data: run, error: runError } = await supabase
+    .from('agent_runs')
+    .select('*')
+    .eq('id', runId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (runError) return err(appError('db_error', runError.message));
+  if (!run) return err(appError('not_found', 'Agent run not found.'));
+
+  const [events, artifacts, actionDrafts, providerRuns] = await Promise.all([
+    supabase
+      .from('agent_run_events')
+      .select('id, event_order, event_type, status, summary, latency_ms, created_at')
+      .eq('run_id', runId)
+      .eq('user_id', userId)
+      .order('event_order', { ascending: true }),
+    supabase
+      .from('agent_artifacts')
+      .select('id, artifact_type, title, summary, confidence, risk_level, status, created_at')
+      .eq('run_id', runId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('agent_action_drafts')
+      .select('*')
+      .eq('run_id', runId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('agent_provider_runs')
+      .select('id, provider, model, runtime_class, status, latency_ms, input_tokens, output_tokens, cost_estimate, error_code, fallback_used, created_at')
+      .eq('run_id', runId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+  ]);
+
+  for (const result of [events, artifacts, actionDrafts, providerRuns]) {
+    if (result.error) return err(appError('db_error', result.error.message));
+  }
+
+  return ok({
+    run: run as RunRow,
+    events: (events.data ?? []) as SafeRunDetail['events'],
+    artifacts: (artifacts.data ?? []) as SafeRunDetail['artifacts'],
+    actionDrafts: (actionDrafts.data ?? []) as AgentActionDraftRow[],
+    providerRuns: (providerRuns.data ?? []) as SafeRunDetail['providerRuns'],
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Run events (compact trace — best effort, never blocks a run)
 // ---------------------------------------------------------------------------
@@ -345,7 +438,7 @@ export async function saveContextPack(
 export async function saveArtifact(
   supabase: SupabaseClient,
   userId: string,
-  runId: string,
+  runId: string | null,
   input: {
     artifactType: ArtifactType;
     title: string;
@@ -399,7 +492,7 @@ export async function getLatestArtifactByType(
 export async function createActionDrafts(
   supabase: SupabaseClient,
   userId: string,
-  runId: string,
+    runId: string | null,
   artifactId: string | null,
   drafts: SuggestedDraft[],
 ): Promise<AppResult<AgentActionDraftRow[]>> {
@@ -536,6 +629,77 @@ export async function saveMemory(
     .single();
   if (error) return err(appError('db_error', error.message));
   return ok({ id: (data as { id: string }).id });
+}
+
+export interface AgentMemoryItemRow {
+  id: string;
+  user_id: string;
+  memory_type: string;
+  title: string | null;
+  content: string | null;
+  summary: string | null;
+  source: string | null;
+  confidence: number | null;
+  status: 'active' | 'archived' | 'deleted';
+  metadata: Record<string, unknown>;
+  last_used_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function listMemoryItems(
+  supabase: SupabaseClient,
+  userId: string,
+  status = 'active',
+): Promise<AppResult<AgentMemoryItemRow[]>> {
+  const { data, error } = await supabase
+    .from('agent_memory_items')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', status)
+    .order('updated_at', { ascending: false })
+    .limit(100);
+  if (error) return err(appError('db_error', error.message));
+  return ok((data ?? []) as AgentMemoryItemRow[]);
+}
+
+export async function updateMemoryItem(
+  supabase: SupabaseClient,
+  userId: string,
+  id: string,
+  patch: Partial<Pick<AgentMemoryItemRow, 'memory_type' | 'title' | 'content' | 'summary' | 'source' | 'confidence' | 'status'>>,
+): Promise<AppResult<AgentMemoryItemRow>> {
+  const cleanPatch = Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined),
+  );
+  if (Object.keys(cleanPatch).length === 0) {
+    return err(appError('validation', 'No memory fields were provided.'));
+  }
+
+  const { data, error } = await supabase
+    .from('agent_memory_items')
+    .update(cleanPatch)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('*')
+    .maybeSingle();
+  if (error) return err(appError('db_error', error.message));
+  if (!data) return err(appError('not_found', 'Memory item not found.'));
+  return ok(data as AgentMemoryItemRow);
+}
+
+export async function deleteMemoryItem(
+  supabase: SupabaseClient,
+  userId: string,
+  id: string,
+): Promise<AppResult<{ id: string }>> {
+  const { error } = await supabase
+    .from('agent_memory_items')
+    .update({ status: 'deleted' })
+    .eq('id', id)
+    .eq('user_id', userId);
+  if (error) return err(appError('db_error', error.message));
+  return ok({ id });
 }
 
 export async function getActiveMemory(
