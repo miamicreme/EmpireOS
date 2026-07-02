@@ -21,18 +21,20 @@ export function ActionDraftApprovals({ drafts }: { drafts: AgentActionDraftRow[]
     setBusyId(id);
     setMessage(null);
     startTransition(async () => {
-      const result = await api.post(`/api/ai/agent/action-drafts/${id}/approve`, {
-        action,
-        edits:
-          action === 'approve'
-            ? {
+      const result = await api.post(
+        `/api/ai/agent/action-drafts/${id}/approve`,
+        action === 'approve'
+          ? {
+              action: 'approve',
+              edits: {
                 title: titles[id],
                 description: descriptions[id],
                 category: categories[id],
                 priority: priorities[id],
-              }
-            : undefined,
-      });
+              },
+            }
+          : { action: 'reject' },
+      );
       setBusyId(null);
       if (!result.ok) {
         setMessage(result.error.message);
