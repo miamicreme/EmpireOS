@@ -6,7 +6,7 @@ This checklist continues after the completed Prompt 1 contract repair and the ba
 
 - [x] Prompt 1 — ActionDraftApprovals contract repair and green tests.
 - [x] Backend contract foundation — safe run detail, memory endpoints, provider health, security status, and API docs.
-- [ ] Prompt 3 — universal input and camera intelligence (foundation started: analyze route + artifact handoff).
+- [ ] Prompt 3 — universal input and camera intelligence.
 - [ ] Prompt 4 — private command center polish.
 
 ## Remaining Prompt 2 hardening
@@ -24,19 +24,18 @@ The backend contract foundation exists, but these items should be hardened befor
 
 Keep one AI command path and do not create another AI system.
 
-- [x] Extend `POST /api/ai/agent/run` input schema to accept analyzed input references without breaking plain text commands.
-- [x] Add secure analyze route for text-backed documents, spreadsheets, images, screenshots, camera snapshots, sampled video-frame descriptions, and voice-transcript-ready text.
-- [ ] Add multipart/binary upload storage once Supabase Storage policy is finalized.
+- [ ] Extend `POST /api/ai/agent/run` input schema to accept analyzed input references without breaking plain text commands.
+- [ ] Add secure upload/analyze routes for documents, spreadsheets, images, screenshots, camera snapshots, optional short video frame sampling, and voice-transcript-ready text.
 - [ ] Add parser adapters for PDF, DOCX, TXT/MD, CSV/XLSX, and image metadata.
-- [x] Store generated document, spreadsheet, vision, camera, and analysis artifacts in existing `agent_artifacts`.
-- [x] Route all downstream reasoning through the compact `agent_*` runtime via `inputArtifactIds` on `POST /api/ai/agent/run`.
-- [x] Add local-first spreadsheet analysis for CSV/XLSX summaries before any model call.
+- [ ] Store generated document, spreadsheet, vision, camera, and analysis artifacts in existing `agent_artifacts`.
+- [ ] Route all downstream reasoning through the compact `agent_*` runtime.
+- [ ] Add local-first spreadsheet analysis for CSV/XLSX summaries before any model call.
 - [ ] Add vision provider routing that uses configured provider health and never exposes provider secrets.
 - [ ] Add cost governor checks before image/video-heavy analysis.
-- [x] Add redaction before analyzed input is stored as an artifact.
+- [ ] Add redaction before content enters model context or durable memory.
 - [ ] Create approval-gated action drafts from analyzed inputs.
-- [x] Ensure camera is never activated silently server-side; only explicit submitted snapshots are accepted.
-- [x] Ensure video is not streamed by default; only sampled frame descriptions are accepted.
+- [ ] Ensure camera is never activated silently.
+- [ ] Ensure video is not streamed by default; only sample frames with explicit user action.
 - [ ] Add manual camera/input checklist covering permission prompt, denied permission, no device, snapshot capture, upload failure, parser failure, and draft creation.
 
 ## Prompt 4 — private command center polish

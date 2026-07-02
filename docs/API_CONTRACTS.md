@@ -35,10 +35,3 @@
 ## Security status
 
 - `GET /api/settings/security/status` returns owner-scoped security posture: authentication, passkey count, recovery enabled flag, and a hard `secretValuesReturned: false` marker.
-
-## Universal input analysis
-
-- `POST /api/ai/agent/input/analyze` accepts explicit user-provided document, spreadsheet, image, screenshot, camera snapshot, sampled video-frame, or voice-transcript-ready payloads.
-- Input analysis writes outputs to existing `agent_artifacts`; it does not create another AI table family or another AI command path.
-- Follow-up reasoning still goes through `POST /api/ai/agent/run` with `inputArtifactIds`.
-- Camera activation is never server-side or silent; video streams are not stored and only explicit sampled frame descriptions are accepted.
