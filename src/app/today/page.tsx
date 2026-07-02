@@ -12,13 +12,6 @@ function money(value: number | null) {
   return value == null ? '—' : value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
-function briefText(content: Record<string, unknown> | null | undefined, fallback: string | null) {
-  if (fallback) return fallback;
-  const recommendedFocus = typeof content?.recommendedFocus === 'string' ? content.recommendedFocus : null;
-  const answer = typeof content?.answer === 'string' ? content.answer : null;
-  return recommendedFocus ?? answer ?? null;
-}
-
 function PriorityLine({ action, empty }: { action: PrioritizedAction | null; empty: string }) {
   if (!action) return <p className="text-sm text-empire-muted">{empty}</p>;
   return (
@@ -34,7 +27,6 @@ export default async function TodayPage() {
   const target = data.derived.cashTargetToday;
   const gap = data.derived.cashGapToday;
   const collected = data.derived.cashCollectedToday;
-  const brief = briefText(data.dailyBrief?.content_json, data.dailyBrief?.summary ?? null);
   const risk = gap && gap > 0
     ? `${money(gap)} cash gap remains today.`
     : data.derived.overdueActionCount > 0
@@ -72,7 +64,7 @@ export default async function TodayPage() {
           <Card>
             <CardHeader title="AI Daily Brief" subtitle="Latest compact agent artifact" />
             <div className="p-4 text-sm text-gray-200">
-              {brief ?? 'No daily brief yet. Run the AI command bar to produce a brief from existing Spine, modules, and agent context.'}
+              {data.dailyBrief ? (data.dailyBrief.summary ?? 'Daily brief artifact is ready. Use Go Deeper for full analysis.') : 'No daily brief yet. Run the AI command bar to produce a brief from existing Spine, modules, and agent context.'}
             </div>
           </Card>
 
