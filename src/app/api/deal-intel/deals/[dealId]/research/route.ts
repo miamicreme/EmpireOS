@@ -1,0 +1,3 @@
+import { createClient } from '@/lib/supabase/server'; import { requireUserId } from '@/lib/security'; import { jsonError, jsonResult, readJson } from '@/lib/api'; import { startResearchRun } from '@/modules/deal-intel/service'; import type { StartResearchRunInput } from '@/modules/deal-intel/schemas';
+export const dynamic = 'force-dynamic';
+export async function POST(request: Request, { params }: { params: { dealId: string } }) { const supabase = createClient(); const auth = await requireUserId(supabase); if (!auth.ok) return jsonError(auth.error); return jsonResult(await startResearchRun(supabase, params.dealId, (await readJson(request)) as StartResearchRunInput), 202); }
