@@ -10,6 +10,9 @@ export function ActionDraftApprovals({ drafts }: { drafts: AgentActionDraftRow[]
   const router = useRouter();
   const [editing, setEditing] = useState<string | null>(null);
   const [titles, setTitles] = useState<Record<string, string>>(() => Object.fromEntries(drafts.map((d) => [d.id, d.title])));
+  const [descriptions, setDescriptions] = useState<Record<string, string>>(() => Object.fromEntries(drafts.map((d) => [d.id, d.description ?? ''])));
+  const [categories, setCategories] = useState<Record<string, string>>(() => Object.fromEntries(drafts.map((d) => [d.id, d.category])));
+  const [priorities, setPriorities] = useState<Record<string, string>>(() => Object.fromEntries(drafts.map((d) => [d.id, d.priority])));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -18,9 +21,17 @@ export function ActionDraftApprovals({ drafts }: { drafts: AgentActionDraftRow[]
     setBusyId(id);
     setMessage(null);
     startTransition(async () => {
-      const result = await api.patch(`/api/ai/agent/action-drafts/${id}`, {
+      const result = await api.post(`/api/ai/agent/action-drafts/${id}/approve`, {
         action,
-        edits: action === 'approve' ? { title: titles[id] } : undefined,
+        edits:
+          action === 'approve'
+            ? {
+                title: titles[id],
+                description: descriptions[id],
+                category: categories[id],
+                priority: priorities[id],
+              }
+            : undefined,
       });
       setBusyId(null);
       if (!result.ok) {
@@ -40,18 +51,47 @@ export function ActionDraftApprovals({ drafts }: { drafts: AgentActionDraftRow[]
       {drafts.map((draft) => (
         <div key={draft.id} className="rounded-xl border border-border bg-surface-2/70 p-3">
           {editing === draft.id ? (
-            <input
-              value={titles[draft.id] ?? draft.title}
-              onChange={(event) => setTitles((current) => ({ ...current, [draft.id]: event.target.value }))}
-              className="mb-2 w-full rounded-lg border border-border bg-surface-0 px-3 py-2 text-sm text-gray-100 outline-none focus:border-empire-blue"
-            />
+            <div className="mb-3 grid gap-2 sm:grid-cols-2">
+              <label className="sm:col-span-2 text-xs font-medium text-empire-muted">
+                Draft title
+                <input
+                  value={titles[draft.id] ?? draft.title}
+                  onChange={(event) => setTitles((current) => ({ ...current, [draft.id]: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-border bg-surface-0 px-3 py-2 text-sm text-gray-100 outline-none focus:border-empire-blue"
+                />
+              </label>
+              <label className="sm:col-span-2 text-xs font-medium text-empire-muted">
+                Draft description
+                <textarea
+                  value={descriptions[draft.id] ?? draft.description ?? ''}
+                  onChange={(event) => setDescriptions((current) => ({ ...current, [draft.id]: event.target.value }))}
+                  className="mt-1 min-h-20 w-full rounded-lg border border-border bg-surface-0 px-3 py-2 text-sm text-gray-100 outline-none focus:border-empire-blue"
+                />
+              </label>
+              <label className="text-xs font-medium text-empire-muted">
+                Draft category
+                <input
+                  value={categories[draft.id] ?? draft.category}
+                  onChange={(event) => setCategories((current) => ({ ...current, [draft.id]: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-border bg-surface-0 px-3 py-2 text-sm text-gray-100 outline-none focus:border-empire-blue"
+                />
+              </label>
+              <label className="text-xs font-medium text-empire-muted">
+                Draft priority
+                <input
+                  value={priorities[draft.id] ?? draft.priority}
+                  onChange={(event) => setPriorities((current) => ({ ...current, [draft.id]: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-border bg-surface-0 px-3 py-2 text-sm text-gray-100 outline-none focus:border-empire-blue"
+                />
+              </label>
+            </div>
           ) : (
             <h3 className="text-sm font-semibold text-gray-100">{titles[draft.id] ?? draft.title}</h3>
           )}
           <p className="mt-1 text-xs text-empire-muted">{draft.reason ?? draft.description ?? 'AI drafted this action from the compact agent runtime.'}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-surface-3 px-2 py-1 text-[10px] font-mono uppercase text-gray-300">{draft.category}</span>
-            <span className="rounded-full bg-surface-3 px-2 py-1 text-[10px] font-mono uppercase text-gray-300">{draft.priority}</span>
+            <span className="rounded-full bg-surface-3 px-2 py-1 text-[10px] font-mono uppercase text-gray-300">{categories[draft.id] ?? draft.category}</span>
+            <span className="rounded-full bg-surface-3 px-2 py-1 text-[10px] font-mono uppercase text-gray-300">{priorities[draft.id] ?? draft.priority}</span>
             <Button size="sm" onClick={() => decide(draft.id, 'approve')} loading={isPending && busyId === draft.id}>Approve</Button>
             <Button size="sm" variant="danger" onClick={() => decide(draft.id, 'reject')} loading={isPending && busyId === draft.id}>Reject</Button>
             <Button size="sm" variant="ghost" onClick={() => setEditing(editing === draft.id ? null : draft.id)}>Edit</Button>
