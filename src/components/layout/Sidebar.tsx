@@ -14,7 +14,8 @@ interface NavItem {
 }
 
 const CORE: NavItem[] = [
-  { href: '/' as Route, label: 'Dashboard', icon: '⬡' },
+  { href: '/today' as Route, label: 'Today', icon: '⬡' },
+  { href: '/dashboard' as Route, label: 'Dashboard', icon: '▣' },
   { href: '/chat' as Route, label: 'Chat', icon: '◍' },
   { href: '/intake' as Route, label: 'Intake', icon: '⇥' },
   { href: '/agent' as Route, label: 'Agent', icon: '◉' },
@@ -74,7 +75,7 @@ function NavBody({
   onLogout: () => void;
   onNavigate?: () => void;
 }) {
-  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   return (
     <>
       <nav className="flex-1 py-3 overflow-y-auto">
