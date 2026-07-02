@@ -92,6 +92,16 @@ export const saveMemorySchema = z.object({
   confidence: z.coerce.number().min(0).max(1).catch(0.8).optional(),
 });
 
+export const updateMemorySchema = z.object({
+  memoryType: z.string().min(1).max(60).optional(),
+  title: z.string().max(200).nullable().optional(),
+  content: z.string().min(1).max(5000).nullable().optional(),
+  summary: z.string().max(2000).nullable().optional(),
+  source: z.string().max(200).nullable().optional(),
+  confidence: z.coerce.number().min(0).max(1).optional(),
+  status: z.enum(['active', 'archived', 'deleted']).optional(),
+});
+
 export const feedbackSchema = z.object({
   runId: z.string().uuid().nullable().optional(),
   artifactId: z.string().uuid().nullable().optional(),
