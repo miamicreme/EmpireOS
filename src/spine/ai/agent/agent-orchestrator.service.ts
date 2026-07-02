@@ -119,6 +119,11 @@ export async function runAgent(
     await event('intent_detected', route.reason, { intent: route.intent, tags: route.tags });
     await event('capability_plan', 'read_internal_data, build_context_pack, reason, draft_actions');
     await event('permission_check', 'reads approved; external actions are draft-only (approval-gated)');
+    if (input.inputArtifactIds?.length) {
+      await event('tool_run', `${input.inputArtifactIds.length} analyzed input artifact(s) attached`, {
+        inputArtifactIds: input.inputArtifactIds,
+      });
+    }
 
     // Resolve the credential failover chain in parallel — it depends only on
     // the user, not on the context build or gates below.

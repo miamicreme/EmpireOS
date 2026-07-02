@@ -75,7 +75,12 @@ export type ArtifactType =
   | 'research_report'
   | 'decision_summary'
   | 'action_plan'
-  | 'strategy_plan';
+  | 'strategy_plan'
+  | 'document_analysis'
+  | 'spreadsheet_analysis'
+  | 'vision_analysis'
+  | 'camera_snapshot_analysis'
+  | 'voice_transcript_analysis';
 
 // ---------------------------------------------------------------------------
 // Endpoint contract
@@ -94,6 +99,8 @@ export interface AgentRunInput {
   useResearch?: boolean;
   /** "Go deeper" control. */
   goDeeper?: boolean;
+  /** Optional analyzed input artifact ids; still runs through POST /api/ai/agent/run. */
+  inputArtifactIds?: string[];
 }
 
 export interface SuggestedDraft {

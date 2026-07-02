@@ -20,6 +20,7 @@ export const agentRunInputSchema = z.object({
   idempotency: z.string().max(200).nullable().optional(),
   useResearch: z.boolean().optional(),
   goDeeper: z.boolean().optional(),
+  inputArtifactIds: z.array(z.string().uuid()).max(10).optional(),
 });
 export type AgentRunInputDTO = z.infer<typeof agentRunInputSchema>;
 
@@ -120,3 +121,16 @@ export const feedbackSchema = z.object({
   neverSuggestAgain: z.boolean().optional(),
   needsResearchNextTime: z.boolean().optional(),
 });
+
+export const universalInputAnalyzeSchema = z.object({
+  inputType: z.enum(['pdf', 'docx', 'txt', 'md', 'csv', 'xlsx', 'image', 'screenshot', 'camera_snapshot', 'video_frames', 'voice_transcript']),
+  fileName: z.string().max(240).optional(),
+  mimeType: z.string().max(120).optional(),
+  contentText: z.string().max(100_000).optional(),
+  rows: z.array(z.record(z.union([z.string(), z.number(), z.boolean(), z.null()]))).max(500).optional(),
+  imageDescription: z.string().max(5000).optional(),
+  frameDescriptions: z.array(z.string().max(2000)).max(10).optional(),
+  transcript: z.string().max(50_000).optional(),
+  createDrafts: z.boolean().optional(),
+});
+export type UniversalInputAnalyzeDTO = z.infer<typeof universalInputAnalyzeSchema>;

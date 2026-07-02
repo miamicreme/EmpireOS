@@ -438,7 +438,7 @@ export async function saveContextPack(
 export async function saveArtifact(
   supabase: SupabaseClient,
   userId: string,
-  runId: string,
+  runId: string | null,
   input: {
     artifactType: ArtifactType;
     title: string;
@@ -492,7 +492,7 @@ export async function getLatestArtifactByType(
 export async function createActionDrafts(
   supabase: SupabaseClient,
   userId: string,
-  runId: string,
+    runId: string | null,
   artifactId: string | null,
   drafts: SuggestedDraft[],
 ): Promise<AppResult<AgentActionDraftRow[]>> {
