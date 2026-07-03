@@ -80,7 +80,10 @@ export type ArtifactType =
   | 'spreadsheet_analysis'
   | 'vision_analysis'
   | 'camera_snapshot_analysis'
-  | 'voice_transcript_analysis';
+  | 'camera_analysis'
+  | 'video_frame_analysis'
+  | 'voice_transcript_analysis'
+  | 'research_needed';
 
 // ---------------------------------------------------------------------------
 // Endpoint contract

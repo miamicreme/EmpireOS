@@ -132,5 +132,7 @@ export const universalInputAnalyzeSchema = z.object({
   frameDescriptions: z.array(z.string().max(2000)).max(10).optional(),
   transcript: z.string().max(50_000).optional(),
   createDrafts: z.boolean().optional(),
+  allowVision: z.boolean().optional(),
+  allowDeepAnalysis: z.boolean().optional(),
 });
 export type UniversalInputAnalyzeDTO = z.infer<typeof universalInputAnalyzeSchema>;
