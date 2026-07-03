@@ -119,6 +119,24 @@ export async function runAgent(
     await event('intent_detected', route.reason, { intent: route.intent, tags: route.tags });
     await event('capability_plan', 'read_internal_data, build_context_pack, reason, draft_actions');
     await event('permission_check', 'reads approved; external actions are draft-only (approval-gated)');
+    const inputArtifacts = input.inputArtifactIds?.length
+      ? await repo.getArtifactsByIds(supabase, userId, input.inputArtifactIds)
+      : ok([] as repo.ArtifactRow[]);
+    if (!inputArtifacts.ok) {
+      await failRun(inputArtifacts.error.message);
+      return inputArtifacts;
+    }
+    if (inputArtifacts.data.length) {
+      await event('tool_run', `${inputArtifacts.data.length} analyzed input artifact(s) attached to context`, {
+        inputArtifactIds: inputArtifacts.data.map((artifact) => artifact.id),
+        inputArtifactSummaries: inputArtifacts.data.map((artifact) => ({
+          id: artifact.id,
+          artifactType: artifact.artifact_type,
+          title: artifact.title,
+          summary: artifact.summary,
+        })),
+      });
+    }
 
     // Resolve the credential failover chain in parallel — it depends only on
     // the user, not on the context build or gates below.
@@ -131,7 +149,15 @@ export async function runAgent(
       return packResult;
     }
     const { pack, context } = packResult.data;
-    await event('context_built', pack.summary, { contextHash: pack.contextHash, tokenEstimate: pack.tokenEstimate });
+    const inputArtifactSummary = inputArtifacts.data
+      .map((artifact) => `${artifact.artifact_type}: ${artifact.title ?? 'Untitled'} — ${artifact.summary ?? ''}`)
+      .join('\n');
+    if (inputArtifactSummary) {
+      pack.relevantFacts = { ...pack.relevantFacts, attachedInputArtifacts: inputArtifactSummary };
+      pack.sourceRefs = [...pack.sourceRefs, ...inputArtifacts.data.map((artifact) => `agent_artifact:${artifact.id}`)];
+      pack.summary = `${pack.summary} Attached inputs: ${inputArtifacts.data.length}.`;
+    }
+    await event('context_built', pack.summary, { contextHash: pack.contextHash, tokenEstimate: pack.tokenEstimate, inputArtifactCount: inputArtifacts.data.length });
 
     // Save the pack only when its hash is new — identical situations reuse the
     // existing pack (hash-reuse avoids churn and duplicate rows).
@@ -196,6 +222,13 @@ export async function runAgent(
         specialistVotes: votes.filter((v) => v.status === 'valid'),
         researchRequests: research.requests,
         memoryRequests,
+        inputArtifacts: inputArtifacts.data.map((artifact) => ({
+          id: artifact.id,
+          artifactType: artifact.artifact_type,
+          title: artifact.title,
+          summary: artifact.summary,
+          content: artifact.content_json,
+        })),
       },
       confidence: out.confidence,
       riskLevel: out.riskLevel,
