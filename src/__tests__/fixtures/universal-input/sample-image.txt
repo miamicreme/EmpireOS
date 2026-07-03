@@ -1,0 +1,1 @@
+Mock screenshot description: login screen shows error code 500 after submit.
