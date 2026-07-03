@@ -271,6 +271,7 @@ export interface SafeRunDetail {
     summary: string | null;
     latency_ms: number | null;
     created_at: string;
+    content_json?: Record<string, unknown>;
   }>;
   artifacts: Array<{
     id: string;
@@ -323,7 +324,7 @@ export async function getRunDetail(
       .order('event_order', { ascending: true }),
     supabase
       .from('agent_artifacts')
-      .select('id, artifact_type, title, summary, confidence, risk_level, status, created_at')
+      .select('id, artifact_type, title, summary, confidence, risk_level, status, created_at, content_json')
       .eq('run_id', runId)
       .eq('user_id', userId)
       .order('created_at', { ascending: false }),
@@ -466,6 +467,23 @@ export async function saveArtifact(
     .single();
   if (error) return err(appError('db_error', error.message));
   return ok(data as ArtifactRow);
+}
+
+
+export async function getArtifactsByIds(
+  supabase: SupabaseClient,
+  userId: string,
+  artifactIds: string[],
+): Promise<AppResult<ArtifactRow[]>> {
+  if (artifactIds.length === 0) return ok([]);
+  const { data, error } = await supabase
+    .from('agent_artifacts')
+    .select('*')
+    .eq('user_id', userId)
+    .in('id', artifactIds)
+    .limit(10);
+  if (error) return err(appError('db_error', error.message));
+  return ok((data ?? []) as ArtifactRow[]);
 }
 
 export async function getLatestArtifactByType(

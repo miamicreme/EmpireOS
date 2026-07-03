@@ -121,3 +121,10 @@ Ordered by leverage.
   signal until resolved in repo settings.
 - **No live Supabase wiring yet** — the app renders graceful empty states until
   environment variables point at a real project.
+
+## Universal input intelligence V7 pass
+
+- Added parser/adaptor service layer for normalized files, documents, spreadsheets, vision inputs, and cost governance.
+- Added provider capability routing with explicit `vision_provider_required` failure mode.
+- Extended `POST /api/ai/agent/run` orchestration to pull `inputArtifactIds` into the safe context pack as summaries and artifact references.
+- Universal input analysis now creates structured artifacts and approval-gated action drafts from documents, spreadsheets, screenshots, camera snapshots, and sampled frame descriptions.
