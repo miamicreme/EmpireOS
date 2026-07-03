@@ -43,7 +43,3 @@
 - `POST /api/ai/input/camera-frame` forces `inputType: "camera_snapshot"` and analyzes only an explicitly submitted snapshot.
 - `POST /api/ai/input/video-frames/analyze` forces `inputType: "video_frames"` and is guarded by the universal input service's 10-frame maximum.
 - Universal input remains subordinate to the single reasoning command path: callers should pass returned artifact IDs to `POST /api/ai/agent/run` through `inputArtifactIds` for deeper analysis or action drafting.
-
-### Universal input V7 intelligence payload
-
-Universal input artifacts store normalized safe summaries with `keyFacts`, `risks`, `opportunities`, `recommendedActions`, `confidence`, source references, cost metadata, and safety metadata. Images, screenshots, camera snapshots, and sampled video frames require a vision-capable provider; otherwise the API returns `vision_provider_required`. High-stakes documents can be stored as `research_needed` artifacts until deep analysis is explicitly allowed.

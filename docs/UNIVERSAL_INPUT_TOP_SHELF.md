@@ -1,6 +1,6 @@
 # Universal Input Top-Shelf Notes
 
-EmpireOS now has a universal input intelligence layer that keeps all reasoning inside the compact agent runtime.
+EmpireOS now has a lightweight universal input contract that keeps all reasoning inside the compact agent runtime.
 
 ## Supported entry points
 
@@ -11,14 +11,10 @@ EmpireOS now has a universal input intelligence layer that keeps all reasoning i
 - `POST /api/ai/input/camera-frame` handles explicit snapshots only.
 - `POST /api/ai/input/video-frames/analyze` accepts at most 10 sampled frames.
 
-## Intelligence layer
+## Guardrails
 
-- `file-ingestion.service.ts` normalizes input and blocks high-risk secrets.
-- `document-intelligence.service.ts` handles PDF/DOCX/TXT/MD text after extraction.
-- `spreadsheet-intelligence.service.ts` provides deterministic CSV/XLSX summaries before AI.
-- `vision-intelligence.service.ts` routes images/screenshots/camera/video frames to a vision-capable provider or returns `vision_provider_required`.
-- `cost-governor.service.ts` enforces file, text, chunk, and video-frame limits.
-
-## Artifact fields
-
-Artifacts include title, summary, key facts, risks, opportunities, recommended actions, confidence, source references, safety metadata, and routing/cost metadata. Deeper reasoning still happens through `POST /api/ai/agent/run` with `inputArtifactIds`.
+- No silent camera activation.
+- No always-on video streaming.
+- High-risk secrets are blocked before analysis.
+- Spreadsheet rows are summarized locally first.
+- Deeper reasoning still happens through `POST /api/ai/agent/run` with artifact IDs.
