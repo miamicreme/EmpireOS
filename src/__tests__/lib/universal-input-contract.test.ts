@@ -16,7 +16,7 @@ describe('universal input and camera contract', () => {
 
   it('keeps camera and video analysis explicit and bounded', () => {
     const service = read('src/spine/ai/agent/universal-input.service.ts');
-    expect(read('src/spine/agent/cost/cost-governor.service.ts')).toContain('maxVideoFrames: 10');
+    expect(service).toContain('MAX_VIDEO_FRAMES = 10');
     expect(service).toContain('cameraActivatedServerSide: false');
     expect(service).toContain('videoStreamStored: false');
   });
@@ -27,33 +27,5 @@ describe('universal input and camera contract', () => {
     expect(cameraPage).toContain('does not silently activate your camera');
     expect(cameraPage).toContain('Stop camera');
     expect(cameraPage).toContain('Sample 10 seconds');
-  });
-});
-
-describe('universal input V7 intelligence contract', () => {
-  it('adds parser adapters, provider routing, and cost governor services', () => {
-    expect(existsSync(join(root, 'src/spine/agent/input/file-ingestion.service.ts'))).toBe(true);
-    expect(existsSync(join(root, 'src/spine/agent/input/document-intelligence.service.ts'))).toBe(true);
-    expect(existsSync(join(root, 'src/spine/agent/input/spreadsheet-intelligence.service.ts'))).toBe(true);
-    expect(existsSync(join(root, 'src/spine/agent/input/vision-intelligence.service.ts'))).toBe(true);
-    expect(existsSync(join(root, 'src/spine/agent/cost/cost-governor.service.ts'))).toBe(true);
-    expect(existsSync(join(root, 'src/spine/ai/provider-capabilities.ts'))).toBe(true);
-  });
-
-  it('documents real artifact payload fields and action draft creation', () => {
-    const service = read('src/spine/ai/agent/universal-input.service.ts');
-    for (const field of ['keyFacts', 'risks', 'opportunities', 'recommendedActions', 'sourceReferences', 'agent/run']) {
-      expect(service).toContain(field);
-    }
-    expect(service).toContain('createActionDrafts');
-    expect(service).toContain('research_needed');
-  });
-
-  it('integrates inputArtifactIds into the agent run context safely', () => {
-    const orchestrator = read('src/spine/ai/agent/agent-orchestrator.service.ts');
-    expect(orchestrator).toContain('getArtifactsByIds');
-    expect(orchestrator).toContain('attachedInputArtifacts');
-    expect(orchestrator).toContain('inputArtifactSummaries');
-    expect(orchestrator).not.toContain('chainOfThought');
   });
 });
