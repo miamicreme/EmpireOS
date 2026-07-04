@@ -81,7 +81,8 @@ export function PasskeyEnrollmentWorkbench({ token }: { token: string }) {
         return;
       }
       setSuccess(true);
-      router.replace((verify.data.nextUrl ?? '/today') as Route);
+      const nextUrl: Route = (verify.data.nextUrl ?? '/today') as Route;
+      router.replace(nextUrl);
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));
