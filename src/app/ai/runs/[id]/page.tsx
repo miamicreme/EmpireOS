@@ -8,7 +8,7 @@ export default function AiRunDetailPage({ params }: { params: { id: string } }) 
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-8">
       <PageHeader
         title="Run Detail"
-        subtitle="Safe summaries only. No hidden chain-of-thought, no secrets, no raw provider payloads."
+        subtitle="Safe summaries only, without hidden chain-of-thought, no secrets, no raw provider payloads."
       />
       <RunDetailWorkbench runId={params.id} />
     </main>

@@ -19,6 +19,7 @@ describe('passkey enrollment contract', () => {
   it('exposes a sessionless enrollment page for iPhone pairing', () => {
     const page = read('src/app/passkeys/enroll/[token]/page.tsx');
     const workbench = read('src/components/auth/PasskeyEnrollmentWorkbench.tsx');
+    const helper = read('src/lib/auth/passkey-enrollment.ts');
     expect(page).toContain('Add another device');
     expect(workbench).toContain('This adds your iPhone without removing your Windows passkey.');
     expect(workbench).toContain('This link expires in 10 minutes.');
@@ -26,6 +27,7 @@ describe('passkey enrollment contract', () => {
     expect(workbench).toContain('/api/auth/passkeys/enrollment/${token}/status');
     expect(workbench).toContain('/api/auth/passkeys/enrollment/${token}/register/options');
     expect(workbench).toContain('/api/auth/passkeys/enrollment/${token}/register/verify');
+    expect(helper).toContain('/passkeys/enroll/${token}');
   });
 
   it('separates passkey actions on the settings page', () => {
@@ -50,7 +52,7 @@ describe('passkey enrollment contract', () => {
     const verify = read('src/app/api/auth/passkeys/enrollment/[token]/register/verify/route.ts');
     const helper = read('src/lib/auth/passkey-enrollment.ts');
 
-    expect(create).toContain('/passkeys/enroll/');
+    expect(create).toContain('createEnrollmentToken');
     expect(create).toContain('nextUrl');
     expect(status).toContain('getEnrollmentStatus');
     expect(status).not.toContain('user_id');
