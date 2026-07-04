@@ -48,13 +48,7 @@ export async function createEnrollmentToken(
     createdIp: string | null;
     expiresInSeconds?: number;
   },
-): Promise<{
-  rawToken: string;
-  enrollmentUrl: string;
-  qrPayload: string;
-  expiresAt: string;
-  labelHint: string | null;
-}> {
+): Promise<{ rawToken: string; enrollmentUrl: string; qrPayload: string; expiresAt: string; labelHint: string | null }> {
   const rawToken = createRawEnrollmentToken();
   const expiresAt = new Date(Date.now() + (meta.expiresInSeconds ?? ENROLLMENT_TOKEN_TTL_SECONDS) * 1000).toISOString();
   const token_hash = hashEnrollmentToken(rawToken);

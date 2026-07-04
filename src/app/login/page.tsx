@@ -363,6 +363,8 @@ function CheckIcon({ className }: { className?: string }) {
 function friendly(e: unknown): string {
   const name = (e as { name?: string })?.name;
   if (name === 'NotAllowedError') return 'Cancelled or timed out. Try again.';
-  if (name === 'InvalidStateError') return 'This device already has a passkey for Empire OS.';
+  if (name === 'InvalidStateError') {
+    return 'Windows could not save another passkey for this account. Your existing Windows passkey may already be active. Use Add another device for iPhone.';
+  }
   return (e as Error)?.message ?? 'Something went wrong.';
 }
