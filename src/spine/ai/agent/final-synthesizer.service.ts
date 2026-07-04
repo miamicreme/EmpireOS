@@ -19,15 +19,29 @@ import type {
 } from './agent.types';
 import type { EmpireContext } from '../ai.types';
 
-const SYSTEM_PROMPT = `You are the final synthesizer for an AI Chief of Staff.
-You receive a compact, redacted context pack and (sometimes) specialist votes.
-Reconcile them into ONE direct, specific recommendation grounded ONLY in the
-provided facts. Use numbers from context.relevantFacts.derived verbatim; never
-invent figures. Prefer the code-ranked priorities. Be honest about uncertainty.
+const SYSTEM_PROMPT = `You are Empire OS in mentor mode: a calm, strategic AI Chief of Staff for a high-agency builder.
+Speak like a sharp mentor who helps the owner think better, see trade-offs, and choose the next move.
+
+Use only the compact, redacted context pack and specialist votes. Use numbers from context.relevantFacts.derived verbatim; never invent figures.
+Be direct, but conversational. Give insight before instruction. Break the issue into subtopics so the owner understands the shape of the problem.
+Prefer creative, high-leverage ideas when facts support them. When facts are missing, say what is missing and still give a safe next move.
+Do not reveal hidden chain-of-thought. Provide concise reasoning summaries only.
+
+Style rules:
+- Start with a human mentor answer, not a repetitive fact list.
+- Explain the main tension: what matters, what is risky, what is being ignored.
+- Break complex issues into 2-5 subtopics.
+- Offer one creative angle or reframing when useful.
+- Ask 1-3 smart follow-up questions only if they would materially improve the decision.
+- Keep action drafts practical and approval-gated.
 
 Return ONLY JSON:
 {
-  "answer": "the direct answer (2-5 sentences)",
+  "answer": "conversational mentor answer (4-8 sentences, with insight and recommendation)",
+  "mentorNote": "plain-spoken coaching note that helps the owner think better",
+  "issueBreakdown": [ { "topic": "subtopic", "insight": "what is really going on", "tension": "trade-off or risk", "practicalMove": "what to do with this insight" } ],
+  "creativeAngles": ["creative but grounded idea, reframing, or leverage point"],
+  "conversationStarters": ["smart follow-up question or prompt for the owner"],
   "reasoningSummary": "why, in 1-3 sentences (no hidden chain-of-thought)",
   "assumptions": ["explicit assumptions, not hidden chain-of-thought"],
   "evidence": [ { "claim": "...", "source": "context_pack|specialist_vote|record_ref", "strength": "weak|moderate|strong" } ],
@@ -40,14 +54,32 @@ Return ONLY JSON:
   "nextActions": [ { "title": "...", "priority": "low|medium|high|critical", "reason": "..." } ],
   "suggestedDrafts": [ { "title": "...", "description": "why + how", "category": "cash|job|followup|credit|project|acquisition|review|admin|general", "priority": "low|medium|high|critical", "moduleId": "cash-engine|job-hunt|followup-crm|credit-funding|projects|acquisitions|null", "reason": "..." } ]
 }
-At most 5 nextActions and 5 suggestedDrafts.`;
+At most 5 issueBreakdown items, 5 creativeAngles, 4 conversationStarters, 5 nextActions, and 5 suggestedDrafts.`;
 
 function stubSynthesis(ctx: EmpireContext, pack: ContextPack): SynthesisOutput {
   const top = ctx.prioritized.slice(0, 5);
   const target = ctx.derived.cashTargetToday ?? ctx.profile?.dailyCashTarget ?? 250;
+  const focus = top[0]?.title ?? `hit today's $${target} cash target`;
   return {
-    answer: `[STUB] ${pack.summary}. Focus: ${top[0]?.title ?? `hit today's $${target} cash target`}. Configure an AI provider for live reasoning.`,
-    reasoningSummary: 'Deterministic synthesis from the code prioritizer and derived facts.',
+    answer: `[STUB] ${pack.summary}. The move is to stop treating this like a pile of tasks and treat it like a decision: protect the highest-value objective first, then let the smaller tasks orbit that. Focus now: ${focus}. Configure an AI provider for live mentor reasoning.`,
+    mentorNote: 'A good system should not just tell you what exists; it should help you see what matters, what is blocking momentum, and what next move creates leverage.',
+    issueBreakdown: [
+      {
+        topic: 'Priority clarity',
+        insight: pack.priorities[0] ?? 'The Spine has a top-ranked priority available.',
+        tension: 'Too many parallel tasks can create motion without progress.',
+        practicalMove: focus,
+      },
+      {
+        topic: 'Risk control',
+        insight: pack.openRisks[0] ?? 'No major open risk was surfaced in the compact context.',
+        tension: 'Ignoring risk makes the next action look easier than it is.',
+        practicalMove: 'Name the biggest constraint before committing the next block of time.',
+      },
+    ],
+    creativeAngles: ['Turn the top priority into a 30-minute decision sprint: define win, blocker, next proof, and approval needed.'],
+    conversationStarters: ['What is the one outcome today that would make the rest of the list easier?'],
+    reasoningSummary: 'Deterministic synthesis from the code prioritizer and derived facts, shaped as mentor guidance rather than a raw fact list.',
     assumptions: ['The compact internal context is current enough for a bounded recommendation.'],
     evidence: [
       { claim: pack.summary, source: 'context_pack.summary', strength: 'strong' as const },
@@ -124,7 +156,7 @@ export async function synthesizeFinal(
     schema: synthesisOutputSchema,
     stub: stubSynthesis(context, pack),
     model,
-    maxTokens: 2048,
+    maxTokens: 2600,
     // Ground high-stakes deep-path answers with the verify pass.
     verify: runtimePath === 'deep_path',
     credentials,
