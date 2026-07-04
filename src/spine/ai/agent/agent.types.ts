@@ -52,6 +52,7 @@ export type RunEventType =
   | 'context_built'
   | 'memory_gate'
   | 'research_gate'
+  | 'problem_framed'
   | 'provider_selected'
   | 'specialist_vote'
   | 'tool_run'
@@ -150,6 +151,7 @@ export interface AgentRunOutput {
   artifactType: ArtifactType;
   answer: string;
   reasoningSummary: string;
+  reasoningArtifact: ReasoningArtifact | null;
   confidence: number;
   riskLevel: RiskLevel;
   risks: string[];
@@ -217,6 +219,47 @@ export interface SpecialistVote {
 }
 
 // ---------------------------------------------------------------------------
+// Reasoning artifact
+// ---------------------------------------------------------------------------
+export interface ProblemFrame {
+  domain: AgentIntent;
+  objective: string;
+  decisionToMake: string | null;
+  constraints: string[];
+  knownFacts: string[];
+  unknowns: string[];
+  requiredData: string[];
+  stakes: RiskLevel;
+  canAnswerNow: boolean;
+  needsMemory: boolean;
+  needsResearch: boolean;
+}
+
+export interface EvidenceItem {
+  claim: string;
+  source: string;
+  strength: 'weak' | 'moderate' | 'strong';
+}
+
+export interface OptionAnalysis {
+  option: string;
+  why: string;
+  risks: string[];
+  nextStep: string;
+}
+
+export interface ReasoningArtifact {
+  problemFrame: ProblemFrame;
+  assumptions: string[];
+  evidence: EvidenceItem[];
+  options: OptionAnalysis[];
+  risks: string[];
+  recommendation: string;
+  confidence: number;
+  whatWouldChangeMyMind: string[];
+}
+
+// ---------------------------------------------------------------------------
 // Intent routing result
 // ---------------------------------------------------------------------------
 export interface IntentResult {
@@ -234,6 +277,10 @@ export interface IntentResult {
 export interface SynthesisOutput {
   answer: string;
   reasoningSummary: string;
+  assumptions: string[];
+  evidence: EvidenceItem[];
+  options: OptionAnalysis[];
+  whatWouldChangeMyMind: string[];
   confidence: number;
   riskLevel: RiskLevel;
   risks: string[];

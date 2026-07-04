@@ -29,6 +29,10 @@ Return ONLY JSON:
 {
   "answer": "the direct answer (2-5 sentences)",
   "reasoningSummary": "why, in 1-3 sentences (no hidden chain-of-thought)",
+  "assumptions": ["explicit assumptions, not hidden chain-of-thought"],
+  "evidence": [ { "claim": "...", "source": "context_pack|specialist_vote|record_ref", "strength": "weak|moderate|strong" } ],
+  "options": [ { "option": "...", "why": "...", "risks": ["..."], "nextStep": "..." } ],
+  "whatWouldChangeMyMind": ["specific facts that would change the recommendation"],
   "confidence": 0..1,
   "riskLevel": "low|medium|high",
   "risks": ["..."],
@@ -44,6 +48,24 @@ function stubSynthesis(ctx: EmpireContext, pack: ContextPack): SynthesisOutput {
   return {
     answer: `[STUB] ${pack.summary}. Focus: ${top[0]?.title ?? `hit today's $${target} cash target`}. Configure an AI provider for live reasoning.`,
     reasoningSummary: 'Deterministic synthesis from the code prioritizer and derived facts.',
+    assumptions: ['The compact internal context is current enough for a bounded recommendation.'],
+    evidence: [
+      { claim: pack.summary, source: 'context_pack.summary', strength: 'strong' as const },
+      ...pack.priorities.slice(0, 3).map((priority) => ({
+        claim: priority,
+        source: 'context_pack.priorities',
+        strength: 'moderate' as const,
+      })),
+    ],
+    options: top.slice(0, 3).map((a) => ({
+      option: a.title,
+      why: a.priorityReasons.join(', ') || `priority ${a.priorityScore}`,
+      risks: pack.openRisks.slice(0, 2),
+      nextStep: a.title,
+    })),
+    whatWouldChangeMyMind: [
+      'A material change in cash collected, deadlines, module health, or user risk tolerance.',
+    ],
     confidence: 0.5,
     riskLevel: ctx.derived.overdueActionCount > 0 ? 'medium' : 'low',
     risks: pack.openRisks,

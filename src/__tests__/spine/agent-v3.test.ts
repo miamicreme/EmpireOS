@@ -279,6 +279,25 @@ describe('runAgent', () => {
     expect((seed.agent_run_events ?? []).length).toBeGreaterThan(0);
     expect((seed.agent_artifacts ?? []).length).toBe(1);
   });
+
+  it('stores a visible reasoning artifact with frame, assumptions, evidence, and change conditions', async () => {
+    const { runAgent } = await import('@/spine/ai/agent/agent-orchestrator.service');
+    const seed = seedSpine();
+    const db = makeDb(seed);
+    const res = await runAgent(db, USER, { command: 'Analyze this funding move.', goDeeper: true });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    expect(res.data.reasoningArtifact?.problemFrame.domain).toBe('credit_funding');
+    expect(res.data.reasoningArtifact?.problemFrame.stakes).toBe('high');
+    expect(res.data.reasoningArtifact?.assumptions.length).toBeGreaterThan(0);
+    expect(res.data.reasoningArtifact?.evidence.length).toBeGreaterThan(0);
+    expect(res.data.reasoningArtifact?.whatWouldChangeMyMind.length).toBeGreaterThan(0);
+
+    const artifact = seed.agent_artifacts?.[0];
+    const content = artifact?.content_json as { reasoningArtifact?: unknown } | undefined;
+    expect(content?.reasoningArtifact).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -459,6 +478,7 @@ const CORE_STEPS = [
   'context_built',
   'memory_gate',
   'research_gate',
+  'problem_framed',
   'provider_selected',
   'final_synthesized',
 ];

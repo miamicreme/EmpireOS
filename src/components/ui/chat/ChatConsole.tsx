@@ -18,11 +18,22 @@ interface SpecialistVote {
   confidence: number;
 }
 
+interface ReasoningArtifact {
+  problemFrame: {
+    objective: string;
+    stakes: string;
+    canAnswerNow: boolean;
+  };
+  assumptions: string[];
+  whatWouldChangeMyMind: string[];
+}
+
 interface AgentOutput {
   threadId: string;
   intent: string;
   answer: string;
   reasoningSummary: string;
+  reasoningArtifact: ReasoningArtifact | null;
   confidence: number;
   riskLevel: string;
   risks: string[];
@@ -257,6 +268,20 @@ function AssistantBubble({ message }: { message: ChatMessage }) {
           {meta.reasoningSummary && (
             <p className="text-xs text-empire-muted leading-relaxed">{meta.reasoningSummary}</p>
           )}
+          {meta.reasoningArtifact && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <ReasoningMiniList
+                title="Frame"
+                items={[
+                  meta.reasoningArtifact.problemFrame.objective,
+                  `stakes: ${meta.reasoningArtifact.problemFrame.stakes}`,
+                  meta.reasoningArtifact.problemFrame.canAnswerNow ? 'can answer now' : 'needs missing inputs',
+                ]}
+              />
+              <ReasoningMiniList title="Assumptions" items={meta.reasoningArtifact.assumptions} />
+              <ReasoningMiniList title="Would change if" items={meta.reasoningArtifact.whatWouldChangeMyMind} />
+            </div>
+          )}
           {meta.specialistVotes.map((v, i) => (
             <div key={i} className="text-xs">
               <div className="flex items-center justify-between gap-2">
@@ -278,6 +303,21 @@ function AssistantBubble({ message }: { message: ChatMessage }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ReasoningMiniList({ title, items }: { title: string; items: string[] }) {
+  const clean = items.filter(Boolean).slice(0, 4);
+  if (clean.length === 0) return null;
+  return (
+    <div>
+      <p className="text-[11px] font-mono text-empire-blue mb-1">{title}</p>
+      <ul className="list-disc list-inside text-xs text-empire-muted space-y-0.5">
+        {clean.map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+      </ul>
     </div>
   );
 }

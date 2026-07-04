@@ -40,6 +40,27 @@ export const suggestedDraftSchema = z.object({
 export const synthesisOutputSchema = z.object({
   answer: z.string().default(''),
   reasoningSummary: z.string().default(''),
+  assumptions: z.array(z.string()).default([]),
+  evidence: z
+    .array(
+      z.object({
+        claim: z.string().default(''),
+        source: z.string().default('context_pack'),
+        strength: z.enum(['weak', 'moderate', 'strong']).catch('moderate'),
+      }),
+    )
+    .default([]),
+  options: z
+    .array(
+      z.object({
+        option: z.string().default(''),
+        why: z.string().default(''),
+        risks: z.array(z.string()).default([]),
+        nextStep: z.string().default(''),
+      }),
+    )
+    .default([]),
+  whatWouldChangeMyMind: z.array(z.string()).default([]),
   confidence,
   riskLevel,
   risks: z.array(z.string()).default([]),

@@ -21,6 +21,20 @@ interface ActionDraft {
   approvalStatus: string;
 }
 
+interface ReasoningArtifact {
+  problemFrame: {
+    objective: string;
+    stakes: string;
+    canAnswerNow: boolean;
+    knownFacts: string[];
+    unknowns: string[];
+  };
+  assumptions: string[];
+  evidence: Array<{ claim: string; source: string; strength: string }>;
+  options: Array<{ option: string; why: string; nextStep: string }>;
+  whatWouldChangeMyMind: string[];
+}
+
 interface AgentOutput {
   runId: string;
   threadId: string;
@@ -29,6 +43,7 @@ interface AgentOutput {
   intent: string;
   answer: string;
   reasoningSummary: string;
+  reasoningArtifact: ReasoningArtifact | null;
   confidence: number;
   riskLevel: string;
   risks: string[];
@@ -203,8 +218,26 @@ export function AgentConsole() {
             </div>
 
             {showWhy && output.reasoningSummary && (
-              <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs text-gray-300">
-                {output.reasoningSummary}
+              <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs text-gray-300 space-y-3">
+                <p className="leading-relaxed">{output.reasoningSummary}</p>
+                {output.reasoningArtifact && (
+                  <>
+                    <ReasoningList
+                      title="Problem frame"
+                      items={[
+                        output.reasoningArtifact.problemFrame.objective,
+                        `stakes: ${output.reasoningArtifact.problemFrame.stakes}`,
+                        output.reasoningArtifact.problemFrame.canAnswerNow ? 'can answer now' : 'blocked by missing inputs',
+                      ]}
+                    />
+                    <ReasoningList title="Assumptions" items={output.reasoningArtifact.assumptions} />
+                    <ReasoningList
+                      title="Evidence"
+                      items={output.reasoningArtifact.evidence.map((e) => `${e.claim} (${e.source}, ${e.strength})`)}
+                    />
+                    <ReasoningList title="What would change it" items={output.reasoningArtifact.whatWouldChangeMyMind} />
+                  </>
+                )}
                 {output.specialistVotes.length > 0 && (
                   <ul className="mt-2 space-y-1 list-disc list-inside">
                     {output.specialistVotes.map((v, i) => (
@@ -278,6 +311,21 @@ export function AgentConsole() {
         )}
       </div>
     </Card>
+  );
+}
+
+function ReasoningList({ title, items }: { title: string; items: string[] }) {
+  const clean = items.filter(Boolean).slice(0, 5);
+  if (clean.length === 0) return null;
+  return (
+    <div>
+      <div className="text-[10px] font-mono uppercase tracking-widest text-empire-muted mb-1">{title}</div>
+      <ul className="space-y-0.5 list-disc list-inside text-empire-muted">
+        {clean.map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

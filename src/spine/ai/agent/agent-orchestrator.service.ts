@@ -21,6 +21,7 @@ import {
 } from './provider-router.service';
 import { runSpecialistCouncil } from './specialist-council.service';
 import { synthesizeFinal } from './final-synthesizer.service';
+import { buildReasoningArtifact } from './reasoning-artifact.service';
 import * as repo from './agent-repository.service';
 import type {
   AgentActionDraftView,
@@ -173,6 +174,12 @@ export async function runAgent(
     // 5. Research gate (returns research_required rather than faking facts).
     const research = evaluateResearchGate(input.command, route.intent, Boolean(input.useResearch));
     await event('research_gate', research.needsResearch ? 'research required' : 'no research needed');
+    await event('problem_framed', `${route.intent} objective framed at ${route.stakes} stakes`, {
+      intent: route.intent,
+      stakes: route.stakes,
+      needsMemory: memoryRequests.length > 0,
+      needsResearch: research.needsResearch,
+    });
 
     // 6. Provider router.
     const strategy = buildProviderStrategy(
@@ -206,6 +213,17 @@ export async function runAgent(
       supabase, userId, runId, input.command, pack, context, votes, strategy.model, route.runtimePath, credentials,
     );
     const out = synth.output;
+    const reasoningArtifact = buildReasoningArtifact({
+      command: input.command,
+      intent: route.intent,
+      stakes: route.stakes,
+      pack,
+      context,
+      memoryRequests,
+      researchRequests: research.requests,
+      votes,
+      output: out,
+    });
     await event('final_synthesized', out.answer.slice(0, 160), { confidence: out.confidence });
 
     // 9. Artifact (always saved).
@@ -216,6 +234,11 @@ export async function runAgent(
       contentJson: {
         answer: out.answer,
         reasoningSummary: out.reasoningSummary,
+        reasoningArtifact,
+        assumptions: reasoningArtifact.assumptions,
+        evidence: reasoningArtifact.evidence,
+        options: reasoningArtifact.options,
+        whatWouldChangeMyMind: reasoningArtifact.whatWouldChangeMyMind,
         risks: out.risks,
         opportunities: out.opportunities,
         nextActions: out.nextActions,
@@ -285,6 +308,7 @@ export async function runAgent(
       artifactType: route.artifactType,
       answer: out.answer,
       reasoningSummary: out.reasoningSummary,
+      reasoningArtifact,
       confidence: out.confidence,
       riskLevel: out.riskLevel,
       risks: out.risks,
@@ -321,6 +345,7 @@ export async function runAgent(
       artifactType: 'answer',
       answer: 'The agent run failed. Please try again.',
       reasoningSummary: '',
+      reasoningArtifact: null,
       confidence: 0,
       riskLevel: 'low',
       risks: [],
@@ -370,6 +395,7 @@ async function reconstructOutput(
     artifactType: ((artifactRow as repo.ArtifactRow | null)?.artifact_type as AgentRunOutput['artifactType']) ?? 'answer',
     answer: run.final_summary ?? (content?.answer as string) ?? '',
     reasoningSummary: (content?.reasoningSummary as string) ?? '',
+    reasoningArtifact: (content?.reasoningArtifact as AgentRunOutput['reasoningArtifact']) ?? null,
     confidence: run.confidence ?? 0.5,
     riskLevel: (run.risk_level as AgentRunOutput['riskLevel']) ?? 'low',
     risks: (content?.risks as string[]) ?? [],

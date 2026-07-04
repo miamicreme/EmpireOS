@@ -61,6 +61,19 @@ type RunDetail = {
   }>;
 };
 
+type ReasoningArtifact = {
+  problemFrame?: {
+    objective?: string;
+    stakes?: string;
+    canAnswerNow?: boolean;
+    knownFacts?: string[];
+    unknowns?: string[];
+  };
+  assumptions?: string[];
+  evidence?: Array<{ claim?: string; source?: string; strength?: string }>;
+  whatWouldChangeMyMind?: string[];
+};
+
 type FeedbackType = 'thumbs_up' | 'thumbs_down' | 'correction' | 'save_memory' | 'never_again';
 
 function fmtDate(value: string | null) {
@@ -115,6 +128,10 @@ export function RunDetailWorkbench({ runId }: { runId: string }) {
   const mainArtifact = detail?.artifacts[0] ?? null;
   const reasoningSummary = useMemo(
     () => (mainArtifact?.content_json?.reasoningSummary as string | undefined) ?? null,
+    [mainArtifact],
+  );
+  const reasoningArtifact = useMemo(
+    () => (mainArtifact?.content_json?.reasoningArtifact as ReasoningArtifact | undefined) ?? null,
     [mainArtifact],
   );
   const inputArtifacts = useMemo(() => safeInputArtifacts(detail?.artifacts ?? []), [detail]);
@@ -205,6 +222,28 @@ export function RunDetailWorkbench({ runId }: { runId: string }) {
                 {reasoningSummary ?? 'No safe reasoning summary was stored for this run.'}
               </p>
             </div>
+
+            {reasoningArtifact && (
+              <div className="rounded-2xl border border-border bg-surface-0 p-4">
+                <p className="text-xs font-mono uppercase tracking-widest text-empire-muted">Reasoning artifact</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <ReasoningDetailList
+                    title="Frame"
+                    items={[
+                      reasoningArtifact.problemFrame?.objective,
+                      reasoningArtifact.problemFrame?.stakes ? `stakes: ${reasoningArtifact.problemFrame.stakes}` : null,
+                      reasoningArtifact.problemFrame?.canAnswerNow === false ? 'blocked by missing inputs' : 'can answer now',
+                    ]}
+                  />
+                  <ReasoningDetailList title="Assumptions" items={reasoningArtifact.assumptions ?? []} />
+                  <ReasoningDetailList
+                    title="Evidence"
+                    items={(reasoningArtifact.evidence ?? []).map((e) => `${e.claim ?? ''} (${e.source ?? 'context'}, ${e.strength ?? 'moderate'})`)}
+                  />
+                  <ReasoningDetailList title="Would change if" items={reasoningArtifact.whatWouldChangeMyMind ?? []} />
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -347,6 +386,21 @@ export function RunDetailWorkbench({ runId }: { runId: string }) {
           </div>
         </Card>
       </aside>
+    </div>
+  );
+}
+
+function ReasoningDetailList({ title, items }: { title: string; items: Array<string | null | undefined> }) {
+  const clean = items.filter((item): item is string => Boolean(item)).slice(0, 5);
+  if (clean.length === 0) return null;
+  return (
+    <div>
+      <p className="text-[11px] font-mono text-empire-blue">{title}</p>
+      <ul className="mt-1 list-disc list-inside space-y-1 text-sm text-empire-muted">
+        {clean.map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+      </ul>
     </div>
   );
 }
