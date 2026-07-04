@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { startRegistration } from '@simplewebauthn/browser';
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
@@ -81,8 +80,7 @@ export function PasskeyEnrollmentWorkbench({ token }: { token: string }) {
         return;
       }
       setSuccess(true);
-      const nextUrl: Route = (verify.data.nextUrl ?? '/today') as Route;
-      router.replace(nextUrl);
+      router.replace('/today');
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));
