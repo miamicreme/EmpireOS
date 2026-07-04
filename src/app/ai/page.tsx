@@ -7,6 +7,11 @@ import { AiChiefOfStaffWidget } from '@/components/ui/ai/AiDashboardWidgets';
 export const dynamic = 'force-dynamic';
 
 const LINKS: Array<{ href: Route; title: string; desc: string; icon: string }> = [
+  { href: '/ai/input' as Route, title: 'Universal Input', desc: 'Upload, analyze, and hand off artifacts', icon: '⌁' },
+  { href: '/ai/camera' as Route, title: 'Camera', desc: 'Explicit snapshot and frame sampling flow', icon: '◩' },
+  { href: '/ai/memory' as Route, title: 'Memory', desc: 'Durable memory states and controls', icon: '◌' },
+  { href: '/ai/providers' as Route, title: 'Providers', desc: 'Provider readiness and live tests', icon: '⚙' },
+  { href: '/settings/security' as Route, title: 'Security', desc: 'Owner posture and passkey status', icon: '⟡' },
   { href: '/ai/brief' as Route, title: 'Daily Brief', desc: 'Cash target, top actions, risks', icon: '☀' },
   { href: '/ai/recommendations' as Route, title: 'Recommendations', desc: 'Track AI recommendations over time', icon: '◈' },
   { href: '/ai/decisions' as Route, title: 'Decision Console', desc: 'Ask a decision, get actions', icon: '⚖' },

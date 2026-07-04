@@ -2,6 +2,16 @@
 
 Use only safe mock or non-sensitive personal files. Capture screenshots in the placeholders below during manual browser verification.
 
+The owner UI surfaces below now exist in code:
+- `/ai/input`
+- `/ai/camera`
+- `/ai/runs/[id]`
+- `/ai/memory`
+- `/ai/providers`
+- `/settings/security`
+
+This checklist remains the manual browser-proof queue. Do not mark a step done until it has been verified in the browser.
+
 ## Local file proof
 
 Covers PDF analysis, DOCX analysis, TXT/MD analysis, CSV analysis, XLSX analysis, screenshot/image analysis, camera snapshot analysis, sampled video-frame analysis, inputArtifactIds handoff, action draft creation, and vision_provider_required behavior.

@@ -36,6 +36,15 @@
 
 - `GET /api/settings/security/status` returns owner-scoped security posture: authentication, passkey count, recovery enabled flag, and a hard `secretValuesReturned: false` marker.
 
+## Owner UI surfaces
+
+- `/ai/input` is the interactive universal input workbench. It uploads file metadata, analyzes normalized input into a safe artifact, and can hand that artifact to `POST /api/ai/agent/run` through `inputArtifactIds`.
+- `/ai/camera` is the explicit browser camera workbench. It starts only on user click, captures on-demand snapshots, and can sample a bounded 10-frame/10-second window for safe analysis.
+- `/ai/runs/[id]` is the safe run detail view over `GET /api/ai/agent/runs/[id]`.
+- `/ai/memory` is the durable memory workbench over the compact memory endpoints.
+- `/ai/providers` is the provider health/status workbench over the secret-free provider endpoints.
+- `/settings/security` is the owner security workbench over `GET /api/settings/security/status`.
+
 ## Universal input and camera contracts
 
 - `POST /api/ai/input/upload` validates owner-only upload metadata for PDF, DOCX, TXT/MD, CSV/XLSX, PNG/JPEG/WebP inputs. It returns `publicUrl: null` so callers do not depend on public file exposure.
