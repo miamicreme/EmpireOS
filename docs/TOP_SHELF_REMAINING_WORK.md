@@ -18,6 +18,13 @@ The following owner UI surfaces are now implemented in code, but manual browser 
 - `/ai/providers`
 - `/settings/security`
 
+These surfaces are real browser workflows, but the deeper modality proof is still partial:
+
+- camera capture exists, yet true image-byte vision analysis still needs live proof
+- DOCX/XLSX support is still partly parser/metadata driven
+- dependency audit remains not clean until the Next/PostCSS advisories are resolved
+- passkey auth now has a separate "Add another device" enrollment flow in code, but manual iPhone proof still needs to be captured
+
 ## Remaining Prompt 2 hardening
 
 The backend contract foundation exists, but these items should be hardened before moving to broad UI polish:
@@ -40,6 +47,7 @@ Keep one AI command path and do not create another AI system.
 - [ ] Route all downstream reasoning through the compact `agent_*` runtime.
 - [ ] Add local-first spreadsheet analysis for CSV/XLSX summaries before any model call.
 - [ ] Add vision provider routing that uses configured provider health and never exposes provider secrets.
+- [ ] Add real image-byte camera/upload proof before calling the vision layer complete.
 - [ ] Add cost governor checks before image/video-heavy analysis.
 - [ ] Add redaction before content enters model context or durable memory.
 - [ ] Create approval-gated action drafts from analyzed inputs.
