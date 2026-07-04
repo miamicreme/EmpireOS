@@ -36,6 +36,15 @@
 
 - `GET /api/settings/security/status` returns owner-scoped security posture: authentication, passkey count, recovery enabled flag, and a hard `secretValuesReturned: false` marker.
 
+## Passkey enrollment
+
+- `POST /api/auth/passkeys/enrollment` creates a short-lived one-time enrollment token for the signed-in owner and returns an enrollment URL.
+- `GET /api/auth/passkeys/enrollment/[token]/status` is public and returns only safe enrollment state: `valid`, `expired`, `used`, `labelHint`, and `expiresAt`.
+- `POST /api/auth/passkeys/enrollment/[token]/register/options` creates WebAuthn registration options for the token-bound owner without requiring the new device to already be signed in.
+- `POST /api/auth/passkeys/enrollment/[token]/register/verify` verifies the response, marks the token used, inserts the new passkey credential for the same owner, and establishes the owner session on the new device.
+- The enrollment token raw value is returned once to the signed-in device and is never stored server-side; only a hash is persisted.
+- Emergency recovery remains a separate, destructive break-glass path and is not the normal new-device setup flow.
+
 ## Owner UI surfaces
 
 - `/ai/input` is the interactive universal input workbench. It uploads file metadata, analyzes normalized input into a safe artifact, and can hand that artifact to `POST /api/ai/agent/run` through `inputArtifactIds`.

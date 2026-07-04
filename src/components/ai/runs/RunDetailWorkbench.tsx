@@ -121,7 +121,9 @@ export function RunDetailWorkbench({ runId }: { runId: string }) {
 
   async function setDraftStatus(id: string, reject: boolean) {
     setBusyDraftId(id);
-    const response = await api.post(`/api/ai/action-drafts/${id}/approve`, reject ? { reject: true } : {});
+    const response = await api.post(`/api/ai/agent/action-drafts/${id}/approve`, {
+      action: reject ? 'reject' : 'approve',
+    });
     setBusyDraftId(null);
     if (!response.ok) {
       setError(response.error.message);
