@@ -9,6 +9,15 @@ This checklist continues after the completed Prompt 1 contract repair and the ba
 - [ ] Prompt 3 — universal input and camera intelligence.
 - [ ] Prompt 4 — private command center polish.
 
+The following owner UI surfaces are now implemented in code, but manual browser proof still needs to be captured:
+
+- `/ai/input`
+- `/ai/camera`
+- `/ai/runs/[id]`
+- `/ai/memory`
+- `/ai/providers`
+- `/settings/security`
+
 ## Remaining Prompt 2 hardening
 
 The backend contract foundation exists, but these items should be hardened before moving to broad UI polish:
@@ -44,12 +53,12 @@ Do not start this before backend and input contracts are tested.
 
 - [ ] Polish `/today` around the canonical action-draft approval UX.
 - [ ] Add or refine universal command bar entry points without creating another command path.
-- [ ] Add `/ai/input` for uploads and analyzed input artifacts.
-- [ ] Add `/ai/camera` for explicit camera snapshot flow.
-- [ ] Add `/ai/runs/[id]` using safe run-detail summaries only.
-- [ ] Add `/ai/memory` over the compact memory endpoints.
-- [ ] Add `/ai/providers` health/status view.
-- [ ] Add `/settings/security` status view.
+- [x] Add `/ai/input` for uploads and analyzed input artifacts. Code complete; manual browser proof pending.
+- [x] Add `/ai/camera` for explicit camera snapshot flow. Code complete; manual browser proof pending.
+- [x] Add `/ai/runs/[id]` using safe run-detail summaries only. Code complete; manual browser proof pending.
+- [x] Add `/ai/memory` over the compact memory endpoints. Code complete; manual browser proof pending.
+- [x] Add `/ai/providers` health/status view. Code complete; manual browser proof pending.
+- [x] Add `/settings/security` status view. Code complete; manual browser proof pending.
 - [ ] Apply premium owner-only command-center polish without public SaaS/team/billing/marketplace features.
 
 ## Validation to keep running

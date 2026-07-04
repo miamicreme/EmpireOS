@@ -22,10 +22,17 @@ describe('universal input and camera contract', () => {
   });
 
   it('adds owner-facing universal input and camera pages with privacy controls', () => {
-    expect(read('src/app/ai/input/page.tsx')).toContain('Drop anything here');
-    const cameraPage = read('src/app/ai/camera/page.tsx');
-    expect(cameraPage).toContain('does not silently activate your camera');
-    expect(cameraPage).toContain('Stop camera');
-    expect(cameraPage).toContain('Sample 10 seconds');
+    const inputWorkbench = read('src/components/ai/input/AiInputWorkbench.tsx') + read('src/components/ai/input/FileUploadPanel.tsx') + read('src/components/ai/input/InputArtifactResult.tsx') + read('src/components/ai/input/SendToAgentPanel.tsx');
+    expect(inputWorkbench).toContain('Drop anything here');
+    expect(inputWorkbench).toContain('Paste text');
+    expect(inputWorkbench).toContain('Send to Agent');
+    expect(inputWorkbench).toContain('No public file URLs');
+
+    const cameraWorkbench = read('src/components/ai/camera/CameraWorkbench.tsx') + read('src/components/ai/camera/CameraCapture.tsx') + read('src/components/ai/camera/FrameSampler.tsx');
+    expect(cameraWorkbench).toContain('Camera is off until you start it.');
+    expect(cameraWorkbench).toContain('Stop camera');
+    expect(cameraWorkbench).toContain('Sample 10 seconds');
+    expect(cameraWorkbench).toContain('Delete Frames');
+    expect(cameraWorkbench).toContain('getUserMedia');
   });
 });
