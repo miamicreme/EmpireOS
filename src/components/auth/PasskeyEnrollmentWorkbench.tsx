@@ -28,10 +28,10 @@ type VerifyResult = {
 function friendlyError(err: unknown): string {
   const name = (err as { name?: string })?.name;
   if (name === 'InvalidStateError') {
-    return 'Windows could not save another passkey for this account. Your existing Windows passkey may already be active. Use Add another device for iPhone.';
+    return 'This device may already have a passkey for this account. Try signing in, or generate a new Add another device link from your signed-in PC.';
   }
-  if (name === 'NotAllowedError') return 'The passkey action was cancelled or timed out.';
-  if (name === 'SecurityError') return 'Passkey setup failed because the browser or RP settings do not match.';
+  if (name === 'NotAllowedError') return 'The Face ID / passkey action was cancelled or timed out.';
+  if (name === 'SecurityError') return 'Passkey setup failed because the browser or domain settings do not match.';
   if (name === 'AbortError') return 'The passkey request was interrupted. Try again.';
   return (err as Error)?.message ?? 'Passkey setup failed.';
 }
@@ -73,7 +73,7 @@ export function PasskeyEnrollmentWorkbench({ token }: { token: string }) {
       const attestation = await startRegistration({ optionsJSON: options.data });
       const verify = await api.post<VerifyResult>(`/api/auth/passkeys/enrollment/${token}/register/verify`, {
         response: attestation,
-        label: status?.labelHint ?? 'Add another device',
+        label: status?.labelHint ?? 'iPhone Face ID',
       });
       if (!verify.ok) {
         setError(verify.error.message);
@@ -103,7 +103,7 @@ export function PasskeyEnrollmentWorkbench({ token }: { token: string }) {
         <div className="p-6 space-y-3">
           <p className="text-sm font-semibold text-gray-100">This link expired</p>
           <p className="text-sm text-empire-muted">
-            Generate a new Add another device link from a signed-in PC.
+            Generate a new Add another device link from your signed-in PC.
           </p>
           <p className="text-xs text-empire-muted">
             This link expires in 10 minutes. Only open this link on a device you control.
@@ -120,7 +120,7 @@ export function PasskeyEnrollmentWorkbench({ token }: { token: string }) {
       <div className="p-6 space-y-5">
         <div>
           <p className="text-xs font-mono uppercase tracking-[0.3em] text-empire-blue">Add another device</p>
-          <h1 className="mt-2 text-2xl font-semibold text-gray-100">Add this device to Empire OS</h1>
+          <h1 className="mt-2 text-2xl font-semibold text-gray-100">Add this iPhone to Empire OS</h1>
           <p className="mt-2 text-sm text-empire-muted">
             This adds your iPhone without removing your Windows passkey.
           </p>
@@ -137,7 +137,7 @@ export function PasskeyEnrollmentWorkbench({ token }: { token: string }) {
 
         <div className="flex flex-wrap gap-2">
           <Button onClick={enroll} loading={enrolling} disabled={success}>
-            Create passkey on this device
+            {success ? 'Passkey created' : 'Create Face ID passkey'}
           </Button>
         </div>
 
