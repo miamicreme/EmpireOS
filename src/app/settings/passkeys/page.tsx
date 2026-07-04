@@ -141,9 +141,6 @@ export default function PasskeysPage() {
       if (!res.ok) return error(res.error.message);
       success('Emergency recovery completed');
       setRecoverCode('');
-      setShowRecovery(false);
-      setEnrollment(null);
-      setEnrollmentStatus(null);
       await load();
     } catch (e) {
       error((e as Error)?.message ?? 'Recovery failed.');
@@ -195,13 +192,13 @@ export default function PasskeysPage() {
           </div>
           {enrollment && (
             <div className="border-b border-border p-4 space-y-4">
-              <p className="text-sm font-semibold text-gray-100">Add iPhone or other device</p>
+              <p className="text-sm font-semibold text-gray-100">Enrollment link for iPhone</p>
               <div className="grid gap-4 md:grid-cols-[auto_1fr]">
                 <div className="flex flex-col items-center gap-2">
                   <div className="rounded-xl border border-border bg-white p-3">
                     <QRCodeSVG value={enrollment.enrollmentUrl} size={160} level="M" />
                   </div>
-                  <p className="text-xs text-empire-muted">Scan with iPhone camera</p>
+                  <p className="text-xs text-empire-muted">Scan this with your iPhone camera</p>
                 </div>
                 <div className="space-y-3">
                   <div className="rounded-xl border border-border bg-surface-0 p-3 space-y-2">
@@ -210,7 +207,7 @@ export default function PasskeysPage() {
                       <li>Open the Camera app on your iPhone</li>
                       <li>Point it at the QR code on the left</li>
                       <li>Tap the notification to open the link</li>
-                      <li>Tap &quot;Create passkey on this device&quot;</li>
+                      <li>Tap &quot;Create Face ID passkey&quot;</li>
                     </ol>
                   </div>
                   <div className="rounded-xl border border-border bg-surface-0 p-3 space-y-2">
@@ -222,7 +219,7 @@ export default function PasskeysPage() {
                       Link status: {enrollmentStatus.valid ? 'valid' : enrollmentStatus.used ? 'used' : 'expired'}
                     </p>
                   )}
-                  <p className="text-xs text-empire-muted">Expires in 10 minutes. Only use on devices you control.</p>
+                  <p className="text-xs text-empire-muted">Expires in 10 minutes. Only use on devices you control. This does not remove your Windows passkey.</p>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={copyEnrollmentLink}>
                       Copy link
