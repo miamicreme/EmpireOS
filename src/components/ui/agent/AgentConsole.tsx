@@ -2,8 +2,8 @@
 
 /**
  * No-friction agent command surface. One command bar + quick actions; the agent
- * routes everything (no provider/model/mode pickers). Shows the answer, why,
- * risks, sources, and approval-gated action drafts with one-tap controls.
+ * routes everything (no provider/model/mode pickers). Shows the answer, mentor
+ * guidance, subtopic breakdown, risks, sources, and approval-gated actions.
  */
 import { useState } from 'react';
 import { Card, CardHeader } from '@/components/ui/Card';
@@ -35,6 +35,13 @@ interface ReasoningArtifact {
   whatWouldChangeMyMind: string[];
 }
 
+interface IssueBreakdownItem {
+  topic: string;
+  insight: string;
+  tension: string;
+  practicalMove: string;
+}
+
 interface AgentOutput {
   runId: string;
   threadId: string;
@@ -42,6 +49,10 @@ interface AgentOutput {
   status: string;
   intent: string;
   answer: string;
+  mentorNote?: string;
+  issueBreakdown?: IssueBreakdownItem[];
+  creativeAngles?: string[];
+  conversationStarters?: string[];
   reasoningSummary: string;
   reasoningArtifact: ReasoningArtifact | null;
   confidence: number;
@@ -57,11 +68,11 @@ interface AgentOutput {
 }
 
 const QUICK_ACTIONS = [
-  'What should I do today?',
-  'Find cash fastest.',
-  'Draft my next 5 actions.',
-  'What am I ignoring?',
-  'Analyze this funding move.',
+  'Talk me through today like a mentor.',
+  'What am I missing?',
+  'Break this into subtopics.',
+  'Find the highest-leverage move.',
+  'Give me a creative angle.',
   'Run deep strategy.',
 ];
 
@@ -77,8 +88,6 @@ export function AgentConsole() {
   const [drafts, setDrafts] = useState<ActionDraft[]>([]);
   const [showWhy, setShowWhy] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
-  // The actual command last submitted — so "Go deeper"/"Use research" re-run the
-  // original question even after the input box is cleared (never the answer text).
   const [lastCommand, setLastCommand] = useState('');
 
   async function run(cmd: string, opts: { goDeeper?: boolean; useResearch?: boolean } = {}) {
@@ -136,11 +145,15 @@ export function AgentConsole() {
     }
   }
 
+  const issueBreakdown = output?.issueBreakdown?.filter((item) => item.topic || item.insight) ?? [];
+  const creativeAngles = output?.creativeAngles?.filter(Boolean) ?? [];
+  const conversationStarters = output?.conversationStarters?.filter(Boolean) ?? [];
+
   return (
     <Card hover>
       <CardHeader
         title="Empire OS Agent"
-        subtitle={output ? `${output.runtimePath} · ${output.intent}` : 'Type a short command'}
+        subtitle={output ? `${output.runtimePath} · ${output.intent}` : 'Ask for judgment, not just commands'}
       />
       <div className="p-4 space-y-4">
         <form
@@ -153,7 +166,7 @@ export function AgentConsole() {
           <input
             value={command}
             onChange={(e) => setCommand(e.target.value)}
-            placeholder="What today?  ·  Find cash fastest.  ·  Analyze this deal."
+            placeholder="Talk me through this.  ·  What am I missing?  ·  Break this down."
             className="flex-1 h-9 px-3 rounded-lg bg-surface-2 border border-border text-sm text-gray-100 placeholder:text-empire-muted focus:outline-none focus:border-empire-blue"
           />
           <Button size="sm" variant="primary" type="submit" loading={loading}>
@@ -178,16 +191,21 @@ export function AgentConsole() {
 
         {error && <p className="text-xs text-empire-red font-mono">{error}</p>}
         {!output && !loading && (
-          <p className="text-sm text-empire-muted font-mono">
-            One command in. The agent reads your Spine, reasons, and drafts actions for approval.
+          <p className="text-sm text-empire-muted">
+            One command in. Empire should think with you: frame the issue, expose the trade-offs, then draft practical next moves for approval.
           </p>
         )}
 
         {output && (
           <div className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-200 whitespace-pre-wrap">{output.answer}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="rounded-xl border border-border bg-surface-2 p-4 space-y-3">
+              <p className="text-sm text-gray-100 whitespace-pre-wrap leading-relaxed">{output.answer}</p>
+              {output.mentorNote && (
+                <p className="text-sm text-empire-muted leading-relaxed border-l-2 border-empire-blue/50 pl-3">
+                  {output.mentorNote}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={confidenceTone(output.confidence)}>
                   confidence {Math.round(output.confidence * 100)}%
                 </Badge>
@@ -201,6 +219,23 @@ export function AgentConsole() {
                 )}
               </div>
             </div>
+
+            {issueBreakdown.length > 0 && (
+              <div className="grid gap-2">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-empire-blue">Issue breakdown</div>
+                {issueBreakdown.slice(0, 5).map((item, i) => (
+                  <div key={i} className="rounded-lg border border-border bg-surface-2 p-3 space-y-1">
+                    <div className="text-sm font-medium text-gray-100">{item.topic}</div>
+                    {item.insight && <p className="text-xs text-gray-300">{item.insight}</p>}
+                    {item.tension && <p className="text-xs text-empire-muted">Tension: {item.tension}</p>}
+                    {item.practicalMove && <p className="text-xs text-empire-blue">Move: {item.practicalMove}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {creativeAngles.length > 0 && <ListBlock title="Creative angles" tone="muted" items={creativeAngles} />}
+            {conversationStarters.length > 0 && <ListBlock title="Questions to sharpen it" tone="muted" items={conversationStarters} />}
 
             <div className="flex flex-wrap gap-1.5">
               <Button size="sm" variant="secondary" onClick={() => run(lastCommand, { goDeeper: true })}>
