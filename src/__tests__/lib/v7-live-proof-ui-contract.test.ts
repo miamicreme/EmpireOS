@@ -48,6 +48,8 @@ describe('V7.1 live proof and input polish contract', () => {
     for (const text of ['User request', 'Input artifacts used', 'Created artifact', 'Provider / model / cost / latency', 'Action drafts', 'Feedback controls']) {
       expect(component).toContain(text);
     }
+    expect(component).toContain('/api/ai/agent/action-drafts/${id}/approve');
+    expect(component).toContain("action: reject ? 'reject' : 'approve'");
     expect(component).toContain('Safe reasoning summary only');
     expect(component).not.toContain('chainOfThought');
     expect(component).not.toContain('apiKey');

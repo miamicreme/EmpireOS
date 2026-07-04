@@ -60,10 +60,6 @@ export async function buildRegistrationOptions(
       transports: transportsOf(c),
     })),
     authenticatorSelection: {
-      // Bind to the device's built-in authenticator (Face ID / Touch ID /
-      // Windows Hello) and require user verification, so sign-in is biometric
-      // by default rather than falling back to a roaming security key.
-      authenticatorAttachment: 'platform',
       residentKey: 'required',
       userVerification: 'required',
     },

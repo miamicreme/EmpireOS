@@ -1,9 +1,9 @@
-import { headers } from 'next/headers';
 import { jsonOk, jsonError } from '@/lib/api';
 import { appError } from '@/lib/errors';
 import { createAdminClient, listCredentials } from '@/lib/auth/credentials';
 import { buildRegistrationOptions } from '@/lib/auth/webauthn';
 import { getValidEnrollmentToken } from '@/lib/auth/passkey-enrollment';
+import { headers } from 'next/headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

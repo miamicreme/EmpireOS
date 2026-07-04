@@ -80,7 +80,7 @@ export function PasskeyEnrollmentWorkbench({ token }: { token: string }) {
         return;
       }
       setSuccess(true);
-      router.replace('/today');
+      router.replace(verify.data.nextUrl ?? '/today');
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));
