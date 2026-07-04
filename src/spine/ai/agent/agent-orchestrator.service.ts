@@ -1,11 +1,5 @@
 /**
  * Agent orchestrator — the one runtime behind POST /api/ai/agent/run.
- *
- * Flow: thread → run (idempotent) → intent → capability/permission events →
- * compact context pack → memory gate → research gate → provider router →
- * specialist council (deep only) → final synthesizer → artifact → action drafts
- * → finalize. Always saves run + artifact + provider runs; saves pack / drafts /
- * events only when useful. Degrades to deterministic stubs with no provider.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ok, type AppResult } from '@/lib/result';
@@ -31,7 +25,6 @@ import type {
   SpecialistVote,
 } from './agent.types';
 
-/** Map a persisted action-draft row to the API view (one source of truth). */
 function toDraftView(d: repo.AgentActionDraftRow): AgentActionDraftView {
   return {
     id: d.id,
@@ -51,15 +44,9 @@ export async function runAgent(
 ): Promise<AppResult<AgentRunOutput>> {
   const startedAt = Date.now();
 
-  // 1. Idempotent replay — short-circuit BEFORE creating a thread, so a retry
-  // without a threadId doesn't orphan a fresh thread, and the run is reported
-  // under its original thread.
   if (input.idempotency) {
     const existing = await repo.findRunByIdempotency(supabase, userId, input.idempotency);
     if (existing) {
-      // Prefer the stored thread; fall back to the caller's threadId rather than
-      // '' so an idempotent replay doesn't echo an empty id that would orphan
-      // the next message into a brand-new thread.
       return ok(
         await reconstructOutput(
           supabase,
@@ -71,7 +58,6 @@ export async function runAgent(
     }
   }
 
-  // 2. Thread + run.
   const thread = await repo.upsertThread(supabase, userId, {
     threadId: input.threadId,
     mode: input.modeHint ?? 'general',
@@ -85,7 +71,6 @@ export async function runAgent(
   });
   if (!runResult.ok) return runResult;
   if (runResult.data.reused) {
-    // Won by a concurrent request — report the reused run's own thread.
     return ok(
       await reconstructOutput(
         supabase, userId, runResult.data.run, runResult.data.run.thread_id ?? thread.data.id,
@@ -98,7 +83,6 @@ export async function runAgent(
   const event = (type: Parameters<typeof repo.appendEvent>[4], summary?: string, payload?: Record<string, unknown>) =>
     repo.appendEvent(supabase, userId, runId, order++, type, { summary, payload });
 
-  // Mark the run failed (no stale 'running' rows) before returning a DB error.
   const failRun = async (message: string): Promise<void> => {
     await repo.appendEvent(supabase, userId, runId, order++, 'error', { summary: message, status: 'failed' });
     await repo.finalizeRun(supabase, userId, runId, {
@@ -109,7 +93,6 @@ export async function runAgent(
   };
 
   try {
-    // 2. Intent.
     const route = routeIntent({
       command: input.command,
       moduleHint: input.moduleHint,
@@ -120,6 +103,7 @@ export async function runAgent(
     await event('intent_detected', route.reason, { intent: route.intent, tags: route.tags });
     await event('capability_plan', 'read_internal_data, build_context_pack, reason, draft_actions');
     await event('permission_check', 'reads approved; external actions are draft-only (approval-gated)');
+
     const inputArtifacts = input.inputArtifactIds?.length
       ? await repo.getArtifactsByIds(supabase, userId, input.inputArtifactIds)
       : ok([] as repo.ArtifactRow[]);
@@ -139,11 +123,8 @@ export async function runAgent(
       });
     }
 
-    // Resolve the credential failover chain in parallel — it depends only on
-    // the user, not on the context build or gates below.
     const credentialPromise = resolveStrategyCredentials(supabase, userId);
 
-    // 3. Context pack (compact, redacted, hash-reusable).
     const packResult = await buildContextPack(supabase, userId, route.intent);
     if (!packResult.ok) {
       await failRun(packResult.error.message);
@@ -160,18 +141,14 @@ export async function runAgent(
     }
     await event('context_built', pack.summary, { contextHash: pack.contextHash, tokenEstimate: pack.tokenEstimate, inputArtifactCount: inputArtifacts.data.length });
 
-    // Save the pack only when its hash is new — identical situations reuse the
-    // existing pack (hash-reuse avoids churn and duplicate rows).
     const existingPack = await repo.findContextPackByHash(supabase, userId, pack.contextHash);
     if (!existingPack) {
       await repo.saveContextPack(supabase, userId, runId, pack);
     }
 
-    // 4. Memory gate (non-blocking suggestions, ≤2).
     const memoryRequests = evaluateMemoryGate(context, route.intent, route.stakes);
     await event('memory_gate', `${memoryRequests.length} memory question(s)`);
 
-    // 5. Research gate (returns research_required rather than faking facts).
     const research = evaluateResearchGate(input.command, route.intent, Boolean(input.useResearch));
     await event('research_gate', research.needsResearch ? 'research required' : 'no research needed');
     await event('problem_framed', `${route.intent} objective framed at ${route.stakes} stakes`, {
@@ -181,7 +158,6 @@ export async function runAgent(
       needsResearch: research.needsResearch,
     });
 
-    // 6. Provider router.
     const strategy = buildProviderStrategy(
       route.intent,
       route.runtimePath,
@@ -193,7 +169,6 @@ export async function runAgent(
     const providerName = effectiveProviderName(credentials);
     await event('provider_selected', strategy.reason, { provider: providerName, model: strategy.model });
 
-    // 7. Specialist council (deep path only).
     let votes: SpecialistVote[] = [];
     if (route.runtimePath === 'deep_path' && strategy.specialists.length > 0) {
       votes = await runSpecialistCouncil(
@@ -208,7 +183,6 @@ export async function runAgent(
       }
     }
 
-    // 8. Final synthesis.
     const synth = await synthesizeFinal(
       supabase, userId, runId, input.command, pack, context, votes, strategy.model, route.runtimePath, credentials,
     );
@@ -226,13 +200,16 @@ export async function runAgent(
     });
     await event('final_synthesized', out.answer.slice(0, 160), { confidence: out.confidence });
 
-    // 9. Artifact (always saved).
     const artifact = await repo.saveArtifact(supabase, userId, runId, {
       artifactType: route.artifactType,
       title: out.answer.slice(0, 120),
       summary: out.reasoningSummary,
       contentJson: {
         answer: out.answer,
+        mentorNote: out.mentorNote,
+        issueBreakdown: out.issueBreakdown,
+        creativeAngles: out.creativeAngles,
+        conversationStarters: out.conversationStarters,
         reasoningSummary: out.reasoningSummary,
         reasoningArtifact,
         assumptions: reasoningArtifact.assumptions,
@@ -261,7 +238,6 @@ export async function runAgent(
       return artifact;
     }
 
-    // 10. Action drafts (only when proposed).
     const draftsResult = await repo.createActionDrafts(
       supabase, userId, runId, artifact.data.id, out.suggestedDrafts,
     );
@@ -269,14 +245,12 @@ export async function runAgent(
     if (drafts.length > 0) {
       await event('action_drafts_created', `${drafts.length} action draft(s)`);
     } else if (!draftsResult.ok) {
-      // Don't silently drop proposed actions — record the failure in the trace.
       await repo.appendEvent(supabase, userId, runId, order++, 'error', {
         summary: `action draft creation failed: ${draftsResult.error.message}`,
         status: 'failed',
       });
     }
 
-    // 11. Finalize.
     const status: RunStatus = research.needsResearch
       ? 'blocked_research_required'
       : memoryRequests.length > 0
@@ -307,6 +281,10 @@ export async function runAgent(
       artifactId: artifact.data.id,
       artifactType: route.artifactType,
       answer: out.answer,
+      mentorNote: out.mentorNote,
+      issueBreakdown: out.issueBreakdown,
+      creativeAngles: out.creativeAngles,
+      conversationStarters: out.conversationStarters,
       reasoningSummary: out.reasoningSummary,
       reasoningArtifact,
       confidence: out.confidence,
@@ -344,6 +322,10 @@ export async function runAgent(
       artifactId: null,
       artifactType: 'answer',
       answer: 'The agent run failed. Please try again.',
+      mentorNote: '',
+      issueBreakdown: [],
+      creativeAngles: [],
+      conversationStarters: [],
       reasoningSummary: '',
       reasoningArtifact: null,
       confidence: 0,
@@ -360,7 +342,6 @@ export async function runAgent(
   }
 }
 
-/** Idempotent replay: rebuild a compact output from the stored run + artifact. */
 async function reconstructOutput(
   supabase: SupabaseClient,
   userId: string,
@@ -394,6 +375,10 @@ async function reconstructOutput(
     artifactId: (artifactRow as repo.ArtifactRow | null)?.id ?? null,
     artifactType: ((artifactRow as repo.ArtifactRow | null)?.artifact_type as AgentRunOutput['artifactType']) ?? 'answer',
     answer: run.final_summary ?? (content?.answer as string) ?? '',
+    mentorNote: (content?.mentorNote as string) ?? '',
+    issueBreakdown: (content?.issueBreakdown as AgentRunOutput['issueBreakdown']) ?? [],
+    creativeAngles: (content?.creativeAngles as string[]) ?? [],
+    conversationStarters: (content?.conversationStarters as string[]) ?? [],
     reasoningSummary: (content?.reasoningSummary as string) ?? '',
     reasoningArtifact: (content?.reasoningArtifact as AgentRunOutput['reasoningArtifact']) ?? null,
     confidence: run.confidence ?? 0.5,
