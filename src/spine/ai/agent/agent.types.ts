@@ -107,6 +107,13 @@ export interface AgentRunInput {
   inputArtifactIds?: string[];
 }
 
+export interface IssueBreakdownItem {
+  topic: string;
+  insight: string;
+  tension: string;
+  practicalMove: string;
+}
+
 export interface SuggestedDraft {
   title: string;
   description: string;
@@ -150,6 +157,10 @@ export interface AgentRunOutput {
   artifactId: string | null;
   artifactType: ArtifactType;
   answer: string;
+  mentorNote: string;
+  issueBreakdown: IssueBreakdownItem[];
+  creativeAngles: string[];
+  conversationStarters: string[];
   reasoningSummary: string;
   reasoningArtifact: ReasoningArtifact | null;
   confidence: number;
@@ -276,6 +287,10 @@ export interface IntentResult {
 // ---------------------------------------------------------------------------
 export interface SynthesisOutput {
   answer: string;
+  mentorNote: string;
+  issueBreakdown: IssueBreakdownItem[];
+  creativeAngles: string[];
+  conversationStarters: string[];
   reasoningSummary: string;
   assumptions: string[];
   evidence: EvidenceItem[];
