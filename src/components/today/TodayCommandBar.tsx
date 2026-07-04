@@ -32,12 +32,12 @@ export function TodayCommandBar({ defaultCommand }: { defaultCommand: string }) 
   }
 
   return (
-    <div className="rounded-2xl border border-empire-blue/30 bg-empire-blue/10 p-3 shadow-[0_0_40px_-24px_rgba(96,165,250,0.9)]">
-      <div className="flex flex-col gap-3 sm:flex-row">
+    <div className="rounded-[18px] border border-empire-blue/30 bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.14),transparent_42%),linear-gradient(135deg,rgba(17,24,39,0.98),rgba(8,9,12,0.98))] p-3 shadow-card">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
         <input
           value={command}
           onChange={(event) => setCommand(event.target.value)}
-          className="min-h-11 flex-1 rounded-xl border border-border bg-surface-0 px-4 text-sm text-gray-100 outline-none transition focus:border-empire-blue"
+          className="min-h-11 flex-1 rounded-lg border border-border bg-surface-0 px-4 text-sm text-gray-100 outline-none transition focus:border-empire-blue"
           aria-label="AI command"
         />
         <div className="flex gap-2">

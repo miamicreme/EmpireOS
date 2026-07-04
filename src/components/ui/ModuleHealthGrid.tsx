@@ -42,7 +42,7 @@ export function ModuleHealthGrid({
         return (
           <div
             key={id}
-            className="bg-surface-1 border border-border rounded-lg px-4 py-3 flex items-start gap-3"
+            className="bg-surface-1 border border-border rounded-[14px] px-4 py-3 flex items-start gap-3 shadow-card"
           >
             <span className="text-empire-muted font-mono text-sm mt-0.5 w-4 shrink-0">
               {MODULE_ICONS[id]}
