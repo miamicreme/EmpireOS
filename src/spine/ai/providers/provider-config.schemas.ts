@@ -7,6 +7,7 @@ import { z } from 'zod';
 export const MAX_PROVIDERS = 5;
 
 export const aiProviderKind = z.enum([
+  'requesty',
   'anthropic',
   'openai',
   'google',
@@ -23,6 +24,13 @@ export type AIProviderKind = z.infer<typeof aiProviderKind>;
  * The free-tier providers list their genuinely-free default models first.
  */
 export const AI_PROVIDER_MODELS: Record<AIProviderKind, string[]> = {
+  requesty: [
+    process.env.REQUESTY_DEFAULT_MODEL ?? 'requesty-default-model',
+    process.env.REQUESTY_FAST_MODEL ?? 'requesty-fast-model',
+    process.env.REQUESTY_STANDARD_MODEL ?? 'requesty-standard-model',
+    process.env.REQUESTY_DEEP_MODEL ?? 'requesty-deep-model',
+    process.env.REQUESTY_VISION_MODEL ?? 'requesty-vision-model',
+  ],
   anthropic: ['claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'o4-mini'],
   // Flash models are on Google's free tier; Pro is NOT (free quota is 0).

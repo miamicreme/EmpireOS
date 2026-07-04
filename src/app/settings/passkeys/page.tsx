@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
+import { QRCodeSVG } from 'qrcode.react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, EmptyState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -140,6 +141,9 @@ export default function PasskeysPage() {
       if (!res.ok) return error(res.error.message);
       success('Emergency recovery completed');
       setRecoverCode('');
+      setShowRecovery(false);
+      setEnrollment(null);
+      setEnrollmentStatus(null);
       await load();
     } catch (e) {
       error((e as Error)?.message ?? 'Recovery failed.');
@@ -173,41 +177,61 @@ export default function PasskeysPage() {
       <div className="grid gap-4 max-w-4xl xl:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <div className="flex flex-wrap gap-2 p-4 border-b border-border">
-            <Button onClick={addPasskeyOnThisDevice} loading={addingLocal}>
-              Add passkey on this device
-            </Button>
-            <Button variant="secondary" onClick={addAnotherDevice} loading={creatingLink}>
+            <Button onClick={addAnotherDevice} loading={creatingLink}>
               Add another device
+            </Button>
+            <Button variant="secondary" onClick={addPasskeyOnThisDevice} loading={addingLocal}>
+              Add passkey on this device
             </Button>
             <Button variant="danger" onClick={() => setShowRecovery((v) => !v)}>
               Emergency recovery
             </Button>
           </div>
 
+          <div className="border-b border-border p-4">
+            <p className="text-sm text-empire-muted">
+              The normal new-phone path is Add another device. Use Add passkey on this device only when you are already signed in on the current PC or Mac.
+            </p>
+          </div>
           {enrollment && (
-            <div className="border-b border-border p-4 space-y-3">
-              <p className="text-sm font-semibold text-gray-100">Pair another device</p>
-              <p className="text-sm text-empire-muted">
-                Scan this with your iPhone camera, or copy the link to your iPhone. This does not remove your Windows passkey.
-              </p>
-              <div className="rounded-xl border border-border bg-surface-0 p-3 space-y-2">
-                <p className="text-xs font-mono uppercase tracking-[0.25em] text-empire-blue">Enrollment link for iPhone</p>
-                <p className="break-all text-sm text-gray-100">{enrollment.enrollmentUrl}</p>
-                <p className="text-xs text-empire-muted">This link expires in 10 minutes. Only open it on a device you control.</p>
-                {enrollment.labelHint && <p className="text-xs text-empire-muted">Label hint: {enrollment.labelHint}</p>}
-                {enrollmentStatus && (
-                  <p className="text-xs text-empire-muted">
-                    Status: {enrollmentStatus.valid ? 'valid' : enrollmentStatus.used ? 'used' : 'expired'}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={copyEnrollmentLink}>
-                  Copy link
-                </Button>
-                <Button variant="ghost" onClick={() => window.open(enrollment.enrollmentUrl, '_blank', 'noopener,noreferrer')}>
-                  Test link on this device
-                </Button>
+            <div className="border-b border-border p-4 space-y-4">
+              <p className="text-sm font-semibold text-gray-100">Add iPhone or other device</p>
+              <div className="grid gap-4 md:grid-cols-[auto_1fr]">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="rounded-xl border border-border bg-white p-3">
+                    <QRCodeSVG value={enrollment.enrollmentUrl} size={160} level="M" />
+                  </div>
+                  <p className="text-xs text-empire-muted">Scan with iPhone camera</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-border bg-surface-0 p-3 space-y-2">
+                    <p className="text-xs font-mono uppercase tracking-[0.25em] text-empire-blue">Step-by-step</p>
+                    <ol className="text-sm text-gray-100 space-y-1.5 list-decimal list-inside">
+                      <li>Open the Camera app on your iPhone</li>
+                      <li>Point it at the QR code on the left</li>
+                      <li>Tap the notification to open the link</li>
+                      <li>Tap &quot;Create passkey on this device&quot;</li>
+                    </ol>
+                  </div>
+                  <div className="rounded-xl border border-border bg-surface-0 p-3 space-y-2">
+                    <p className="text-xs font-mono uppercase tracking-[0.25em] text-empire-muted">Or copy the link manually</p>
+                    <p className="break-all text-xs text-gray-100 font-mono">{enrollment.enrollmentUrl}</p>
+                  </div>
+                  {enrollmentStatus && (
+                    <p className="text-xs text-empire-muted">
+                      Link status: {enrollmentStatus.valid ? 'valid' : enrollmentStatus.used ? 'used' : 'expired'}
+                    </p>
+                  )}
+                  <p className="text-xs text-empire-muted">Expires in 10 minutes. Only use on devices you control.</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={copyEnrollmentLink}>
+                      Copy link
+                    </Button>
+                    <Button variant="ghost" onClick={() => window.open(enrollment.enrollmentUrl, '_blank', 'noopener,noreferrer')}>
+                      Open here
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

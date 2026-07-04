@@ -100,6 +100,7 @@ export async function analyzeUniversalInput(
     },
     safety: {
       redactionChecked: data.redactionChecked,
+      highRiskSecretsRedacted: data.highRiskSecretsRedacted,
       cameraActivatedServerSide: false,
       videoStreamStored: false,
       hiddenChainOfThoughtStored: false,

@@ -8,12 +8,42 @@ export interface ProviderCapability {
   jsonMode: boolean;
   cheap: boolean;
   deepReasoning: boolean;
+  routePurpose?: 'router' | 'direct';
+  models?: Array<{ purpose: 'default' | 'fast' | 'standard' | 'deep' | 'vision'; model: string; enabled: boolean }>;
 }
 
 export type ProviderTask = 'text' | 'vision' | 'long_context' | 'deep_reasoning';
+type RequestyRoutePurpose = 'default' | 'fast' | 'standard' | 'deep' | 'vision';
 
 export function getProviderCapabilities(env: NodeJS.ProcessEnv = process.env): ProviderCapability[] {
   return [
+    {
+      provider: 'requesty',
+      configured: Boolean(
+        env.REQUESTY_API_KEY &&
+          (env.REQUESTY_BASE_URL || 'https://router.requesty.ai/v1') &&
+          (env.REQUESTY_DEFAULT_MODEL ||
+            env.REQUESTY_FAST_MODEL ||
+            env.REQUESTY_STANDARD_MODEL ||
+            env.REQUESTY_DEEP_MODEL ||
+            env.REQUESTY_VISION_MODEL),
+      ),
+      enabled: env.REQUESTY_DISABLED !== 'true',
+      text: true,
+      vision: Boolean(env.REQUESTY_VISION_MODEL || env.REQUESTY_DEFAULT_MODEL),
+      longContext: true,
+      jsonMode: true,
+      cheap: Boolean(env.REQUESTY_FAST_MODEL),
+      deepReasoning: Boolean(env.REQUESTY_DEEP_MODEL || env.REQUESTY_DEFAULT_MODEL),
+      routePurpose: 'router',
+      models: ([
+        { purpose: 'default', model: env.REQUESTY_DEFAULT_MODEL ?? '', enabled: Boolean(env.REQUESTY_DEFAULT_MODEL) },
+        { purpose: 'fast', model: env.REQUESTY_FAST_MODEL ?? '', enabled: Boolean(env.REQUESTY_FAST_MODEL) },
+        { purpose: 'standard', model: env.REQUESTY_STANDARD_MODEL ?? '', enabled: Boolean(env.REQUESTY_STANDARD_MODEL) },
+        { purpose: 'deep', model: env.REQUESTY_DEEP_MODEL ?? '', enabled: Boolean(env.REQUESTY_DEEP_MODEL) },
+        { purpose: 'vision', model: env.REQUESTY_VISION_MODEL ?? '', enabled: Boolean(env.REQUESTY_VISION_MODEL) },
+      ] satisfies Array<{ purpose: RequestyRoutePurpose; model: string; enabled: boolean }>).filter((model) => model.enabled),
+    },
     {
       provider: 'openai',
       configured: Boolean(env.OPENAI_API_KEY),
@@ -24,6 +54,7 @@ export function getProviderCapabilities(env: NodeJS.ProcessEnv = process.env): P
       jsonMode: true,
       cheap: true,
       deepReasoning: true,
+      routePurpose: 'direct',
     },
     {
       provider: 'anthropic',
@@ -35,6 +66,7 @@ export function getProviderCapabilities(env: NodeJS.ProcessEnv = process.env): P
       jsonMode: false,
       cheap: false,
       deepReasoning: true,
+      routePurpose: 'direct',
     },
   ];
 }

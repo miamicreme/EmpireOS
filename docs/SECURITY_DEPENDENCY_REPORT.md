@@ -16,3 +16,9 @@
 Command: `npm audit --omit=dev`
 
 Result: environment-blocked, not clean. npm returned `403 Forbidden - POST https://registry.npmjs.org/-/npm/v1/security/advisories/bulk` and `npm error audit endpoint returned an error`. Re-run audit when the registry endpoint is accessible; do not mark dependency audit clean until it completes.
+
+## 2026-07-04 audit attempt during passkey pairing green-build pass
+
+Command: `npm audit --omit=dev`
+
+Result: environment-blocked, not clean. npm returned `403 Forbidden - POST https://registry.npmjs.org/-/npm/v1/security/audits/quick` and `npm error audit endpoint returned an error`. Re-run audit when the registry endpoint is accessible; do not mark dependency audit clean until it completes.

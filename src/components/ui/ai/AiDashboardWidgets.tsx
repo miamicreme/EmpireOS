@@ -142,7 +142,7 @@ export function AiChiefOfStaffWidget() {
             {derived && <DerivedStrip derived={derived} trends={trends} />}
 
             {output.risks.length > 0 && (
-              <div className="rounded-lg border border-empire-red/25 bg-empire-red/10 p-3">
+              <div className="rounded-[14px] border border-empire-red/25 bg-empire-red/10 p-3">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-empire-red mb-1">
                   Risk warnings
                 </div>
@@ -165,7 +165,7 @@ export function AiChiefOfStaffWidget() {
                   {drafts.map((d) => (
                     <div
                       key={d.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 p-2.5"
+                      className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-surface-2 p-2.5"
                     >
                       <div className="min-w-0">
                         <div className="text-sm text-gray-100 truncate">{d.title}</div>
@@ -217,7 +217,7 @@ function DerivedStrip({ derived, trends }: { derived: DerivedFacts; trends: Tren
     <div className="space-y-2">
       <div className="grid grid-cols-4 gap-2">
         {cells.map((c) => (
-          <div key={c.label} className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-center">
+          <div key={c.label} className="rounded-[14px] border border-border bg-surface-2 px-2 py-1.5 text-center">
             <div className={`text-sm font-mono ${c.tone ?? 'text-gray-100'}`}>{c.value}</div>
             <div className="text-[9px] font-mono uppercase tracking-widest text-empire-muted">{c.label}</div>
           </div>

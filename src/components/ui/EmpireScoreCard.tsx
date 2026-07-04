@@ -58,7 +58,7 @@ export function EmpireScoreCard({
 
   return (
     <div
-      className={`bg-surface-1 border border-border rounded-lg p-5 shadow-lg ${gradeGlow(grade)}`}
+      className={`bg-surface-1 border border-border rounded-[14px] p-5 shadow-card ${gradeGlow(grade)}`}
     >
       <div className="flex items-start justify-between mb-4">
         <div>

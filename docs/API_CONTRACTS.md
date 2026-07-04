@@ -31,6 +31,7 @@
 
 - `GET /api/ai/providers/health` returns a secret-free provider readiness summary.
 - Provider health may expose provider/model identifiers and boolean readiness flags; it must not expose API keys or encrypted key material.
+- The response includes a `requesty` object with configured/enabled flags, safe route model IDs, route purpose, latency/failure fields when available, and an estimated-cost availability flag.
 
 ## Security status
 

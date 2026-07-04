@@ -41,6 +41,7 @@ interface TestResult {
 }
 
 const PROVIDER_LABELS: Record<AIProviderKind, string> = {
+  requesty: 'Requesty router',
   anthropic: 'Anthropic (Claude)',
   openai: 'OpenAI (GPT)',
   google: 'Google (Gemini) · free tier',

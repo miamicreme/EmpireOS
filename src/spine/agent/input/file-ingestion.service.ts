@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { containsHighRiskSecret } from '@/lib/security';
+import { redactSensitiveText } from '@/spine/decisions/context-redaction.service';
 import { appError } from '@/lib/errors';
 import { err, ok, type AppResult } from '@/lib/result';
 import { evaluateInputCost } from '../cost/cost-governor.service';
@@ -17,6 +18,7 @@ export interface NormalizedInput {
   transcript: string | null;
   sourceRefs: string[];
   redactionChecked: boolean;
+  highRiskSecretsRedacted: boolean;
   cost: ReturnType<typeof evaluateInputCost> extends AppResult<infer T> ? T : never;
 }
 
@@ -32,14 +34,32 @@ export const rawInputSchema = z.object({
   allowDeepAnalysis: z.boolean().optional(),
 });
 
+function redactRows(rows: NonNullable<z.infer<typeof rawInputSchema>['rows']>) {
+  return rows.map((row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? redactSensitiveText(value) : value,
+      ]),
+    ),
+  );
+}
+
 export function normalizeRawInput(raw: z.infer<typeof rawInputSchema>): AppResult<NormalizedInput> {
-  const extractedText = [raw.contentText, raw.transcript, raw.imageDescription, ...(raw.frameDescriptions ?? [])]
+  const rawText = [raw.contentText, raw.transcript, raw.imageDescription, ...(raw.frameDescriptions ?? [])]
     .filter(Boolean)
     .join('\n\n')
     .slice(0, 80_000);
-  if (containsHighRiskSecret(extractedText)) {
-    return err(appError('redaction_blocked', 'Refusing to analyze input containing high-risk secrets.'));
-  }
+  const highRiskSecretsRedacted = containsHighRiskSecret(rawText);
+  const extractedText = redactSensitiveText(rawText);
+  const redactionsApplied = highRiskSecretsRedacted || extractedText !== rawText;
+  const imageDescriptions = [
+    raw.imageDescription ? redactSensitiveText(raw.imageDescription) : null,
+    ...(raw.frameDescriptions ?? []).map((description) => redactSensitiveText(description)),
+  ].filter(Boolean) as string[];
+  const transcript = raw.transcript ? redactSensitiveText(raw.transcript) : null;
+  const rows = redactRows(raw.rows ?? []);
+
   const cost = evaluateInputCost({
     extractedChars: extractedText.length,
     frameCount: raw.frameDescriptions?.length ?? 0,
@@ -53,11 +73,12 @@ export function normalizeRawInput(raw: z.infer<typeof rawInputSchema>): AppResul
     fileName: raw.fileName ?? null,
     mimeType: raw.mimeType ?? null,
     extractedText,
-    rows: raw.rows ?? [],
-    imageDescriptions: [raw.imageDescription, ...(raw.frameDescriptions ?? [])].filter(Boolean) as string[],
-    transcript: raw.transcript ?? null,
+    rows,
+    imageDescriptions,
+    transcript,
     sourceRefs: [raw.fileName, raw.mimeType].filter(Boolean) as string[],
     redactionChecked: true,
+    highRiskSecretsRedacted: redactionsApplied,
     cost: cost.data,
   });
 }
