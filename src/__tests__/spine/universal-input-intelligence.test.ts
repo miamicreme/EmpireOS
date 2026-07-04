@@ -53,4 +53,19 @@ describe('universal input intelligence services', () => {
     const result = routeProviderForTask('vision', { OPENAI_API_KEY: 'configured' } as unknown as NodeJS.ProcessEnv);
     expect(result.ok).toBe(true);
   });
+
+  it('routes vision through requesty when the router has a vision model', async () => {
+    const { routeProviderForTask } = await import('@/spine/ai/provider-capabilities');
+    const result = routeProviderForTask('vision', {
+      REQUESTY_API_KEY: 'rq-test',
+      REQUESTY_BASE_URL: 'https://router.requesty.ai/v1',
+      REQUESTY_VISION_MODEL: 'openai/gpt-vision',
+      OPENAI_API_KEY: 'configured-backup',
+    } as unknown as NodeJS.ProcessEnv);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.provider).toBe('requesty');
+      expect(result.capabilities.models?.some((model) => model.purpose === 'vision')).toBe(true);
+    }
+  });
 });

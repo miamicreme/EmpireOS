@@ -2,14 +2,15 @@
  * AI provider abstraction layer.
  *
  * Selects the best available provider at runtime:
- *   Anthropic → OpenAI → Google → stub (no key)
+ *   Requesty → Anthropic → OpenAI → Google → free OpenAI-compatible providers → stub
  *
  * All external calls go through `callAI`. Context is always redacted before
  * reaching this layer — callers are responsible for that gate.
  */
-import { aiKeys } from '@/lib/env';
+import { aiKeys, hasRequestyProvider, requestyConfig } from '@/lib/env';
 
 export type AIProvider =
+  | 'requesty'
   | 'anthropic'
   | 'openai'
   | 'google'
@@ -40,10 +41,11 @@ export const OPENAI_COMPATIBLE: Record<
 };
 
 type OpenAICompatibleProvider = keyof typeof OPENAI_COMPATIBLE;
+type CallableProvider = Exclude<AIProvider, 'stub'>;
 
 /** A resolved, ready-to-use credential — a provider + the key to call it with. */
 export interface AICredential {
-  provider: Exclude<AIProvider, 'stub'>;
+  provider: CallableProvider;
   apiKey: string;
   /** The user-selected model for this provider (honored for any provider). */
   model?: string;
@@ -74,8 +76,9 @@ export interface AIResponse {
   outputTokens?: number;
 }
 
-/** Preferred provider from env keys (paid first, then free tiers). */
+/** Preferred provider from env keys (router first, paid direct keys second, then free tiers). */
 export function activeProvider(): AIProvider {
+  if (hasRequestyProvider()) return 'requesty';
   if (aiKeys.anthropic) return 'anthropic';
   if (aiKeys.openai) return 'openai';
   if (aiKeys.google) return 'google';
@@ -84,6 +87,19 @@ export function activeProvider(): AIProvider {
   if (aiKeys.openrouter) return 'openrouter';
   if (aiKeys.mistral) return 'mistral';
   return 'stub';
+}
+
+export function envProviderChain(): CallableProvider[] {
+  const chain: CallableProvider[] = [];
+  if (hasRequestyProvider()) chain.push('requesty');
+  if (aiKeys.anthropic) chain.push('anthropic');
+  if (aiKeys.openai) chain.push('openai');
+  if (aiKeys.google) chain.push('google');
+  if (aiKeys.groq) chain.push('groq');
+  if (aiKeys.cerebras) chain.push('cerebras');
+  if (aiKeys.openrouter) chain.push('openrouter');
+  if (aiKeys.mistral) chain.push('mistral');
+  return chain;
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +186,47 @@ async function callOpenAI(
   };
 }
 
+async function callRequesty(
+  messages: AIMessage[],
+  opts: AICallOptions,
+  apiKey: string,
+): Promise<AIResponse> {
+  const { default: OpenAI } = await import('openai');
+  const client = new OpenAI({ apiKey, baseURL: requestyConfig.baseURL });
+
+  const model =
+    opts.model ??
+    requestyConfig.defaultModel ??
+    requestyConfig.standardModel ??
+    requestyConfig.fastModel ??
+    requestyConfig.deepModel ??
+    requestyConfig.visionModel;
+  if (!model) {
+    throw new Error('Requesty is configured without a REQUESTY_*_MODEL value.');
+  }
+
+  const msgs = opts.systemPrompt
+    ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages]
+    : messages;
+
+  const response = await client.chat.completions.create({
+    model,
+    max_tokens: opts.maxTokens ?? 1024,
+    temperature: opts.temperature ?? 0.3,
+    messages: msgs.map((message) => ({ role: message.role, content: message.content })),
+  });
+
+  const text = response.choices[0]?.message.content ?? '';
+
+  return {
+    text,
+    provider: 'requesty',
+    model,
+    inputTokens: response.usage?.prompt_tokens,
+    outputTokens: response.usage?.completion_tokens,
+  };
+}
+
 async function callGoogle(
   messages: AIMessage[],
   opts: AICallOptions,
@@ -242,6 +299,29 @@ function callStub(messages: AIMessage[], _opts: AICallOptions): AIResponse {
   };
 }
 
+async function callProvider(
+  provider: CallableProvider,
+  messages: AIMessage[],
+  opts: AICallOptions,
+  apiKey: string,
+): Promise<AIResponse> {
+  switch (provider) {
+    case 'requesty':
+      return callRequesty(messages, opts, apiKey);
+    case 'anthropic':
+      return callAnthropic(messages, opts, apiKey);
+    case 'openai':
+      return callOpenAI(messages, opts, apiKey);
+    case 'google':
+      return callGoogle(messages, opts, apiKey);
+    case 'groq':
+    case 'cerebras':
+    case 'openrouter':
+    case 'mistral':
+      return callOpenAICompatible(provider, messages, opts, apiKey);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
@@ -258,22 +338,29 @@ export async function callAI(
   opts: AICallOptions = {},
 ): Promise<AIResponse> {
   const credential = opts.credential;
-  const provider = credential?.provider ?? activeProvider();
-  switch (provider) {
-    case 'anthropic':
-      return callAnthropic(messages, opts, credential?.apiKey ?? aiKeys.anthropic!);
-    case 'openai':
-      return callOpenAI(messages, opts, credential?.apiKey ?? aiKeys.openai!);
-    case 'google':
-      return callGoogle(messages, opts, credential?.apiKey ?? aiKeys.google!);
-    case 'groq':
-    case 'cerebras':
-    case 'openrouter':
-    case 'mistral':
-      return callOpenAICompatible(provider, messages, opts, credential?.apiKey ?? aiKeys[provider]!);
-    default:
-      return callStub(messages, opts);
+  if (credential) {
+    return callProvider(credential.provider, messages, opts, credential.apiKey);
   }
+
+  const chain = envProviderChain();
+  if (chain.length === 0) return callStub(messages, opts);
+
+  let lastError: unknown;
+  for (let i = 0; i < chain.length; i++) {
+    const provider = chain[i];
+    if (!provider) continue;
+    const apiKey = aiKeys[provider];
+    if (!apiKey) continue;
+    const providerOpts =
+      i === 0 ? opts : { ...opts, model: modelForAdvisor(undefined, provider) };
+    try {
+      return await callProvider(provider, messages, providerOpts, apiKey);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('All configured AI providers failed.');
 }
 
 /** Model name to use for a given advisor role and provider. */
@@ -282,10 +369,20 @@ export function modelForAdvisor(
   provider: AIProvider,
 ): string {
   if (preferredModel && provider === 'anthropic') return preferredModel;
+  if (preferredModel && provider === 'requesty') return preferredModel;
 
   switch (provider) {
     case 'anthropic':
       return 'claude-sonnet-4-6';
+    case 'requesty':
+      return (
+        requestyConfig.defaultModel ??
+        requestyConfig.standardModel ??
+        requestyConfig.fastModel ??
+        requestyConfig.deepModel ??
+        requestyConfig.visionModel ??
+        'requesty-unconfigured'
+      );
     case 'openai':
       return 'gpt-4o-mini';
     case 'google':

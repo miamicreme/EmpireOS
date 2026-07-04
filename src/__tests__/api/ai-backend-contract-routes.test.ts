@@ -176,6 +176,7 @@ describe('new AI backend route contracts', () => {
     expect(res.status).toBe(200);
     expect(JSON.stringify(json)).not.toContain('api_key_cipher');
     expect(JSON.stringify(json)).not.toContain('apiKey');
+    expect(JSON.stringify(json)).toContain('requesty');
   });
 
   it('security status returns posture only', async () => {

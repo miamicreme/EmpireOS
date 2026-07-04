@@ -25,6 +25,16 @@ type ProviderHealth = {
   enabledCount: number;
   hasAnyProvider: boolean;
   envProviders: string[];
+  requesty: {
+    configured: boolean;
+    enabled: boolean;
+    baseUrlConfigured: boolean;
+    routePurpose: string;
+    routeModels: Array<{ purpose: string; model: string; enabled: boolean }>;
+    latencyMs: number | null;
+    failures: number;
+    estimatedCostAvailable: boolean;
+  };
   providers: Array<{ id: string; provider: string; model: string; enabled: boolean; isDefault: boolean; hasOwnKey: boolean; usesEnvKey: boolean }>;
 };
 
@@ -38,6 +48,7 @@ type ProviderTest = {
 };
 
 const providerLabel: Record<string, string> = {
+  requesty: 'Requesty',
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   google: 'Google',
@@ -116,6 +127,56 @@ export function ProvidersWorkbench() {
             <p className="text-xs font-mono uppercase tracking-widest text-empire-muted">Env keys</p>
             <p className="mt-2 text-2xl font-semibold text-gray-100">{health?.envProviders.length ?? 0}</p>
           </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="space-y-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-mono uppercase tracking-widest text-empire-muted">Requesty router</p>
+              <p className="mt-2 text-sm text-gray-100">
+                Primary gateway: {health?.requesty.configured && health.requesty.enabled ? 'configured' : 'not configured'}
+              </p>
+              <p className="mt-1 text-xs font-mono text-empire-muted">
+                Base URL: {health?.requesty.baseUrlConfigured ? 'configured server-side' : 'missing'} · keys never returned
+              </p>
+            </div>
+            <Badge variant={health?.requesty.configured ? 'green' : 'muted'}>
+              {health?.requesty.configured ? 'preferred' : 'fallback only'}
+            </Badge>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-border bg-surface-0 p-4">
+              <p className="text-xs font-mono uppercase tracking-widest text-empire-muted">Route purpose</p>
+              <p className="mt-2 text-sm text-gray-100">{health?.requesty.routePurpose ?? 'primary_router'}</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-surface-0 p-4">
+              <p className="text-xs font-mono uppercase tracking-widest text-empire-muted">Latency</p>
+              <p className="mt-2 text-sm text-gray-100">
+                {health?.requesty.latencyMs == null ? 'not measured' : `${health.requesty.latencyMs} ms`}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-surface-0 p-4">
+              <p className="text-xs font-mono uppercase tracking-widest text-empire-muted">Failures / cost</p>
+              <p className="mt-2 text-sm text-gray-100">
+                {health?.requesty.failures ?? 0} failures · {health?.requesty.estimatedCostAvailable ? 'cost available' : 'cost unavailable'}
+              </p>
+            </div>
+          </div>
+
+          {health?.requesty.routeModels.length ? (
+            <div className="flex flex-wrap gap-2">
+              {health.requesty.routeModels.map((route) => (
+                <Badge key={`${route.purpose}:${route.model}`} variant="blue">
+                  {route.purpose}: {route.model}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No Requesty route models are configured." />
+          )}
         </div>
       </Card>
 

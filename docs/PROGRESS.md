@@ -138,6 +138,7 @@ Ordered by leverage.
 
 - Added parser/adaptor service layer for normalized files, documents, spreadsheets, vision inputs, and cost governance.
 - Added provider capability routing with explicit `vision_provider_required` failure mode.
+- Added Requesty as the preferred OpenAI-compatible AI gateway when configured, while preserving direct provider keys as fallback backup.
 - Extended `POST /api/ai/agent/run` orchestration to pull `inputArtifactIds` into the safe context pack as summaries and artifact references.
 - Universal input analysis now creates structured artifacts and approval-gated action drafts from documents, spreadsheets, screenshots, camera snapshots, and sampled frame descriptions.
 - The camera workflow is browser-real, but the analysis path still needs binary-image proof before it can be described as full vision intelligence.

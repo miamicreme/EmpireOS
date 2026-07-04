@@ -26,11 +26,15 @@ describe('backend completion contracts', () => {
 
   it('exposes provider health and security status without secret fields', () => {
     const providerHealth = read('src/app/api/ai/providers/health/route.ts');
+    const providerHealthService = read('src/spine/ai/providers/provider-health.service.ts');
     const securityStatus = read('src/app/api/settings/security/status/route.ts');
 
-    expect(providerHealth).toContain('hasAnyProvider');
+    expect(providerHealth).toContain('buildProviderHealthSummary');
+    expect(providerHealthService).toContain('hasAnyProvider');
     expect(providerHealth).not.toContain('apiKey:');
+    expect(providerHealthService).not.toContain('apiKey:');
     expect(providerHealth).not.toContain('api_key_cipher');
+    expect(providerHealthService).not.toContain('api_key_cipher');
     expect(securityStatus).toContain('secretValuesReturned: false');
   });
 

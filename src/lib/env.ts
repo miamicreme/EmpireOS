@@ -81,6 +81,7 @@ export function getOwnerRecoveryCode(): string | null {
  * The last four are OpenAI-API-compatible free-tier providers used as fallbacks.
  */
 export const aiKeys = {
+  requesty: process.env.REQUESTY_API_KEY ?? null,
   openai: process.env.OPENAI_API_KEY ?? null,
   anthropic: process.env.ANTHROPIC_API_KEY ?? null,
   google: process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? null,
@@ -94,6 +95,30 @@ export function hasAnyAiProvider(): boolean {
   return Object.values(aiKeys).some(Boolean);
 }
 
+export const requestyConfig = {
+  apiKey: process.env.REQUESTY_API_KEY ?? null,
+  baseURL: process.env.REQUESTY_BASE_URL ?? 'https://router.requesty.ai/v1',
+  defaultModel: process.env.REQUESTY_DEFAULT_MODEL ?? null,
+  fastModel: process.env.REQUESTY_FAST_MODEL ?? null,
+  standardModel: process.env.REQUESTY_STANDARD_MODEL ?? null,
+  deepModel: process.env.REQUESTY_DEEP_MODEL ?? null,
+  visionModel: process.env.REQUESTY_VISION_MODEL ?? null,
+} as const;
+
+const requestyModelsConfigured = Boolean(
+  requestyConfig.apiKey &&
+    requestyConfig.baseURL &&
+    (requestyConfig.defaultModel ||
+      requestyConfig.fastModel ||
+      requestyConfig.standardModel ||
+      requestyConfig.deepModel ||
+      requestyConfig.visionModel),
+);
+
+export function hasRequestyProvider(): boolean {
+  return requestyModelsConfigured;
+}
+
 /**
  * AI V2 model configuration. Optional — sensible Anthropic defaults are used
  * when unset. These only select model names; provider keys still gate whether
@@ -101,7 +126,7 @@ export function hasAnyAiProvider(): boolean {
  */
 export const aiConfig = {
   defaultProvider: process.env.AI_DEFAULT_PROVIDER ?? 'anthropic',
-  defaultModel: process.env.AI_DEFAULT_MODEL ?? 'claude-sonnet-4-6',
-  fastModel: process.env.AI_FAST_MODEL ?? 'claude-haiku-4-5-20251001',
-  judgeModel: process.env.AI_JUDGE_MODEL ?? 'claude-sonnet-4-6',
+  defaultModel: requestyModelsConfigured ? requestyConfig.standardModel ?? requestyConfig.defaultModel ?? 'requesty-standard' : process.env.AI_DEFAULT_MODEL ?? 'claude-sonnet-4-6',
+  fastModel: requestyModelsConfigured ? requestyConfig.fastModel ?? requestyConfig.defaultModel ?? 'requesty-fast' : process.env.AI_FAST_MODEL ?? 'claude-haiku-4-5-20251001',
+  judgeModel: requestyModelsConfigured ? requestyConfig.deepModel ?? requestyConfig.defaultModel ?? 'requesty-deep' : process.env.AI_JUDGE_MODEL ?? 'claude-sonnet-4-6',
 } as const;
