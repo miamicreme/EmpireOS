@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Route } from 'next';
 import { Button } from '@/components/ui/Button';
 
 export default function AiCameraPage() {
@@ -41,7 +42,7 @@ export default function AiCameraPage() {
           <Button>Start camera</Button>
           <Button variant="secondary">Analyze current view</Button>
           <Button variant="ghost">Sample 10 seconds</Button>
-          <Link className="rounded-lg border border-border px-3 py-2 text-sm text-gray-200" href="/ai/input">Open universal input</Link>
+          <Link className="rounded-lg border border-border px-3 py-2 text-sm text-gray-200" href={'/ai/input' as Route}>Open universal input</Link>
         </div>
       </section>
     </main>

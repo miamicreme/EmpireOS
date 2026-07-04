@@ -16,6 +16,13 @@ import { createActionDrafts, saveArtifact } from './agent-repository.service';
 import type { ArtifactType, SuggestedDraft } from './agent.types';
 import type { UniversalInputAnalyzeDTO } from './agent.schemas';
 
+/**
+ * Hard cap on sampled video frames analyzed per submission. Bounds cost and
+ * enforces the "no silent streaming" guarantee — a submission can only ever
+ * carry a small, deliberate handful of frames.
+ */
+const MAX_VIDEO_FRAMES = 10;
+
 function toAgentArtifactType(type: string): ArtifactType {
   if (type === 'camera_analysis') return 'camera_analysis';
   if (type === 'video_frame_analysis') return 'video_frame_analysis';
@@ -50,10 +57,16 @@ export async function analyzeUniversalInput(
   if (!normalized.ok) return normalized;
   const data = normalized.data;
 
+  // Bound sampled video frames to MAX_VIDEO_FRAMES before any analysis.
+  const imageDescriptions =
+    input.inputType === 'video_frames'
+      ? data.imageDescriptions.slice(0, MAX_VIDEO_FRAMES)
+      : data.imageDescriptions;
+
   const analysis = data.rows.length > 0 || input.inputType === 'csv' || input.inputType === 'xlsx'
     ? ok(analyzeSpreadsheet(data.rows, data.fileName))
     : input.inputType === 'image' || input.inputType === 'screenshot' || input.inputType === 'camera_snapshot' || input.inputType === 'video_frames'
-      ? analyzeVision({ descriptions: data.imageDescriptions, kind: input.inputType, allowVision: input.allowVision })
+      ? analyzeVision({ descriptions: imageDescriptions, kind: input.inputType, allowVision: input.allowVision })
       : ok(analyzeDocument({ text: data.extractedText, fileName: data.fileName, inputType: input.inputType }));
   if (!analysis.ok) return analysis;
 
@@ -76,7 +89,7 @@ export async function analyzeUniversalInput(
       mimeType: data.mimeType,
       textPreview: data.extractedText.slice(0, 2000),
       rowsPreview: data.rows.slice(0, 5),
-      imageDescriptions: data.imageDescriptions,
+      imageDescriptions,
       transcriptPreview: data.transcript?.slice(0, 2000) ?? null,
     },
     routing: {
