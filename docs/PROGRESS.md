@@ -19,7 +19,7 @@ high-level [`MASTER_GUIDE.md`](../MASTER_GUIDE.md) and the architecture docs und
 | API routes | ✅ Done | Module CRUD + reviews; auth + RLS + Zod on every write |
 | Dashboard UI | ✅ Done | Command center: Empire Score, module health, action queue, decisions |
 | Module UIs | ✅ Done | All 6 wired to their APIs with optimistic updates |
-| AI owner surfaces | ✅ Done in code | `/ai/input`, `/ai/camera`, `/ai/runs/[id]`, `/ai/memory`, `/ai/providers`, `/settings/security` now exist; manual browser proof still pending |
+| AI owner surfaces | ✅ Done in code | `/ai/input`, `/ai/camera`, `/ai/runs/[id]`, `/ai/memory`, `/ai/providers`, `/settings/security` now exist; manual browser proof still pending, and image-byte vision proof is still incomplete |
 | Design system | ✅ Done | Tokens, primitives, motion, toasts, modals, data tables |
 | Auth | ✅ Done | Passkey / Face ID (WebAuthn), multi-passkey recovery, route gate |
 | Tests | ⚠ Environment-blocked | Typecheck/lint/build pass in this workspace; Vitest is blocked by the installed Node runtime version |
@@ -62,19 +62,22 @@ Each exposes `getMetrics` / `getActions` / `getDecisionContext` / `getHealth` /
   with optimistic deletes, toasts, loading skeletons, and empty states.
 - AI owner UI surfaces are now wired in code:
   - `/ai/input` interactive upload/analyze/send-to-agent workbench.
-  - `/ai/camera` explicit browser camera capture and bounded frame sampling workbench.
-  - `/ai/runs/[id]` safe run detail surface.
-  - `/ai/memory` durable memory workbench.
-  - `/ai/providers` provider health/status surface.
-  - `/settings/security` owner security posture surface.
+- `/ai/camera` explicit browser camera capture and bounded frame sampling workbench.
+- `/ai/runs/[id]` safe run detail surface.
+- `/ai/memory` durable memory workbench.
+- `/ai/providers` provider health/status surface.
+- `/settings/security` owner security posture surface.
 
 ### Quality
 - Validation on 2026-07-04:
   - `npm run typecheck` passed.
   - `npm run lint` passed.
-  - `npm run build` passed.
-  - `npm test -- --run` is blocked by the workspace Node 20.9.0 runtime; Vitest/rolldown requires a newer Node release.
-  - `npm audit --omit=dev` reports remaining Next.js/PostCSS vulnerabilities and is not clean.
+- `npm run build` passed.
+- `npm test -- --run` is blocked by the workspace Node 20.9.0 runtime; Vitest/rolldown requires a newer Node release.
+- `npm audit --omit=dev` reports remaining Next.js/PostCSS vulnerabilities and is not clean.
+- Browser camera capture exists, but true camera/image-byte vision analysis still needs live proof before it should be called complete.
+- DOCX/XLSX support is still partly parser/metadata driven rather than full native document parsing.
+- Passkey enrollment now has a split flow in code: "Add passkey on this device" plus token-backed "Add another device"; manual iPhone proof still needs to be captured.
 
 ---
 
@@ -137,3 +140,4 @@ Ordered by leverage.
 - Added provider capability routing with explicit `vision_provider_required` failure mode.
 - Extended `POST /api/ai/agent/run` orchestration to pull `inputArtifactIds` into the safe context pack as summaries and artifact references.
 - Universal input analysis now creates structured artifacts and approval-gated action drafts from documents, spreadsheets, screenshots, camera snapshots, and sampled frame descriptions.
+- The camera workflow is browser-real, but the analysis path still needs binary-image proof before it can be described as full vision intelligence.
