@@ -10,6 +10,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "validate": "npm run typecheck && npm run lint && npm run build",
+    "bootstrap": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1",
     "db:migrate": "supabase db push",
     "db:reset": "supabase db reset",
     "db:seed": "supabase db reset",
