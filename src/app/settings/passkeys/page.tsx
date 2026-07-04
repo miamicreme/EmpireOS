@@ -188,10 +188,10 @@ export default function PasskeysPage() {
             <div className="border-b border-border p-4 space-y-3">
               <p className="text-sm font-semibold text-gray-100">Pair another device</p>
               <p className="text-sm text-empire-muted">
-                This adds your iPhone without removing your Windows passkey.
+                Scan this with your iPhone camera, or copy the link to your iPhone. This does not remove your Windows passkey.
               </p>
               <div className="rounded-xl border border-border bg-surface-0 p-3 space-y-2">
-                <p className="text-xs font-mono uppercase tracking-[0.25em] text-empire-blue">Enrollment link / QR payload</p>
+                <p className="text-xs font-mono uppercase tracking-[0.25em] text-empire-blue">Enrollment link for iPhone</p>
                 <p className="break-all text-sm text-gray-100">{enrollment.enrollmentUrl}</p>
                 <p className="text-xs text-empire-muted">This link expires in 10 minutes. Only open it on a device you control.</p>
                 {enrollment.labelHint && <p className="text-xs text-empire-muted">Label hint: {enrollment.labelHint}</p>}
@@ -206,7 +206,7 @@ export default function PasskeysPage() {
                   Copy link
                 </Button>
                 <Button variant="ghost" onClick={() => window.open(enrollment.enrollmentUrl, '_blank', 'noopener,noreferrer')}>
-                  Open link
+                  Test link on this device
                 </Button>
               </div>
             </div>
