@@ -25,7 +25,7 @@ This guide covers two paths:
 
 ### 1b. Apply migrations
 
-All migrations live in `supabase/migrations/`. Apply them in order (0001 → 0010):
+All migrations live in `supabase/migrations/`. Apply them in order:
 
 **Option A — Supabase CLI** (recommended for local dev):
 ```bash
@@ -38,7 +38,7 @@ supabase db push
 
 **Option B — Dashboard SQL editor**:
 Open each file in `supabase/migrations/` and paste + run the SQL in
-**Supabase → SQL Editor** in ascending order (0001 first, 0010 last).
+**Supabase → SQL Editor** in ascending filename order.
 
 ### 1c. Seed reference tables
 
@@ -68,9 +68,9 @@ Supabase dashboard — it should report zero lint warnings.
 
 ---
 
-## 3. Environment variables
+## 2. Environment variables
 
-Set these on the host (Vercel → Project → Settings → Environment Variables).
+Set these on the host (Vercel/Render → Project/Service → Environment Variables).
 **Never commit them.** The service-role key and AI keys are server-only secrets.
 
 | Variable | Where to get it | Notes |
@@ -82,7 +82,10 @@ Set these on the host (Vercel → Project → Settings → Environment Variables
 | `WEBAUTHN_RP_ID` | Your bare host | e.g. `empire.yourdomain.com` (no scheme/port) |
 | `WEBAUTHN_RP_NAME` | Display name | e.g. `Empire OS` |
 | `OWNER_EMAIL` | Your email | Internal identity for the owner account |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` | Optional | Absent → decision engine runs in deterministic stub mode |
+| `REQUESTY_API_KEY` | Requesty dashboard | Optional primary AI gateway |
+| `REQUESTY_BASE_URL` | Requesty dashboard | Optional OpenAI-compatible base URL |
+| `REQUESTY_FAST_MODEL` / `REQUESTY_STANDARD_MODEL` / `REQUESTY_DEEP_MODEL` / `REQUESTY_VISION_MODEL` | Requesty model IDs | Optional model routing |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` | Optional fallback providers | Kept as direct fallback if Requesty is unavailable |
 
 > **Passkey gotcha:** `WEBAUTHN_RP_ID` must equal the site's registrable domain
 > exactly, or the browser refuses to create/use passkeys. Use the bare host
@@ -94,29 +97,61 @@ Set these on the host (Vercel → Project → Settings → Environment Variables
 
 ---
 
-## 4. Deploy to Vercel
+## 3. Deploy to Vercel
 
-1. Push `main` to GitHub (already done).
+1. Push `main` to GitHub.
 2. In Vercel: **New Project → Import** the `miamicreme/EmpireOS` repo.
 3. Framework preset: **Next.js** (auto-detected). Build command `next build`,
    output handled automatically.
-4. Add all environment variables from section 3 (Production scope).
+4. Add all environment variables from section 2 (Production scope).
 5. **Deploy.**
 6. Add your custom domain under **Settings → Domains** and confirm
    `WEBAUTHN_ORIGIN` / `WEBAUTHN_RP_ID` match it. Redeploy if you change them.
 
-### Render (Blueprint)
+### Vercel auto redeploy
+
+Vercel automatically redeploys when `main` is updated if the GitHub integration
+is connected and Production Branch is set to `main`.
+
+Check:
+
+```txt
+Vercel → Project → Settings → Git → Production Branch = main
+```
+
+---
+
+## 4. Deploy to Render
 
 A `render.yaml` Blueprint is committed at the repo root. In Render: **New →
 Blueprint**, point it at `miamicreme/EmpireOS`, and Render provisions a web
 service running `npm run build` / `npm run start` with a health check on
-`/api/health`. Fill in the secret env vars (those marked `sync: false`) from
-section 3 in the Render dashboard **before the first build** — the
-`NEXT_PUBLIC_*` values are baked into the client bundle at build time. Set
-`WEBAUTHN_ORIGIN`/`WEBAUTHN_RP_ID` to your Render URL (or custom domain) before
-registering a passkey. Supabase is still managed separately (sections 1–2).
+`/api/health`.
 
-### Self-hosted alternative
+Fill in the secret env vars (those marked `sync: false`) from section 2 in the
+Render dashboard **before the first build** — the `NEXT_PUBLIC_*` values are
+baked into the client bundle at build time. Set `WEBAUTHN_ORIGIN` and
+`WEBAUTHN_RP_ID` to your Render URL or custom domain before registering a
+passkey. Supabase is still managed separately.
+
+### Render auto redeploy
+
+To make the app redeploy whenever this repo is updated:
+
+```txt
+Render → Web Service → Settings → Build & Deploy → Auto-Deploy = Yes
+Branch = main
+```
+
+That is the cleanest setup. Every push/merge to `main` signals Render to rebuild
+and redeploy the app.
+
+If you use a Render Deploy Hook instead, keep the hook URL as a secret in the
+hosting/GitHub settings. Do not commit the deploy hook URL to the repo.
+
+---
+
+## 5. Self-hosted alternative
 
 ```bash
 npm ci
@@ -129,31 +164,39 @@ TLS at your proxy and set `WEBAUTHN_ORIGIN`/`WEBAUTHN_RP_ID` to the public host.
 
 ---
 
-## 5. First login (claim the owner account)
+## 6. First login and iPhone pairing
 
 1. Open your deployed site → you'll be redirected to `/login`.
 2. Tap **Create passkey** → approve with Face ID / Touch ID / Windows Hello.
    This first passkey claims the single owner account.
-3. You're in. Go to **Passkeys** (sidebar) and **Add passkey** on a second
-   device (e.g. your phone) so you have a recovery key — removing your only
-   passkey is blocked by design.
+3. Go to **Settings → Passkeys**.
+4. For the same signed-in computer, use **Add passkey on this device**.
+5. For iPhone, use **Add another device**. Scan the QR/link from the iPhone and
+   create the Face ID passkey from `/passkeys/enroll/[token]`.
+6. Confirm the iPhone lands on `/today`, then sign out and sign back in with Face ID.
+7. Confirm the Windows passkey still works.
+
+Do not use emergency recovery to add a phone. Emergency recovery is for total
+lockout only.
 
 If `/login` shows "auth not configured", a server env var is missing — recheck
 `SUPABASE_SERVICE_ROLE_KEY`, `WEBAUTHN_ORIGIN`, and `OWNER_EMAIL`.
 
 ---
 
-## 6. Post-deploy verification
+## 7. Post-deploy verification
 
-- Visit `/` — dashboard renders (empty states until you add data).
+- Visit `/today` — the command center renders.
+- Log in with the first passkey.
+- Pair the iPhone through **Settings → Passkeys → Add another device**.
+- Log out and back in from both PC and iPhone.
 - Log a cash entry in **Cash Engine** → it persists and the stats update.
 - Re-run the Supabase **security advisor** after any schema change; it should
-  report zero lints (see `PROGRESS.md`).
-- Confirm cross-device login with your second passkey.
+  report zero lints.
 
 ---
 
-## 7. Database migrations (future changes)
+## 8. Database migrations (future changes)
 
 Migrations live in `supabase/migrations/`. For a new migration:
 
@@ -164,7 +207,7 @@ Always run the security + performance advisors afterward.
 
 ---
 
-## 8. CI note
+## 9. CI note
 
 The repo ships a CI workflow (`.github/workflows/ci.yml`: typecheck, lint,
 build). GitHub Actions must be **enabled** for the repo (Settings → Actions) and
