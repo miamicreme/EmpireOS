@@ -140,6 +140,9 @@ export default function PasskeysPage() {
       if (!res.ok) return error(res.error.message);
       success('Emergency recovery completed');
       setRecoverCode('');
+      setShowRecovery(false);
+      setEnrollment(null);
+      setEnrollmentStatus(null);
       await load();
     } catch (e) {
       error((e as Error)?.message ?? 'Recovery failed.');
@@ -173,17 +176,22 @@ export default function PasskeysPage() {
       <div className="grid gap-4 max-w-4xl xl:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <div className="flex flex-wrap gap-2 p-4 border-b border-border">
-            <Button onClick={addPasskeyOnThisDevice} loading={addingLocal}>
-              Add passkey on this device
-            </Button>
-            <Button variant="secondary" onClick={addAnotherDevice} loading={creatingLink}>
+            <Button onClick={addAnotherDevice} loading={creatingLink}>
               Add another device
+            </Button>
+            <Button variant="secondary" onClick={addPasskeyOnThisDevice} loading={addingLocal}>
+              Add passkey on this device
             </Button>
             <Button variant="danger" onClick={() => setShowRecovery((v) => !v)}>
               Emergency recovery
             </Button>
           </div>
 
+          <div className="border-b border-border p-4">
+            <p className="text-sm text-empire-muted">
+              The normal new-phone path is Add another device. Use Add passkey on this device only when you are already signed in on the current PC or Mac.
+            </p>
+          </div>
           {enrollment && (
             <div className="border-b border-border p-4 space-y-3">
               <p className="text-sm font-semibold text-gray-100">Pair another device</p>
