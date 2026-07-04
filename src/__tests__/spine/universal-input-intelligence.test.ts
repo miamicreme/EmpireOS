@@ -20,17 +20,26 @@ describe('universal input intelligence services', () => {
     expect(out.suggestedDrafts.length).toBeGreaterThan(0);
   });
 
-  it('blocks high-risk secrets before provider calls', async () => {
+  it('redacts high-risk secrets before analysis', async () => {
     const { normalizeRawInput } = await import('@/spine/agent/input/file-ingestion.service');
-    const result = normalizeRawInput({ inputType: 'txt', contentText: 'my seed phrase is sk-test-secret' });
-    expect(result.ok).toBe(false);
+    const result = normalizeRawInput({
+      inputType: 'txt',
+      contentText: 'Credit report account 1234 5678 9012 3456 and email me@example.com',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.extractedText).toContain('[REDACTED]');
+      expect(result.data.extractedText).not.toContain('1234 5678 9012 3456');
+      expect(result.data.extractedText).not.toContain('me@example.com');
+      expect(result.data.highRiskSecretsRedacted).toBe(true);
+    }
   });
 
   it('requires a vision provider for image/camera analysis', async () => {
     const { analyzeVision } = await import('@/spine/agent/input/vision-intelligence.service');
-    const result = analyzeVision({ kind: 'camera_snapshot', descriptions: ['receipt on desk'] });
+    const result = analyzeVision({ kind: 'camera_snapshot', descriptions: ['receipt on desk'], allowVision: false });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.message).toContain('vision_provider_required');
+    if (!result.ok) expect(result.error.message).toContain('allowVision');
   });
 
   it('enforces video frame cost guard', async () => {

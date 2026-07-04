@@ -66,7 +66,14 @@ export async function createEnrollmentToken(
     created_user_agent: meta.createdUserAgent,
     created_ip: meta.createdIp,
   });
-  if (error) throw new Error(`createEnrollmentToken failed: ${error.message}`);
+  if (error) {
+    if (/passkey_enrollment_tokens|schema cache/i.test(error.message)) {
+      throw new Error(
+        'Passkey device enrollment is not deployed yet. Apply Supabase migration 0020_passkey_enrollment_tokens.sql, then refresh the Supabase schema cache.',
+      );
+    }
+    throw new Error(`createEnrollmentToken failed: ${error.message}`);
+  }
 
   const url = enrollmentUrl(rawToken);
   return {

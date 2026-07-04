@@ -16,22 +16,13 @@ interface NavItem {
 const CORE: NavItem[] = [
   { href: '/today' as Route, label: 'Today', icon: '⬡' },
   { href: '/dashboard' as Route, label: 'Dashboard', icon: '▣' },
+  { href: '/modules' as Route, label: 'Modules', icon: '▤' },
   { href: '/chat' as Route, label: 'Chat', icon: '◍' },
   { href: '/intake' as Route, label: 'Intake', icon: '⇥' },
   { href: '/agent' as Route, label: 'Agent', icon: '◉' },
   { href: '/ai' as Route, label: 'AI Chief of Staff', icon: '✦' },
   { href: '/actions' as Route, label: 'Actions', icon: '⚡' },
   { href: '/decisions' as Route, label: 'Decisions', icon: '◈' },
-];
-
-const MODULES: NavItem[] = [
-  { href: '/modules/cash-engine' as Route, label: 'Cash Engine', icon: '$' },
-  { href: '/modules/finances' as Route, label: 'Finances', icon: '◕' },
-  { href: '/modules/job-hunt' as Route, label: 'Job Hunt', icon: '↗' },
-  { href: '/modules/followup-crm' as Route, label: 'Follow-ups', icon: '◎' },
-  { href: '/modules/credit-funding' as Route, label: 'Credit', icon: '▲' },
-  { href: '/modules/projects' as Route, label: 'Projects', icon: '◻' },
-  { href: '/modules/acquisitions' as Route, label: 'Acquisitions', icon: '◆' },
 ];
 
 function NavLink({
@@ -81,14 +72,6 @@ function NavBody({
       <nav className="flex-1 py-3 overflow-y-auto">
         <div className="space-y-0.5">
           {CORE.map((item) => (
-            <NavLink key={item.href} item={item} active={isActive(item.href)} onNavigate={onNavigate} />
-          ))}
-        </div>
-        <div className="px-5 pt-5 pb-2 text-[10px] font-mono tracking-widest text-empire-muted/70 uppercase">
-          Modules
-        </div>
-        <div className="space-y-0.5">
-          {MODULES.map((item) => (
             <NavLink key={item.href} item={item} active={isActive(item.href)} onNavigate={onNavigate} />
           ))}
         </div>
