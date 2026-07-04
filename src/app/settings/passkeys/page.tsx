@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
+import { QRCodeSVG } from 'qrcode.react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, EmptyState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -193,29 +194,44 @@ export default function PasskeysPage() {
             </p>
           </div>
           {enrollment && (
-            <div className="border-b border-border p-4 space-y-3">
-              <p className="text-sm font-semibold text-gray-100">Pair another device</p>
-              <p className="text-sm text-empire-muted">
-                This adds your iPhone without removing your Windows passkey.
-              </p>
-              <div className="rounded-xl border border-border bg-surface-0 p-3 space-y-2">
-                <p className="text-xs font-mono uppercase tracking-[0.25em] text-empire-blue">Enrollment link / QR payload</p>
-                <p className="break-all text-sm text-gray-100">{enrollment.enrollmentUrl}</p>
-                <p className="text-xs text-empire-muted">This link expires in 10 minutes. Only open it on a device you control.</p>
-                {enrollment.labelHint && <p className="text-xs text-empire-muted">Label hint: {enrollment.labelHint}</p>}
-                {enrollmentStatus && (
-                  <p className="text-xs text-empire-muted">
-                    Status: {enrollmentStatus.valid ? 'valid' : enrollmentStatus.used ? 'used' : 'expired'}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={copyEnrollmentLink}>
-                  Copy link
-                </Button>
-                <Button variant="ghost" onClick={() => window.open(enrollment.enrollmentUrl, '_blank', 'noopener,noreferrer')}>
-                  Open link
-                </Button>
+            <div className="border-b border-border p-4 space-y-4">
+              <p className="text-sm font-semibold text-gray-100">Add iPhone or other device</p>
+              <div className="grid gap-4 md:grid-cols-[auto_1fr]">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="rounded-xl border border-border bg-white p-3">
+                    <QRCodeSVG value={enrollment.enrollmentUrl} size={160} level="M" />
+                  </div>
+                  <p className="text-xs text-empire-muted">Scan with iPhone camera</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-border bg-surface-0 p-3 space-y-2">
+                    <p className="text-xs font-mono uppercase tracking-[0.25em] text-empire-blue">Step-by-step</p>
+                    <ol className="text-sm text-gray-100 space-y-1.5 list-decimal list-inside">
+                      <li>Open the Camera app on your iPhone</li>
+                      <li>Point it at the QR code on the left</li>
+                      <li>Tap the notification to open the link</li>
+                      <li>Tap &quot;Create passkey on this device&quot;</li>
+                    </ol>
+                  </div>
+                  <div className="rounded-xl border border-border bg-surface-0 p-3 space-y-2">
+                    <p className="text-xs font-mono uppercase tracking-[0.25em] text-empire-muted">Or copy the link manually</p>
+                    <p className="break-all text-xs text-gray-100 font-mono">{enrollment.enrollmentUrl}</p>
+                  </div>
+                  {enrollmentStatus && (
+                    <p className="text-xs text-empire-muted">
+                      Link status: {enrollmentStatus.valid ? 'valid' : enrollmentStatus.used ? 'used' : 'expired'}
+                    </p>
+                  )}
+                  <p className="text-xs text-empire-muted">Expires in 10 minutes. Only use on devices you control.</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={copyEnrollmentLink}>
+                      Copy link
+                    </Button>
+                    <Button variant="ghost" onClick={() => window.open(enrollment.enrollmentUrl, '_blank', 'noopener,noreferrer')}>
+                      Open here
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
