@@ -10,17 +10,17 @@ const TONE_TEXT: Record<Tone, string> = {
   blue: 'text-empire-blue',
   violet: 'text-empire-violet',
   cyan: 'text-empire-cyan',
-  muted: 'text-gray-200',
+  muted: 'text-gray-100',
 };
 
 const TONE_STROKE: Record<Tone, string> = {
-  green: '#34d399',
-  yellow: '#fbbf24',
-  red: '#f87171',
-  blue: '#60a5fa',
-  violet: '#a78bfa',
-  cyan: '#22d3ee',
-  muted: '#7d8590',
+  green: 'rgb(var(--empire-green))',
+  yellow: 'rgb(var(--empire-yellow))',
+  red: 'rgb(var(--empire-red))',
+  blue: 'rgb(var(--empire-blue))',
+  violet: 'rgb(var(--empire-violet))',
+  cyan: 'rgb(var(--empire-cyan))',
+  muted: 'rgb(var(--empire-muted))',
 };
 
 export function StatCard({
@@ -37,14 +37,14 @@ export function StatCard({
   icon?: ReactNode;
 }) {
   return (
-    <div className="group relative bg-surface-1 border border-border rounded-xl p-4 overflow-hidden transition-colors hover:border-border-strong">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-mono text-empire-muted uppercase tracking-wider">{label}</span>
-        {icon && <span className="text-empire-muted">{icon}</span>}
+    <div className="group relative eos-surface rounded-xl p-4 overflow-hidden transition-all hover:border-border-strong hover:shadow-card-hover">
+      <div className="absolute inset-x-4 top-0 h-px bg-hairline opacity-60" />
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] font-mono text-empire-muted uppercase tracking-[0.24em] truncate">{label}</span>
+        {icon && <span className="text-empire-muted font-mono">{icon}</span>}
       </div>
-      <div className={cn('mt-2 text-2xl font-semibold nums', TONE_TEXT[tone])}>{value}</div>
-      {sub && <div className="mt-1 text-xs text-empire-muted nums">{sub}</div>}
+      <div className={cn('mt-2 text-[26px] leading-none font-semibold nums tracking-[-0.01em]', TONE_TEXT[tone])}>{value}</div>
+      {sub && <div className="mt-1.5 text-xs text-empire-muted nums leading-relaxed">{sub}</div>}
     </div>
   );
 }
@@ -70,7 +70,7 @@ export function ProgressRing({
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1d212a" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(var(--surface-3))" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
