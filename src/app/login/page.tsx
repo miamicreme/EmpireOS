@@ -231,15 +231,14 @@ export default function LoginPage() {
                       }}
                       className="block w-full text-center text-xs text-empire-muted hover:text-gray-300 transition-colors"
                     >
-                      New device, or lost access? Reset
+                      New phone? Use Add another device from a signed-in device. Emergency recovery is only if all passkeys are lost.
                     </button>
                   )}
 
                   {showRecover && (
                     <div className="space-y-3 rounded-xl border border-border bg-surface-0 p-3">
                       <p className="text-xs text-empire-muted leading-relaxed">
-                        Enter your recovery code to clear the old passkey and set up this device
-                        fresh. Old devices can no longer sign in with their passkey.
+                        Emergency recovery is only for total lockout. Enter the recovery code to clear stored passkeys and start over on a fresh device.
                       </p>
                       <input
                         type="password"
@@ -256,7 +255,7 @@ export default function LoginPage() {
                           disabled={!recoverCode.trim()}
                           className="flex-1"
                         >
-                          Reset device access
+                          Emergency recovery
                         </Button>
                         <Button
                           variant="ghost"
