@@ -7,11 +7,11 @@ import type {
 import { cn } from '@/lib/cn';
 
 const BASE =
-  'w-full bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-empire-muted ' +
-  'transition-colors focus:outline-none focus:border-empire-blue focus:ring-1 focus:ring-empire-blue/40 ' +
-  'disabled:opacity-50';
+  'w-full bg-surface-2/85 border border-border rounded-lg px-3 py-2 text-sm text-gray-100 placeholder:text-empire-muted/65 ' +
+  'transition-all focus:outline-none focus:border-empire-blue focus:ring-1 focus:ring-empire-blue/35 focus:bg-surface-2 ' +
+  'disabled:opacity-50 disabled:cursor-not-allowed shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]';
 
-const LABEL = 'block text-[11px] font-mono text-empire-muted mb-1.5 uppercase tracking-wider';
+const LABEL = 'block text-[10px] font-mono text-empire-muted mb-1.5 uppercase tracking-[0.24em]';
 
 export function Field({
   label,
@@ -38,7 +38,7 @@ export function Field({
       {error ? (
         <p className="mt-1 text-xs text-empire-red font-mono">{error}</p>
       ) : hint ? (
-        <p className="mt-1 text-xs text-empire-muted">{hint}</p>
+        <p className="mt-1 text-xs text-empire-muted leading-relaxed">{hint}</p>
       ) : null}
     </div>
   );
