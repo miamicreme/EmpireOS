@@ -39,6 +39,20 @@ export const suggestedDraftSchema = z.object({
 
 export const synthesisOutputSchema = z.object({
   answer: z.string().default(''),
+  mentorNote: z.string().max(2500).default(''),
+  issueBreakdown: z
+    .array(
+      z.object({
+        topic: z.string().default(''),
+        insight: z.string().default(''),
+        tension: z.string().default(''),
+        practicalMove: z.string().default(''),
+      }),
+    )
+    .max(6)
+    .default([]),
+  creativeAngles: z.array(z.string().max(1000)).max(5).default([]),
+  conversationStarters: z.array(z.string().max(500)).max(4).default([]),
   reasoningSummary: z.string().default(''),
   assumptions: z.array(z.string()).default([]),
   evidence: z
