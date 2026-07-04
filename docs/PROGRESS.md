@@ -1,6 +1,6 @@
 # Empire OS — Build Progress & Next Steps
 
-_Last updated: 2026-06-29_
+_Last updated: 2026-07-04_
 
 This document tracks what has shipped and what comes next. It complements the
 high-level [`MASTER_GUIDE.md`](../MASTER_GUIDE.md) and the architecture docs under
@@ -19,13 +19,13 @@ high-level [`MASTER_GUIDE.md`](../MASTER_GUIDE.md) and the architecture docs und
 | API routes | ✅ Done | Module CRUD + reviews; auth + RLS + Zod on every write |
 | Dashboard UI | ✅ Done | Command center: Empire Score, module health, action queue, decisions |
 | Module UIs | ✅ Done | All 6 wired to their APIs with optimistic updates |
+| AI owner surfaces | ✅ Done in code | `/ai/input`, `/ai/camera`, `/ai/runs/[id]`, `/ai/memory`, `/ai/providers`, `/settings/security` now exist; manual browser proof still pending |
 | Design system | ✅ Done | Tokens, primitives, motion, toasts, modals, data tables |
 | Auth | ✅ Done | Passkey / Face ID (WebAuthn), multi-passkey recovery, route gate |
-| Tests | ✅ 181 passing | Pure logic, schemas, redaction, module metrics, API routes, auth config |
+| Tests | ⚠ Environment-blocked | Typecheck/lint/build pass in this workspace; Vitest is blocked by the installed Node runtime version |
 | Deployment | ⏭️ Next | Live Supabase project + hosting + CI |
 
-`main` and `develop` are in sync. Every merged change passes `npm run typecheck`,
-`npm run build`, and `npm test` locally.
+`main` and `develop` are in sync. Current AI UI changes typecheck and build in this workspace; Vitest is blocked by the local Node runtime version, so browser/test proof still needs a compatible runner.
 
 ---
 
@@ -60,12 +60,21 @@ Each exposes `getMetrics` / `getActions` / `getDecisionContext` / `getHealth` /
   ProgressRing, DataTable, PageHeader, Card, Badge.
 - Dashboard command center + all six module pages, each fully wired to its API
   with optimistic deletes, toasts, loading skeletons, and empty states.
+- AI owner UI surfaces are now wired in code:
+  - `/ai/input` interactive upload/analyze/send-to-agent workbench.
+  - `/ai/camera` explicit browser camera capture and bounded frame sampling workbench.
+  - `/ai/runs/[id]` safe run detail surface.
+  - `/ai/memory` durable memory workbench.
+  - `/ai/providers` provider health/status surface.
+  - `/settings/security` owner security posture surface.
 
 ### Quality
-- 175 tests: result/errors/dates, action ranking, Empire Score, context
-  redaction, advisor prompts, provider selection, schemas, module metrics,
-  module-schema null-handling, and API route integration (auth, tenant
-  scoping, validation, error mapping).
+- Validation on 2026-07-04:
+  - `npm run typecheck` passed.
+  - `npm run lint` passed.
+  - `npm run build` passed.
+  - `npm test -- --run` is blocked by the workspace Node 20.9.0 runtime; Vitest/rolldown requires a newer Node release.
+  - `npm audit --omit=dev` reports remaining Next.js/PostCSS vulnerabilities and is not clean.
 
 ---
 
