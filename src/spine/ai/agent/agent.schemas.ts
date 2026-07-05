@@ -39,6 +39,9 @@ export const suggestedDraftSchema = z.object({
 
 export const synthesisOutputSchema = z.object({
   answer: z.string().default(''),
+  jarvisBrief: z.string().max(1800).default(''),
+  operatingMode: z.string().max(80).default('mentor_operator'),
+  realIssue: z.string().max(1200).default(''),
   mentorNote: z.string().max(2500).default(''),
   issueBreakdown: z
     .array(
@@ -51,8 +54,31 @@ export const synthesisOutputSchema = z.object({
     )
     .max(6)
     .default([]),
+  leverageMap: z
+    .array(
+      z.object({
+        lever: z.string().default(''),
+        whyItMatters: z.string().default(''),
+        firstProof: z.string().default(''),
+      }),
+    )
+    .max(5)
+    .default([]),
+  blindSpots: z.array(z.string().max(1000)).max(6).default([]),
+  antiPatterns: z.array(z.string().max(1000)).max(5).default([]),
+  decisionPath: z
+    .array(
+      z.object({
+        step: z.string().default(''),
+        reason: z.string().default(''),
+        doneWhen: z.string().default(''),
+      }),
+    )
+    .max(5)
+    .default([]),
   creativeAngles: z.array(z.string().max(1000)).max(5).default([]),
   conversationStarters: z.array(z.string().max(500)).max(4).default([]),
+  nextBestQuestion: z.string().max(500).default(''),
   reasoningSummary: z.string().default(''),
   assumptions: z.array(z.string()).default([]),
   evidence: z
