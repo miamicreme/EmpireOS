@@ -423,6 +423,35 @@ export interface AcquisitionTarget {
   updated_at: string;
 }
 
+export type RecordingStatus =
+  | 'uploaded'
+  | 'transcribing'
+  | 'transcribed'
+  | 'translating'
+  | 'translated'
+  | 'analyzing'
+  | 'ready'
+  | 'failed';
+
+export interface Recording {
+  id: string;
+  user_id: string;
+  title: string;
+  audio_storage_path: string;
+  mime_type: string;
+  duration_seconds: number | null;
+  language: string | null;
+  transcript: string | null;
+  translated_transcript: string | null;
+  summary: string | null;
+  status: RecordingStatus;
+  error: string | null;
+  consent_confirmed: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // Module manifest + contract supporting types
 // ---------------------------------------------------------------------------

@@ -12,6 +12,7 @@ Each module owns a domain, implements `ModuleContract`, and is registered in `sr
 | Follow-Up CRM | `followup-crm` | phase_1 | Track contacts and follow-ups |
 | Projects | `projects` | phase_1 | Manage active projects and prevent distraction |
 | Acquisitions | `acquisitions` | phase_2 | Research, track, and close business acquisition targets |
+| Empire Recorder | `recorder` | phase_1 | Record interviews/conversations; transcribe, translate, summarize, and draft actions |
 
 ## Module Structure
 

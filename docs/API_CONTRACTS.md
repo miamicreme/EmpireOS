@@ -62,3 +62,14 @@
 - `POST /api/ai/input/camera-frame` forces `inputType: "camera_snapshot"` and analyzes only an explicitly submitted snapshot.
 - `POST /api/ai/input/video-frames/analyze` forces `inputType: "video_frames"` and is guarded by the universal input service's 10-frame maximum.
 - Universal input remains subordinate to the single reasoning command path: callers should pass returned artifact IDs to `POST /api/ai/agent/run` through `inputArtifactIds` for deeper analysis or action drafting.
+
+## Empire Recorder
+
+- `POST /api/recorder/upload` — multipart/form-data (`audio` file, `title`, `durationSeconds`, `consentConfirmed`). Uploads to the private `recordings` Storage bucket and inserts the row. Requires `consentConfirmed: "true"`.
+- `POST /api/recorder/transcribe` — `{ id }`. Transcribes the stored audio (OpenAI Whisper; deterministic stub when `OPENAI_API_KEY` is unset) and stores `transcript` + detected `language`.
+- `POST /api/recorder/translate` — `{ id, force? }`. Translates the transcript to English through the standard text-provider chain; skipped (transcript copied through) when the detected language already looks like English and `force` isn't set.
+- `POST /api/recorder/analyze` — `{ id }`. Extracts a summary, key points, decisions, follow-ups, questions, names, dates, and risks, and drafts candidate actions into `ai_action_drafts` (module-tagged `recorder`) via the same approval-gated path as every other AI feature.
+- `GET /api/recorder` — lists the owner's recordings.
+- `GET /api/recorder/[id]` — recording detail, including a 5-minute signed audio URL (never a public URL).
+- `PATCH /api/recorder/[id]` — rename only; pipeline fields (`transcript`, `status`, …) are server-owned.
+- `DELETE /api/recorder/[id]` — removes the DB row and the stored audio object together.

@@ -9,6 +9,7 @@
  *   credit-funding  — next cleanup / funding move
  *   projects        — what to pause or push
  *   acquisitions    — score deals + seller-finance angles
+ *   recorder        — surface follow-ups/risks from recent recordings
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { appError } from '@/lib/errors';
@@ -45,6 +46,8 @@ const MODULE_LENS: Record<ModuleId, string> = {
     'You are the Projects AI. Decide what to pause and what to push based on revenue potential, strategic value, and blockers. Be decisive.',
   acquisitions:
     'You are the Acquisitions AI. Score deals on upside vs risk and flag seller-financing opportunities worth pursuing.',
+  recorder:
+    'You are the Empire Recorder AI. Read recent recording summaries and flag unresolved follow-ups, open questions, and risks worth acting on today.',
 };
 
 function isModuleId(id: string): id is ModuleId {

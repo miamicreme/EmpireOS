@@ -17,6 +17,7 @@ const CORE: NavItem[] = [
   { href: '/today' as Route, label: 'Today', icon: '⬡' },
   { href: '/ai' as Route, label: 'AI Command', icon: '✦' },
   { href: '/ai/input' as Route, label: 'Inputs', icon: '⇥' },
+  { href: '/recorder' as Route, label: 'Recorder', icon: '●' },
   { href: '/actions' as Route, label: 'Actions', icon: '⚡' },
   { href: '/decisions' as Route, label: 'Decisions', icon: '◈' },
   { href: '/modules' as Route, label: 'Modules', icon: '▤' },
