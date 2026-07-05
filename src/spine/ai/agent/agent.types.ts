@@ -28,7 +28,6 @@ export type RunStatus =
 
 export type RiskLevel = 'low' | 'medium' | 'high';
 
-/** Intent labels the router can assign (multi-label allowed via primary + tags). */
 export type AgentIntent =
   | 'daily_planning'
   | 'cash'
@@ -44,7 +43,6 @@ export type AgentIntent =
   | 'research'
   | 'general';
 
-/** Event types stored in agent_run_events (replaces many would-be tables). */
 export type RunEventType =
   | 'intent_detected'
   | 'capability_plan'
@@ -86,24 +84,16 @@ export type ArtifactType =
   | 'voice_transcript_analysis'
   | 'research_needed';
 
-// ---------------------------------------------------------------------------
-// Endpoint contract
-// ---------------------------------------------------------------------------
 export interface AgentRunInput {
   command: string;
   modeHint?: string;
   moduleHint?: string;
-  /** Free-form hint; coerced to a known ArtifactType by the router. */
   artifactTypeHint?: string;
-  /** User pressure on the router: 'fast' | 'standard' | 'deep'. */
   runtimePreference?: 'fast' | 'standard' | 'deep';
   threadId?: string | null;
   idempotency?: string | null;
-  /** "Use research" control. */
   useResearch?: boolean;
-  /** "Go deeper" control. */
   goDeeper?: boolean;
-  /** Optional analyzed input artifact ids; still runs through POST /api/ai/agent/run. */
   inputArtifactIds?: string[];
 }
 
@@ -169,18 +159,18 @@ export interface AgentRunOutput {
   artifactId: string | null;
   artifactType: ArtifactType;
   answer: string;
-  jarvisBrief: string;
-  operatingMode: string;
-  realIssue: string;
+  jarvisBrief?: string;
+  operatingMode?: string;
+  realIssue?: string;
   mentorNote: string;
   issueBreakdown: IssueBreakdownItem[];
-  leverageMap: LeverageMapItem[];
-  blindSpots: string[];
-  antiPatterns: string[];
-  decisionPath: DecisionPathStep[];
+  leverageMap?: LeverageMapItem[];
+  blindSpots?: string[];
+  antiPatterns?: string[];
+  decisionPath?: DecisionPathStep[];
   creativeAngles: string[];
   conversationStarters: string[];
-  nextBestQuestion: string;
+  nextBestQuestion?: string;
   reasoningSummary: string;
   reasoningArtifact: ReasoningArtifact | null;
   confidence: number;
@@ -205,9 +195,6 @@ export interface AgentActionDraftView {
   approvalStatus: 'pending' | 'approved' | 'rejected';
 }
 
-// ---------------------------------------------------------------------------
-// Context pack
-// ---------------------------------------------------------------------------
 export interface ContextPack {
   summary: string;
   relevantFacts: Record<string, unknown>;
@@ -222,9 +209,6 @@ export interface ContextPack {
   contextHash: string;
 }
 
-// ---------------------------------------------------------------------------
-// Provider routing
-// ---------------------------------------------------------------------------
 export interface ProviderStrategy {
   runtimeClass: RuntimePath;
   specialists: string[];
@@ -236,9 +220,6 @@ export interface ProviderStrategy {
   reason: string;
 }
 
-// ---------------------------------------------------------------------------
-// Specialists
-// ---------------------------------------------------------------------------
 export interface SpecialistVote {
   specialist: string;
   recommendation: string;
@@ -249,9 +230,6 @@ export interface SpecialistVote {
   status: 'valid' | 'invalid_output';
 }
 
-// ---------------------------------------------------------------------------
-// Reasoning artifact
-// ---------------------------------------------------------------------------
 export interface ProblemFrame {
   domain: AgentIntent;
   objective: string;
@@ -290,9 +268,6 @@ export interface ReasoningArtifact {
   whatWouldChangeMyMind: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Intent routing result
-// ---------------------------------------------------------------------------
 export interface IntentResult {
   intent: AgentIntent;
   tags: AgentIntent[];
@@ -302,9 +277,6 @@ export interface IntentResult {
   reason: string;
 }
 
-// ---------------------------------------------------------------------------
-// Synthesizer output (validated from model JSON)
-// ---------------------------------------------------------------------------
 export interface SynthesisOutput {
   answer: string;
   jarvisBrief: string;
