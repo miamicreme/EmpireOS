@@ -97,6 +97,8 @@ function jsonRequest(body: unknown, url = 'http://test/api') {
   });
 }
 
+const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+
 async function body(res: Response) {
   return (await res.json()) as { ok: boolean; data?: unknown; error?: { code: string; message: string } };
 }
@@ -177,6 +179,44 @@ describe('new AI backend route contracts', () => {
     expect(JSON.stringify(json)).not.toContain('api_key_cipher');
     expect(JSON.stringify(json)).not.toContain('apiKey');
     expect(JSON.stringify(json)).toContain('requesty');
+  });
+
+  it('camera-frame preserves vision_provider_required for real image bytes', async () => {
+    const envKeys = [
+      'REQUESTY_API_KEY',
+      'REQUESTY_DEFAULT_MODEL',
+      'REQUESTY_FAST_MODEL',
+      'REQUESTY_STANDARD_MODEL',
+      'REQUESTY_DEEP_MODEL',
+      'REQUESTY_VISION_MODEL',
+      'OPENAI_API_KEY',
+      'ANTHROPIC_API_KEY',
+    ] as const;
+    const saved = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+    for (const key of envKeys) delete process.env[key];
+
+    try {
+      makeClient({});
+      const { POST } = await import('@/app/api/ai/input/camera-frame/route');
+      const res = await POST(jsonRequest({
+        fileName: 'camera.png',
+        mimeType: 'image/png',
+        imageDescription: 'Owner captured camera frame.',
+        imageBase64: tinyPngBase64,
+        allowVision: true,
+      }));
+      const json = await body(res);
+
+      expect(res.status).toBe(422);
+      expect(json.error?.code).toBe('validation');
+      expect(json.error?.message).toContain('vision_provider_required');
+    } finally {
+      for (const key of envKeys) {
+        const value = saved[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 
   it('security status returns posture only', async () => {

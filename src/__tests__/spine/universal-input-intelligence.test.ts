@@ -5,6 +5,8 @@ vi.mock('@/lib/security', async () => {
   return { ...actual, containsHighRiskSecret: (text: string) => /sk-test-secret|seed phrase/i.test(text) };
 });
 
+const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+
 describe('universal input intelligence services', () => {
   it('infers spreadsheet purpose and summarizes rows locally', async () => {
     const { analyzeSpreadsheet } = await import('@/spine/agent/input/spreadsheet-intelligence.service');
@@ -35,11 +37,98 @@ describe('universal input intelligence services', () => {
     }
   });
 
-  it('requires a vision provider for image/camera analysis', async () => {
+  it('decodes real image bytes before vision analysis', async () => {
+    const { normalizeRawInput } = await import('@/spine/agent/input/file-ingestion.service');
+    const result = normalizeRawInput({
+      inputType: 'image',
+      fileName: 'tiny.png',
+      mimeType: 'image/png',
+      imageBase64: tinyPngBase64,
+      imageDescription: 'Tiny test image',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.imageInputs).toHaveLength(1);
+      expect(result.data.imageInputs[0]?.format).toBe('png');
+      expect(result.data.imageInputs[0]?.width).toBe(1);
+      expect(result.data.imageInputs[0]?.height).toBe(1);
+      expect(result.data.imageInputs[0]?.byteLength).toBeGreaterThan(0);
+      expect(result.data.sourceRefs.some((ref) => ref.startsWith('image/png:'))).toBe(true);
+    }
+  });
+
+  it('requires image bytes for image/camera vision analysis', async () => {
     const { analyzeVision } = await import('@/spine/agent/input/vision-intelligence.service');
-    const result = analyzeVision({ kind: 'camera_snapshot', descriptions: ['receipt on desk'], allowVision: false });
+    const result = await analyzeVision({
+      kind: 'camera_snapshot',
+      descriptions: ['receipt on desk'],
+      images: [],
+      allowVision: true,
+      env: { OPENAI_API_KEY: 'configured' } as unknown as NodeJS.ProcessEnv,
+    });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.message).toContain('allowVision');
+    if (!result.ok) expect(result.error.message).toContain('image_bytes_required');
+  });
+
+  it('preserves the vision_provider_required gate for real image bytes', async () => {
+    const { normalizeRawInput } = await import('@/spine/agent/input/file-ingestion.service');
+    const { analyzeVision } = await import('@/spine/agent/input/vision-intelligence.service');
+    const normalized = normalizeRawInput({
+      inputType: 'camera_snapshot',
+      fileName: 'camera.png',
+      mimeType: 'image/png',
+      imageBase64: tinyPngBase64,
+      imageDescription: 'receipt on desk',
+    });
+    expect(normalized.ok).toBe(true);
+    if (!normalized.ok) return;
+
+    const result = await analyzeVision({
+      kind: 'camera_snapshot',
+      descriptions: normalized.data.imageDescriptions,
+      images: normalized.data.imageInputs,
+      allowVision: true,
+      env: {} as NodeJS.ProcessEnv,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('vision_provider_required');
+  });
+
+  it('creates vision facts from real image bytes when a vision provider is configured', async () => {
+    const { normalizeRawInput } = await import('@/spine/agent/input/file-ingestion.service');
+    const { analyzeVision } = await import('@/spine/agent/input/vision-intelligence.service');
+    const normalized = normalizeRawInput({
+      inputType: 'screenshot',
+      fileName: 'screen.png',
+      mimeType: 'image/png',
+      imageBase64: tinyPngBase64,
+      imageDescription: 'error dialog screenshot',
+    });
+    expect(normalized.ok).toBe(true);
+    if (!normalized.ok) return;
+
+    const result = await analyzeVision({
+      kind: 'screenshot',
+      descriptions: normalized.data.imageDescriptions,
+      images: normalized.data.imageInputs,
+      allowVision: true,
+      env: { OPENAI_API_KEY: 'configured' } as unknown as NodeJS.ProcessEnv,
+      providerExecutor: async ({ imageFacts }) => ({
+        summary: 'Provider analyzed a real screenshot byte payload.',
+        keyFacts: ['The screenshot contains an error dialog.', ...imageFacts],
+        risks: [],
+        opportunities: ['Use the screenshot as debugging context.'],
+        recommendedActions: ['Create troubleshoot/fix/research draft for the screenshot issue.'],
+        confidence: 0.82,
+      }),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.artifactType).toBe('vision_analysis');
+      expect(result.data.keyFacts.join('\n')).toContain('PNG 1x1');
+      expect(result.data.provider).toBe('openai');
+    }
   });
 
   it('enforces video frame cost guard', async () => {

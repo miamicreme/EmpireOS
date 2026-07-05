@@ -12,6 +12,8 @@ describe('universal input and camera contract', () => {
     expect(existsSync(join(root, 'src/app/api/ai/input/camera-frame/route.ts'))).toBe(true);
     expect(existsSync(join(root, 'src/app/api/ai/input/video-frames/analyze/route.ts'))).toBe(true);
     expect(read('src/app/api/ai/input/upload/route.ts')).toContain('publicUrl: null');
+    expect(read('src/spine/ai/agent/agent.schemas.ts')).toContain('imageBase64');
+    expect(read('src/spine/ai/agent/agent.schemas.ts')).toContain('frameImagesBase64');
   });
 
   it('keeps camera and video analysis explicit and bounded', () => {
@@ -19,6 +21,7 @@ describe('universal input and camera contract', () => {
     expect(service).toContain('MAX_VIDEO_FRAMES = 10');
     expect(service).toContain('cameraActivatedServerSide: false');
     expect(service).toContain('videoStreamStored: false');
+    expect(service).toContain('imageByteMetadata');
   });
 
   it('adds owner-facing universal input and camera pages with privacy controls', () => {

@@ -36,6 +36,18 @@ function canvasToFile(video: HTMLVideoElement, prefix: string) {
   });
 }
 
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read captured image bytes.'));
+    reader.onload = () => {
+      const value = String(reader.result ?? '');
+      resolve(value.includes(',') ? value.split(',')[1] ?? '' : value);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function CameraWorkbench() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -114,11 +126,13 @@ export function CameraWorkbench() {
     }
     setError(null);
     setStatus('Analyzing explicit snapshot...');
+    const imageBase64 = await fileToBase64(snapshotFile);
     const response = await api.post<InputAnalyzeResult>('/api/ai/input/camera-frame', {
       inputType: 'camera_snapshot',
       fileName: snapshotFile.name,
       mimeType: snapshotFile.type,
       imageDescription: `Owner-captured camera snapshot ${snapshotFile.name}.`,
+      imageBase64,
       createDrafts: true,
       allowVision: true,
     });
@@ -180,9 +194,11 @@ export function CameraWorkbench() {
     }
     setError(null);
     setStatus('Analyzing sampled frames...');
+    const frameImagesBase64 = await Promise.all(frames.slice(0, 10).map((frame) => fileToBase64(frame.file)));
     const response = await api.post<InputAnalyzeResult>('/api/ai/input/video-frames/analyze', {
       inputType: 'video_frames',
       frameDescriptions: frames.map((frame) => frame.description).slice(0, 10),
+      frameImagesBase64,
       createDrafts: true,
       allowVision: true,
     });

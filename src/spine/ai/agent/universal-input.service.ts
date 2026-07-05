@@ -66,7 +66,7 @@ export async function analyzeUniversalInput(
   const analysis = data.rows.length > 0 || input.inputType === 'csv' || input.inputType === 'xlsx'
     ? ok(analyzeSpreadsheet(data.rows, data.fileName))
     : input.inputType === 'image' || input.inputType === 'screenshot' || input.inputType === 'camera_snapshot' || input.inputType === 'video_frames'
-      ? analyzeVision({ descriptions: imageDescriptions, kind: input.inputType, allowVision: input.allowVision })
+      ? await analyzeVision({ descriptions: imageDescriptions, images: data.imageInputs, kind: input.inputType, allowVision: input.allowVision })
       : ok(analyzeDocument({ text: data.extractedText, fileName: data.fileName, inputType: input.inputType }));
   if (!analysis.ok) return analysis;
 
@@ -90,6 +90,15 @@ export async function analyzeUniversalInput(
       textPreview: data.extractedText.slice(0, 2000),
       rowsPreview: data.rows.slice(0, 5),
       imageDescriptions,
+      imageByteMetadata: data.imageInputs.map((image) => ({
+        mediaType: image.mediaType,
+        format: image.format,
+        byteLength: image.byteLength,
+        sha256: image.sha256,
+        width: image.width,
+        height: image.height,
+        sourceName: image.sourceName,
+      })),
       transcriptPreview: data.transcript?.slice(0, 2000) ?? null,
     },
     routing: {

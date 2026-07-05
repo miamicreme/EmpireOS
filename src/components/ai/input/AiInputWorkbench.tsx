@@ -78,7 +78,19 @@ async function extractTextFromFile(file: File): Promise<string | null> {
   return null;
 }
 
-function buildAnalyzePayload(file: File | null, text: string, purpose: string) {
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read image bytes.'));
+    reader.onload = () => {
+      const value = String(reader.result ?? '');
+      resolve(value.includes(',') ? value.split(',')[1] ?? '' : value);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function buildAnalyzePayload(file: File | null, text: string, purpose: string) {
   const kind = detectKind(file, text);
   if (!file) {
     const payload: Record<string, unknown> = {
@@ -113,6 +125,7 @@ function buildAnalyzePayload(file: File | null, text: string, purpose: string) {
     payload.contentText = `Spreadsheet file ${fileName} was selected. Browser-side XLSX parsing is not wired in this pass; upload metadata is validated and summary will be metadata-safe.`;
   } else if (kind === 'image' || kind === 'screenshot') {
     payload.imageDescription = text.trim() || `User-selected ${kind} file ${fileName}.`;
+    payload.imageBase64 = await fileToBase64(file);
     payload.allowVision = true;
   }
 
@@ -173,7 +186,7 @@ export function AiInputWorkbench() {
 
       setPhase('analyzing');
       setMessage('Analyzing input artifact...');
-      const payload = buildAnalyzePayload(file, extractedText ?? text, purpose);
+      const payload = await buildAnalyzePayload(file, extractedText ?? text, purpose);
       const response = await api.post<InputAnalyzeResult>('/api/ai/input/analyze', payload);
       if (!response.ok) throw new Error(response.error.message);
 

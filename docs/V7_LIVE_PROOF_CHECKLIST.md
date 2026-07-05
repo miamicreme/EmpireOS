@@ -23,7 +23,7 @@ Covers PDF analysis, DOCX analysis, TXT/MD analysis, CSV analysis, XLSX analysis
 | TXT/MD | Paste or attach safe text/Markdown. | Summary, key facts, next actions, and Send to Agent enabled. | TODO |
 | CSV | Attach/paste CSV rows. | `spreadsheet_analysis` with inferred purpose, totals, missing values, duplicates, and draft suggestions. | TODO |
 | XLSX | Use safe XLSX exported as CSV or parser mock. | Local-first spreadsheet summary; high-stakes finance docs require deep/research state when applicable. | TODO |
-| screenshot/image | Attach safe screenshot description or image. | Vision path returns `vision_provider_required` without configured vision provider; configured provider creates `vision_analysis`. | TODO |
+| screenshot/image | Attach a safe screenshot/image file; optional pasted text is context only. | Browser submits the actual image bytes to `/api/ai/input/analyze`; without a configured vision provider the route returns `vision_provider_required`; with one configured it creates `vision_analysis` with image byte metadata and no public URL. | TODO |
 
 ## Camera proof
 
@@ -31,7 +31,7 @@ Covers PDF analysis, DOCX analysis, TXT/MD analysis, CSV analysis, XLSX analysis
 2. Confirm no browser permission prompt appears on page load.
 3. Click Start camera and approve browser permission.
 4. Click Capture snapshot.
-5. Click Analyze current view.
+5. Click Analyze current view and confirm the captured PNG bytes are submitted to `/api/ai/input/camera-frame`.
 6. Click Sample 10 seconds and confirm captured frames never exceed 10.
 7. Click Stop camera and confirm the hardware/browser camera indicator turns off.
 8. Delete captured frames and confirm the list clears.
@@ -47,5 +47,6 @@ Covers PDF analysis, DOCX analysis, TXT/MD analysis, CSV analysis, XLSX analysis
 
 ## Provider proof
 
-- Without a vision provider configured, image/camera analysis should fail with `vision_provider_required`.
-- With a configured vision provider, image/camera analysis should create `vision_analysis`, `camera_analysis`, or `video_frame_analysis` artifacts.
+- Without a vision provider configured, image/camera analysis with real image bytes should fail with `vision_provider_required`.
+- Description-only image/camera payloads should fail with `image_bytes_required`.
+- With a configured vision provider, image/camera analysis should create `vision_analysis`, `camera_analysis`, or `video_frame_analysis` artifacts and persist only safe image byte metadata, not the raw base64 payload.
