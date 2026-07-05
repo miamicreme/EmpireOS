@@ -114,6 +114,18 @@ export interface IssueBreakdownItem {
   practicalMove: string;
 }
 
+export interface LeverageMapItem {
+  lever: string;
+  whyItMatters: string;
+  firstProof: string;
+}
+
+export interface DecisionPathStep {
+  step: string;
+  reason: string;
+  doneWhen: string;
+}
+
 export interface SuggestedDraft {
   title: string;
   description: string;
@@ -157,10 +169,18 @@ export interface AgentRunOutput {
   artifactId: string | null;
   artifactType: ArtifactType;
   answer: string;
+  jarvisBrief: string;
+  operatingMode: string;
+  realIssue: string;
   mentorNote: string;
   issueBreakdown: IssueBreakdownItem[];
+  leverageMap: LeverageMapItem[];
+  blindSpots: string[];
+  antiPatterns: string[];
+  decisionPath: DecisionPathStep[];
   creativeAngles: string[];
   conversationStarters: string[];
+  nextBestQuestion: string;
   reasoningSummary: string;
   reasoningArtifact: ReasoningArtifact | null;
   confidence: number;
@@ -287,10 +307,18 @@ export interface IntentResult {
 // ---------------------------------------------------------------------------
 export interface SynthesisOutput {
   answer: string;
+  jarvisBrief: string;
+  operatingMode: string;
+  realIssue: string;
   mentorNote: string;
   issueBreakdown: IssueBreakdownItem[];
+  leverageMap: LeverageMapItem[];
+  blindSpots: string[];
+  antiPatterns: string[];
+  decisionPath: DecisionPathStep[];
   creativeAngles: string[];
   conversationStarters: string[];
+  nextBestQuestion: string;
   reasoningSummary: string;
   assumptions: string[];
   evidence: EvidenceItem[];
