@@ -8,6 +8,17 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Components use `text-gray-100/200/300/400` directly as the primary
+        // text ramp (rather than a `text-primary` utility), so these four
+        // shades are re-scoped to the same theme-aware custom properties as
+        // `--text-primary/body/secondary/tertiary` — recoloring one token set
+        // relights the whole app for the Day theme instead of every call site.
+        gray: {
+          100: 'rgb(var(--text-primary) / <alpha-value>)',
+          200: 'rgb(var(--text-body) / <alpha-value>)',
+          300: 'rgb(var(--text-secondary) / <alpha-value>)',
+          400: 'rgb(var(--text-tertiary) / <alpha-value>)',
+        },
         surface: {
           0: 'rgb(var(--surface-0) / <alpha-value>)',
           1: 'rgb(var(--surface-1) / <alpha-value>)',

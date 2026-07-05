@@ -28,7 +28,7 @@ export function DecisionList({
           className="flex items-start gap-3 px-4 py-3 hover:bg-surface-2 transition-colors group"
         >
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-gray-200 truncate group-hover:text-white">{d.title}</p>
+            <p className="text-sm text-gray-200 truncate group-hover:text-gray-100">{d.title}</p>
             <p className="text-xs text-empire-muted font-mono mt-0.5 truncate">{d.question}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-0.5">

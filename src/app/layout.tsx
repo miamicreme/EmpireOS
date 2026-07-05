@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ToastProvider } from '@/components/ui/Toast';
+import { ThemeProvider, ThemeInitScript } from '@/components/layout/ThemeProvider';
 
 export const metadata: Metadata = {
   title: 'Empire OS — Execution Operating System',
@@ -11,17 +12,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-surface-0 text-gray-100 min-h-screen lg:flex antialiased overflow-x-hidden">
-        <ToastProvider>
-          <Sidebar />
-          <div className="relative flex-1 flex flex-col min-w-0 pt-14 lg:pt-0">
-            <div className="pointer-events-none fixed inset-0 bg-grid-faint [background-size:34px_34px]" />
-            <div className="pointer-events-none fixed inset-0 bg-radial-glow" />
-            <div className="relative flex-1 flex flex-col min-w-0">{children}</div>
-          </div>
-        </ToastProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className="bg-surface-0 text-gray-100 min-h-screen lg:flex antialiased overflow-x-hidden" suppressHydrationWarning>
+        <ThemeInitScript />
+        <ThemeProvider>
+          <ToastProvider>
+            <Sidebar />
+            <div className="relative flex-1 flex flex-col min-w-0 pt-14 lg:pt-0">
+              <div className="pointer-events-none fixed inset-0 bg-grid-faint [background-size:34px_34px]" />
+              <div className="pointer-events-none fixed inset-0 bg-radial-glow" />
+              <div className="relative flex-1 flex flex-col min-w-0">{children}</div>
+            </div>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
+

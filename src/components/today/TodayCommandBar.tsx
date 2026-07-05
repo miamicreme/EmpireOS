@@ -32,7 +32,7 @@ export function TodayCommandBar({ defaultCommand }: { defaultCommand: string }) 
   }
 
   return (
-    <div className="rounded-[18px] border border-empire-blue/30 bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.14),transparent_42%),linear-gradient(135deg,rgba(17,24,39,0.98),rgba(8,9,12,0.98))] p-3 shadow-card">
+    <div className="rounded-[18px] border border-empire-blue/30 bg-[radial-gradient(circle_at_top_left,rgba(201,166,89,0.12),transparent_42%),linear-gradient(135deg,rgb(var(--surface-2)),rgb(var(--surface-0)))] p-3 shadow-card">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
         <input
           value={command}
