@@ -57,7 +57,7 @@ export default async function DecisionsPage() {
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3 mb-1">
-                  <p className="text-sm font-medium text-gray-200 group-hover:text-white truncate">
+                  <p className="text-sm font-medium text-gray-200 group-hover:text-gray-100 truncate">
                     {d.title}
                   </p>
                   <Badge variant={statusVariant(d.status)}>{d.status}</Badge>

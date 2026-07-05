@@ -16,7 +16,7 @@
     --border: 35 39 47;
     --border-strong: 50 56 69;
 
-    --empire-blue: 96 165 250;
+    --empire-blue: 201 166 89;
     --empire-green: 52 211 153;
     --empire-yellow: 251 191 36;
     --empire-red: 248 113 113;
@@ -30,14 +30,61 @@
     --text-tertiary: 144 153 166;
     --text-on-accent: 8 9 12;
 
+    --selection-bg: rgba(201, 166, 89, 0.3);
+    --selection-fg: #fff;
+
     --grid-faint: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-    --radial-glow: radial-gradient(70% 60% at 50% -6%, rgba(96,165,250,0.10) 0%, transparent 72%);
-    --hair: linear-gradient(90deg, transparent, rgba(96,165,250,0.36), transparent);
+    --radial-glow: radial-gradient(70% 60% at 50% -6%, rgba(201,166,89,0.10) 0%, transparent 72%);
+    --hair: linear-gradient(90deg, transparent, rgba(201,166,89,0.36), transparent);
     --shadow-card: 0 1px 2px rgba(0,0,0,0.45), 0 12px 30px -16px rgba(0,0,0,0.78);
     --shadow-card-hover: 0 1px 2px rgba(0,0,0,0.55), 0 22px 50px -22px rgba(0,0,0,0.92);
-    --shadow-glow: 0 0 0 1px rgba(96,165,250,0.26), 0 10px 34px -12px rgba(96,165,250,0.42);
-    --shadow-btn-primary: 0 1px 0 rgba(255,255,255,0.18) inset, 0 10px 28px -10px rgba(96,165,250,0.70);
+    --shadow-glow: 0 0 0 1px rgba(201,166,89,0.26), 0 10px 34px -12px rgba(201,166,89,0.42);
+    --shadow-btn-primary: 0 1px 0 rgba(255,255,255,0.18) inset, 0 10px 28px -10px rgba(201,166,89,0.70);
     --focus-ring: 0 0 0 2px rgb(var(--surface-0)), 0 0 0 4px rgb(var(--empire-blue));
+    --body-glow-start: 13 16 22;
+  }
+
+  /*
+   * "Day" — light luxury theme. Same champagne-gold accent on warm paper
+   * surfaces. Re-scopes the same custom properties every component already
+   * reads, so Button/Card/Badge/Stat/etc. recolor with no component changes.
+   * Toggled by adding/removing `.light` on <html> (see ThemeProvider).
+   */
+  .light {
+    --surface-0: 243 239 230;
+    --surface-1: 255 253 248;
+    --surface-2: 241 237 227;
+    --surface-3: 232 226 212;
+    --surface-4: 221 214 197;
+
+    --border: 231 224 208;
+    --border-strong: 207 199 179;
+
+    --empire-blue: 184 145 47;
+    --empire-green: 15 157 107;
+    --empire-yellow: 169 119 15;
+    --empire-red: 207 66 87;
+    --empire-violet: 122 85 224;
+    --empire-cyan: 15 140 166;
+    --empire-muted: 140 133 118;
+
+    --text-primary: 27 26 22;
+    --text-body: 42 40 34;
+    --text-secondary: 74 70 61;
+    --text-tertiary: 109 103 89;
+    --text-on-accent: 36 26 8;
+
+    --selection-bg: rgba(184, 145, 47, 0.22);
+    --selection-fg: #1b1a16;
+
+    --grid-faint: linear-gradient(rgba(40,30,10,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(40,30,10,0.03) 1px, transparent 1px);
+    --radial-glow: radial-gradient(70% 60% at 50% -6%, rgba(184,145,47,0.10) 0%, transparent 70%);
+    --hair: linear-gradient(90deg, transparent, rgba(184,145,47,0.4), transparent);
+    --shadow-card: 0 1px 2px rgba(60,50,25,0.06), 0 12px 28px -16px rgba(60,50,25,0.24);
+    --shadow-card-hover: 0 1px 2px rgba(60,50,25,0.08), 0 20px 44px -20px rgba(60,50,25,0.32);
+    --shadow-glow: 0 0 0 1px rgba(184,145,47,0.3), 0 10px 34px -12px rgba(184,145,47,0.3);
+    --shadow-btn-primary: 0 1px 0 rgba(255,255,255,0.4) inset, 0 6px 18px -6px rgba(184,145,47,0.55);
+    --body-glow-start: 251 248 241;
   }
 
   * {
@@ -52,19 +99,20 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   body {
     margin: 0;
     min-height: 100vh;
     background:
-      radial-gradient(110% 90% at 50% -10%, rgb(13 16 22) 0%, rgb(var(--surface-0)) 58%),
+      radial-gradient(110% 90% at 50% -10%, rgb(var(--body-glow-start)) 0%, rgb(var(--surface-0)) 58%),
       rgb(var(--surface-0));
   }
 
   ::selection {
-    background: rgba(96, 165, 250, 0.28);
-    color: #fff;
+    background: var(--selection-bg);
+    color: var(--selection-fg);
   }
 
   :focus-visible {
@@ -164,9 +212,9 @@ input[type='range']::-webkit-slider-thumb {
   border-radius: 9999px;
   background: rgb(var(--empire-blue));
   cursor: pointer;
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+  box-shadow: 0 0 0 3px rgba(201, 166, 89, 0.2);
   transition: box-shadow 0.15s;
 }
 input[type='range']::-webkit-slider-thumb:hover {
-  box-shadow: 0 0 0 5px rgba(96, 165, 250, 0.25);
+  box-shadow: 0 0 0 5px rgba(201, 166, 89, 0.25);
 }

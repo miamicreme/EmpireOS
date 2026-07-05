@@ -13,6 +13,7 @@ import type {
 } from '@simplewebauthn/browser';
 import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui/Button';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 type Phase = 'loading' | 'unconfigured' | 'setup' | 'signin';
 // Visual state of the biometric orb, independent of which phase we're in.
@@ -157,6 +158,7 @@ export default function LoginPage() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0 p-6">
       <div className="pointer-events-none absolute inset-0 bg-grid-faint [background-size:32px_32px]" />
       <div className="pointer-events-none absolute inset-0 bg-radial-glow" />
+      <ThemeToggle className="absolute right-5 top-5" />
 
       <div className="relative w-full max-w-sm animate-scale-in">
         <div className="flex flex-col items-center text-center mb-8">

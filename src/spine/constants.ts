@@ -19,6 +19,7 @@ export const MODULE_IDS = [
   'credit-funding',
   'projects',
   'acquisitions',
+  'recorder',
 ] as const;
 
 /** Multi-advisor roles for the AI decision layer. */

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { api } from '@/lib/api-client';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 interface NavItem {
   href: Route;
@@ -17,6 +18,7 @@ const CORE: NavItem[] = [
   { href: '/today' as Route, label: 'Today', icon: '⬡' },
   { href: '/ai' as Route, label: 'AI Command', icon: '✦' },
   { href: '/ai/input' as Route, label: 'Inputs', icon: '⇥' },
+  { href: '/recorder' as Route, label: 'Recorder', icon: '●' },
   { href: '/actions' as Route, label: 'Actions', icon: '⚡' },
   { href: '/decisions' as Route, label: 'Decisions', icon: '◈' },
   { href: '/modules' as Route, label: 'Modules', icon: '▤' },
@@ -43,7 +45,7 @@ function NavLink({
           : 'text-gray-400 border border-transparent hover:text-gray-100 hover:bg-surface-2/70 hover:border-border',
       )}
     >
-      {active && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-empire-blue shadow-[0_0_10px_rgba(96,165,250,0.7)]" />}
+      {active && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-empire-blue shadow-[0_0_10px_rgba(201,166,89,0.7)]" />}
       <span
         className={cn(
           'w-4 text-center font-mono transition-colors',
@@ -102,7 +104,7 @@ function NavBody({
         </div>
       </nav>
       <div className="px-5 py-3 border-t border-border flex items-center justify-between bg-surface-1/40">
-        <span className="text-[10px] text-empire-muted font-mono">v0.1.0</span>
+        <ThemeToggle />
         <span className="flex items-center gap-1.5 text-[10px] text-empire-muted font-mono">
           <span className="h-1.5 w-1.5 rounded-full bg-empire-green animate-pulse-dot" />
           live
