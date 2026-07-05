@@ -198,7 +198,7 @@ export async function runAgent(
       votes,
       output: out,
     });
-    await event('final_synthesized', out.answer.slice(0, 160), { confidence: out.confidence });
+    await event('final_synthesized', out.answer.slice(0, 160), { confidence: out.confidence, operatingMode: out.operatingMode });
 
     const artifact = await repo.saveArtifact(supabase, userId, runId, {
       artifactType: route.artifactType,
@@ -206,10 +206,18 @@ export async function runAgent(
       summary: out.reasoningSummary,
       contentJson: {
         answer: out.answer,
+        jarvisBrief: out.jarvisBrief,
+        operatingMode: out.operatingMode,
+        realIssue: out.realIssue,
         mentorNote: out.mentorNote,
         issueBreakdown: out.issueBreakdown,
+        leverageMap: out.leverageMap,
+        blindSpots: out.blindSpots,
+        antiPatterns: out.antiPatterns,
+        decisionPath: out.decisionPath,
         creativeAngles: out.creativeAngles,
         conversationStarters: out.conversationStarters,
+        nextBestQuestion: out.nextBestQuestion,
         reasoningSummary: out.reasoningSummary,
         reasoningArtifact,
         assumptions: reasoningArtifact.assumptions,
@@ -281,10 +289,18 @@ export async function runAgent(
       artifactId: artifact.data.id,
       artifactType: route.artifactType,
       answer: out.answer,
+      jarvisBrief: out.jarvisBrief,
+      operatingMode: out.operatingMode,
+      realIssue: out.realIssue,
       mentorNote: out.mentorNote,
       issueBreakdown: out.issueBreakdown,
+      leverageMap: out.leverageMap,
+      blindSpots: out.blindSpots,
+      antiPatterns: out.antiPatterns,
+      decisionPath: out.decisionPath,
       creativeAngles: out.creativeAngles,
       conversationStarters: out.conversationStarters,
+      nextBestQuestion: out.nextBestQuestion,
       reasoningSummary: out.reasoningSummary,
       reasoningArtifact,
       confidence: out.confidence,
@@ -322,10 +338,18 @@ export async function runAgent(
       artifactId: null,
       artifactType: 'answer',
       answer: 'The agent run failed. Please try again.',
+      jarvisBrief: '',
+      operatingMode: '',
+      realIssue: '',
       mentorNote: '',
       issueBreakdown: [],
+      leverageMap: [],
+      blindSpots: [],
+      antiPatterns: [],
+      decisionPath: [],
       creativeAngles: [],
       conversationStarters: [],
+      nextBestQuestion: '',
       reasoningSummary: '',
       reasoningArtifact: null,
       confidence: 0,
@@ -356,9 +380,7 @@ async function reconstructOutput(
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  const content = (artifactRow as repo.ArtifactRow | null)?.content_json as
-    | Record<string, unknown>
-    | undefined;
+  const content = (artifactRow as repo.ArtifactRow | null)?.content_json as Record<string, unknown> | undefined;
 
   const { data: draftRows } = await supabase
     .from('agent_action_drafts')
@@ -375,10 +397,18 @@ async function reconstructOutput(
     artifactId: (artifactRow as repo.ArtifactRow | null)?.id ?? null,
     artifactType: ((artifactRow as repo.ArtifactRow | null)?.artifact_type as AgentRunOutput['artifactType']) ?? 'answer',
     answer: run.final_summary ?? (content?.answer as string) ?? '',
+    jarvisBrief: (content?.jarvisBrief as string) ?? '',
+    operatingMode: (content?.operatingMode as string) ?? '',
+    realIssue: (content?.realIssue as string) ?? '',
     mentorNote: (content?.mentorNote as string) ?? '',
     issueBreakdown: (content?.issueBreakdown as AgentRunOutput['issueBreakdown']) ?? [],
+    leverageMap: (content?.leverageMap as AgentRunOutput['leverageMap']) ?? [],
+    blindSpots: (content?.blindSpots as string[]) ?? [],
+    antiPatterns: (content?.antiPatterns as string[]) ?? [],
+    decisionPath: (content?.decisionPath as AgentRunOutput['decisionPath']) ?? [],
     creativeAngles: (content?.creativeAngles as string[]) ?? [],
     conversationStarters: (content?.conversationStarters as string[]) ?? [],
+    nextBestQuestion: (content?.nextBestQuestion as string) ?? '',
     reasoningSummary: (content?.reasoningSummary as string) ?? '',
     reasoningArtifact: (content?.reasoningArtifact as AgentRunOutput['reasoningArtifact']) ?? null,
     confidence: run.confidence ?? 0.5,
