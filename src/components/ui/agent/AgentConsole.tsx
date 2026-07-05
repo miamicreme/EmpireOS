@@ -68,12 +68,14 @@ interface AgentOutput {
 }
 
 const QUICK_ACTIONS = [
-  'Talk me through today like a mentor.',
-  'What am I missing?',
-  'Break this into subtopics.',
-  'Find the highest-leverage move.',
-  'Give me a creative angle.',
-  'Run deep strategy.',
+  'Mentor Genius: what is the real issue underneath this?',
+  'Talk me through today like a mentor, not a boss.',
+  'What am I missing or avoiding?',
+  'Break this into subtopics and trade-offs.',
+  'Find the highest-leverage move and explain why.',
+  'Give me a creative angle and a validation step.',
+  'Diagnose the bottleneck before giving actions.',
+  'Run deep strategy with mentor-level judgment.',
 ];
 
 function confidenceTone(n: number): 'green' | 'yellow' | 'red' {
@@ -153,7 +155,7 @@ export function AgentConsole() {
     <Card hover>
       <CardHeader
         title="Empire OS Agent"
-        subtitle={output ? `${output.runtimePath} · ${output.intent}` : 'Ask for judgment, not just commands'}
+        subtitle={output ? `${output.runtimePath} · ${output.intent}` : 'Mentor Genius: judgment before commands'}
       />
       <div className="p-4 space-y-4">
         <form
@@ -166,7 +168,7 @@ export function AgentConsole() {
           <input
             value={command}
             onChange={(e) => setCommand(e.target.value)}
-            placeholder="Talk me through this.  ·  What am I missing?  ·  Break this down."
+            placeholder="Mentor me through this. What is the real issue, trade-off, and next move?"
             className="flex-1 h-9 px-3 rounded-lg bg-surface-2 border border-border text-sm text-gray-100 placeholder:text-empire-muted focus:outline-none focus:border-empire-blue"
           />
           <Button size="sm" variant="primary" type="submit" loading={loading}>
@@ -192,7 +194,7 @@ export function AgentConsole() {
         {error && <p className="text-xs text-empire-red font-mono">{error}</p>}
         {!output && !loading && (
           <p className="text-sm text-empire-muted">
-            One command in. Empire should think with you: frame the issue, expose the trade-offs, then draft practical next moves for approval.
+            One command in. Empire should think with you: mirror the goal, diagnose the real issue, expose the trade-offs, reframe the problem, and draft practical next moves for approval.
           </p>
         )}
 
