@@ -41,7 +41,7 @@ export default async function TodayPage() {
         </div>
       )}
 
-      <section className="mb-5 rounded-3xl border border-border bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.22),transparent_34%),linear-gradient(135deg,rgba(17,24,39,0.98),rgba(10,15,26,0.98))] p-5 shadow-card sm:p-6">
+      <section className="mb-5 rounded-3xl border border-border bg-[radial-gradient(circle_at_top_left,rgba(201,166,89,0.16),transparent_34%),linear-gradient(135deg,rgb(var(--surface-1)),rgb(var(--surface-0)))] p-5 shadow-card sm:p-6">
         <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-mono uppercase tracking-[0.25em] text-empire-blue">Today Command Center</p>

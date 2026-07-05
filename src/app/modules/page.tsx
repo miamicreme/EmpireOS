@@ -44,6 +44,7 @@ const MODULE_COMMANDS: Record<string, string> = {
   'credit-funding': 'Review Credit and Funding for today. Check open credit items, funding readiness, and next best actions.',
   projects: 'Review Projects for today. Check focus risk, blockers, revenue potential, and which projects to push or pause.',
   acquisitions: 'Review Acquisitions for today. Check target quality, deal risks, and the highest-leverage acquisition actions.',
+  recorder: 'Review Empire Recorder for today. Check pending transcriptions, unresolved follow-ups from recent recordings, and the next best action.',
   'deal-intel': 'Review Deal Intelligence for today. Check deal evidence, missing facts, risk, and the next diligence move.',
 };
 
