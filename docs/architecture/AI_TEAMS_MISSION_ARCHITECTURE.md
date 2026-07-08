@@ -4,6 +4,8 @@ AI Teams are the controlled execution layer of EmpireOS.
 
 They should be built on top of the existing AI command path, action drafts, artifacts, provider management, memory, and safe run details. Do not create a second AI subsystem.
 
+See [`AI_TEAM_TOPOLOGY.md`](./AI_TEAM_TOPOLOGY.md) for the full organization chart, team groups, subteams, templates, and dynamic spawning rules.
+
 ## Core Rule
 
 > The Spine owns priority. The owner approves missions. AI Teams execute within scope.
@@ -23,6 +25,28 @@ EmpireOS already has:
 - redaction and high-risk secret blocking.
 
 AI Teams should extend this runtime instead of replacing it.
+
+## Dynamic Team Topology
+
+EmpireOS should support as many teams and subteams as needed, but only through a controlled hierarchy:
+
+```txt
+Owner
+  -> Spine
+    -> AI Chief of Staff
+      -> Executive Teams
+      -> Domain Teams
+      -> Capability Teams
+      -> Mission Squads
+        -> Subteams
+          -> Agents
+```
+
+The system should seed a broad library of team templates, but activate only the teams needed for the current approved mission.
+
+The rule is:
+
+> Many teams available. Few teams active. Every active team accountable.
 
 ## New Core Objects
 
@@ -56,11 +80,17 @@ type AiMission = {
 type AiTeam = {
   id: string;
   ownerId: string;
+  parentTeamId?: string;
   name: string;
+  slug: string;
+  type: 'executive' | 'domain' | 'capability' | 'mission' | 'subteam';
   purpose: string;
   defaultAutonomyLevel: AiMission['autonomyLevel'];
   allowedModuleIds: string[];
   allowedActionTypes: string[];
+  defaultMemberRoles: string[];
+  spawnPolicy: 'manual_only' | 'suggested' | 'auto_after_approval';
+  maxConcurrentMissions: number;
   active: boolean;
 };
 ```
@@ -74,8 +104,13 @@ type AiTeamMember = {
   name: string;
   role: string;
   lens: string;
+  responsibilities: string[];
+  toolsAllowed: string[];
+  blockedActions: string[];
   modelPreference?: string;
   systemInstructionVersionId?: string;
+  memoryScope: 'mission' | 'team' | 'module' | 'global_redacted';
+  requiresReview: boolean;
 };
 ```
 
@@ -98,6 +133,8 @@ type AiMissionTask = {
 ## Recommended Tables
 
 ```txt
+ai_team_templates
+ai_team_member_templates
 ai_teams
 ai_team_members
 ai_missions
@@ -108,6 +145,8 @@ ai_mission_events
 ```
 
 All tables must be owner-scoped, RLS-isolated, Zod-validated, and audit-logged.
+
+Templates should define the full possible AI organization. Active teams should be instantiated only when the owner approves or the system suggests a mission setup.
 
 ## Mission Lifecycle
 
@@ -134,7 +173,8 @@ Owner command or Spine action
   -> Create mission draft
   -> Attach input artifacts and module context
   -> AI Decision Engine validates mission scope/risk
-  -> Owner approves mission
+  -> Recommend team/subteam composition from templates
+  -> Owner approves mission and team setup
   -> Team generates task plan
   -> Tasks run through canonical agent command path
   -> Outputs become artifacts/action drafts
@@ -143,7 +183,9 @@ Owner command or Spine action
   -> Spine/module state updates
 ```
 
-## First Five AI Teams
+## First Active AI Teams
+
+The full topology includes many teams, but the first active production teams should be:
 
 ### 1. Chief of Staff Team
 
@@ -211,14 +253,50 @@ Members:
 
 Default autonomy: `manual` or `supervised`
 
-## Later Teams
+## Full Team Groups
 
-- Career Team
-- Family/Home Ops Team
-- Health Discipline Team
-- Content/Brand Team
-- AI Consulting Team
-- Legal/Admin Prep Team
+The full template library should include these groups:
+
+1. Executive Command Group
+2. Money and Survival Group
+3. DealFlow and Wealth Group
+4. Product and Engineering Group
+5. Research Intelligence Group
+6. Career and Consulting Group
+7. Operations and Admin Group
+8. Family, Home, and Life Stability Group
+9. Health and Energy Group
+10. Brand, Content, and Outreach Group
+11. PromptOps and Agent Quality Group
+12. Security, Privacy, and Compliance Group
+
+Each group can have subteams and specialist agents. See [`AI_TEAM_TOPOLOGY.md`](./AI_TEAM_TOPOLOGY.md) for the detailed breakdown.
+
+## Mission Squads
+
+Mission squads are temporary teams created for a specific approved mission.
+
+Examples:
+
+- STT Consulting Mission Squad
+- Real Estate Deal Mission Squad
+- EmpireOS Feature Mission Squad
+- Emergency Cash Mission Squad
+- Product Launch Mission Squad
+- Client Delivery Mission Squad
+
+A mission squad can include subteams drawn from multiple groups.
+
+Example:
+
+```txt
+STT Consulting Mission Squad
+  -> Research Intelligence Subteam
+  -> Discovery Prep Subteam
+  -> Architecture Subteam
+  -> Proposal/Pricing Subteam
+  -> Follow-Up Subteam
+```
 
 ## Autonomy Levels
 
@@ -254,9 +332,17 @@ type MissionReviewPackage = {
 
 Create a mission from a natural-language command, selected module, and optional artifacts.
 
+### `/ai/org`
+
+View the full AI organization chart, team templates, subteams, active/inactive state, and current mission load.
+
 ### `/ai/teams`
 
 View teams, active missions, members, current status, blockers, and recent outputs.
+
+### `/ai/team-templates`
+
+Manage reusable team templates and default role compositions.
 
 ### `/ai/missions/[id]`
 
@@ -280,37 +366,46 @@ Owner command deck: top priorities, active missions, pending reviews, urgent ris
 6. Do not return raw prompts or provider outputs to the client.
 7. Do not let modules override Spine priority.
 8. Do not let agents create real `global_action` records directly; use action drafts and approval.
+9. Do not activate all team templates by default.
+10. Do not create a team without a mission, scope, allowed tools, and review rules.
 
 ## MVP Build Order
 
-### Slice 1 — Mission model
+### Slice 1 — Team template registry
 
-- Add tables for teams, team members, missions, tasks, events, reviews.
-- Seed five default teams for owner.
+- Add `ai_team_templates` and `ai_team_member_templates`.
+- Seed the full topology as inactive templates.
+- Include groups, subteams, roles, allowed modules, allowed actions, and autonomy defaults.
+
+### Slice 2 — Mission model
+
+- Add tables for active teams, team members, missions, tasks, events, reviews.
+- Seed five default active teams for owner.
 - Add RLS and Zod schemas.
 
-### Slice 2 — Mission creation
+### Slice 3 — Mission creation
 
 - Add `POST /api/ai/missions`.
 - Create mission draft from command, module, and `inputArtifactIds`.
 - Add approval transition.
+- Recommend team/subteam setup from templates.
 
-### Slice 3 — Team dashboard
+### Slice 4 — Team dashboard
 
-- Add `/ai/teams` and `/ai/missions/[id]`.
-- Show team cards, active missions, and mission tasks.
+- Add `/ai/org`, `/ai/teams`, `/ai/team-templates`, and `/ai/missions/[id]`.
+- Show team cards, active missions, mission tasks, and topology.
 
-### Slice 4 — Agent run integration
+### Slice 5 — Agent run integration
 
 - Route approved mission tasks through `POST /api/ai/agent/run`.
 - Save outputs as artifacts and action drafts.
 
-### Slice 5 — Review queue
+### Slice 6 — Review queue
 
 - Add `/ai/review`.
 - Package mission output for approve/revise/reject.
 
-### Slice 6 — First production team
+### Slice 7 — First production team loop
 
 Start with Chief of Staff Team because it connects to current AI V2 immediately.
 
@@ -325,12 +420,18 @@ Then add Product Builder Team because it creates visible software leverage.
 3. Product Builder Team
 4. DealFlow Team
 5. Money Team
+6. Operations/Admin Team
+7. Career/Consulting Team
+8. Security/Privacy Team
+9. PromptOps/Agent Quality Team
+10. Brand/Content Team
 
 ## Final Shape
 
-EmpireOS AI Teams should feel like the owner has a private staff:
+EmpireOS AI Teams should feel like the owner has a private staff and can spin up a full company when needed:
 
 - they read the context,
+- recommend the right team/subteam setup,
 - prepare the work,
 - execute safe slices,
 - surface risk,
