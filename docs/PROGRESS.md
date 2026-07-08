@@ -1,6 +1,6 @@
 # Empire OS — Build Progress & Next Steps
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-07-08_
 
 This document tracks what has shipped and what comes next. It complements the
 high-level [`MASTER_GUIDE.md`](../MASTER_GUIDE.md) and the architecture docs under
@@ -20,12 +20,13 @@ high-level [`MASTER_GUIDE.md`](../MASTER_GUIDE.md) and the architecture docs und
 | Dashboard UI | ✅ Done | Command center: Empire Score, module health, action queue, decisions |
 | Module UIs | ✅ Done | All 6 wired to their APIs with optimistic updates |
 | AI owner surfaces | ✅ Done in code | `/ai/input`, `/ai/camera`, `/ai/runs/[id]`, `/ai/memory`, `/ai/providers`, `/settings/security` now exist; manual browser proof still pending, and image-byte vision proof is still incomplete |
+| AI Teams Core | ✅ Backend slice started | Team templates, owner teams, missions, tasks, messages, reviews, events, schemas, and API routes added on `feature-ai-teams-core` |
 | Design system | ✅ Done | Tokens, primitives, motion, toasts, modals, data tables |
 | Auth | ✅ Done | Passkey / Face ID (WebAuthn), multi-passkey recovery, route gate |
 | Tests | ⚠ Environment-blocked | Typecheck/lint/build pass in this workspace; Vitest is blocked by the installed Node runtime version |
 | Deployment | ⏭️ Next | Live Supabase project + hosting + CI |
 
-`main` and `develop` are in sync. Current AI UI changes typecheck and build in this workspace; Vitest is blocked by the local Node runtime version, so browser/test proof still needs a compatible runner.
+`main` and `develop` are in sync before the AI Teams feature branch. Current AI UI changes typecheck and build in this workspace; Vitest is blocked by the local Node runtime version, so browser/test proof still needs a compatible runner.
 
 ---
 
@@ -53,6 +54,11 @@ Each exposes `getMetrics` / `getActions` / `getDecisionContext` / `getHealth` /
   `acquisitions` (GET list + POST create, PATCH/DELETE by id).
 - Reviews: `reviews/daily`, `reviews/weekly` (GET + upsert).
 - `middleware.ts` refreshes the Supabase session on every request.
+- AI Teams Core feature branch adds:
+  - `GET /api/ai/team-templates`
+  - `GET /api/ai/teams`
+  - `GET/POST /api/ai/missions`
+  - `GET /api/ai/missions/[id]`
 
 ### UI (`src/app`, `src/components`)
 - Dark, depth-tinted design system with motion, ambient background, and a
@@ -67,6 +73,16 @@ Each exposes `getMetrics` / `getActions` / `getDecisionContext` / `getHealth` /
 - `/ai/memory` durable memory workbench.
 - `/ai/providers` provider health/status surface.
 - `/settings/security` owner security posture surface.
+
+### AI Teams Core feature branch
+- Added migration `0023_ai_teams_core.sql`.
+- Added default system team templates for the first 10 teams.
+- Added owner-scoped active team, member, mission, task, message, review, and event tables.
+- Added Zod schemas for teams, members, missions, autonomy, priority, and mission creation.
+- Added repository service to list templates, instantiate an owner team from a template, create a pending mission, and read mission details.
+- Added API routes for templates, teams, missions, and mission detail.
+- Added schema validation tests.
+- Agent execution is intentionally not implemented yet; missions remain approval-gated and still must route through `POST /api/ai/agent/run` when execution is added.
 
 ### Quality
 - Validation on 2026-07-04:
@@ -88,7 +104,15 @@ Ordered by leverage.
 > **Deploying?** Follow the step-by-step [`DEPLOYMENT.md`](./DEPLOYMENT.md) guide
 > (env vars, Vercel, first passkey login).
 
-### A. Deployment & live data _(highest priority)_
+### A. AI Teams Core completion _(highest product leverage)_
+1. Run the new migration against a live/local Supabase project.
+2. Run typecheck/lint/build from a compatible Node runtime.
+3. Add `/ai/org`, `/ai/team-templates`, `/ai/teams`, and `/ai/missions/[id]` UI.
+4. Add mission approval transition and task generation.
+5. Route approved mission tasks through `POST /api/ai/agent/run` without creating a second AI subsystem.
+6. Add `/ai/review` for mission review packages.
+
+### B. Deployment & live data
 1. Provision a real Supabase project; run the migrations and seed reference
    tables (`modules`, `empire_phases`). **Do not** put private data in seeds.
 2. Configure environment variables in the host (Vercel or similar):
@@ -96,13 +120,13 @@ Ordered by leverage.
    provider keys (server-only).
 3. Verify RLS end-to-end against the live project with two test users.
 
-### B. CI / repository hygiene
+### C. CI / repository hygiene
 - **Enable GitHub Actions** for the repo (Settings → Actions / billing). The
   `ci.yml` workflow is valid but every run currently fails at startup for an
   account-level reason, so PRs get no real CI signal today.
 - Add an `npm run test` step to the workflow alongside typecheck/lint/build.
 
-### C. Auth & onboarding
+### D. Auth & onboarding
 - ✅ Passwordless **passkey / Face ID** auth (WebAuthn) is built: first passkey
   claims the owner account, additional passkeys are recovery devices, and the
   app is gated by middleware. Requires `SUPABASE_SERVICE_ROLE_KEY`,
@@ -110,7 +134,7 @@ Ordered by leverage.
 - ⏭️ Onboarding: a first-run profile step to set `daily_cash_target` (the Cash
   Engine already reads it from module metrics).
 
-### D. Feature depth
+### E. Feature depth
 - **Reviews UI**: build `/reviews/daily` and `/reviews/weekly` pages on the
   existing upsert endpoints (last UI gap).
 - **Edit flows**: module pages support create + delete; add inline edit using
@@ -119,7 +143,7 @@ Ordered by leverage.
   on the decision detail page; add re-run/refine.
 - **Metrics history**: trend sparklines from `getMetricTrend`.
 
-### E. Testing & observability
+### F. Testing & observability
 - Component/interaction tests for the module pages (jsdom + Testing Library).
 - E2E smoke test (Playwright is preinstalled) covering login → log cash →
   see Empire Score update.
@@ -133,6 +157,7 @@ Ordered by leverage.
   signal until resolved in repo settings.
 - **No live Supabase wiring yet** — the app renders graceful empty states until
   environment variables point at a real project.
+- **AI Teams Core has not been runtime-validated in this chat** — branch changes need local/CI typecheck, migration, and API smoke tests.
 
 ## Universal input intelligence V7 pass
 
