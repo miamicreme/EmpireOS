@@ -44,6 +44,7 @@ Flow: **Inputs create artifacts → Artifacts feed decisions → Decisions creat
 - ✅ Passkey multi-device pairing plan and implementation path
 - 📌 Planned: Empire Recorder conversation-intelligence module
 - 📌 Planned: AI Teams mission architecture
+- 📌 Planned: Dynamic AI team topology and templates
 - ⏭️ Validation, deployment, live Supabase wiring, and AI Teams MVP next
 
 See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next steps.
@@ -60,7 +61,8 @@ See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next st
 8. ✅ Universal Input foundation
 9. 📌 Empire Recorder architecture and implementation
 10. 📌 AI Teams mission architecture and implementation
-11. ⏭️ Validation and deployment
+11. 📌 AI team topology, templates, and org chart
+12. ⏭️ Validation and deployment
 
 ## Empire Command Center Loop
 
@@ -78,7 +80,23 @@ Capture
   -> Memory / Audit / Learning
 ```
 
-## First AI Teams
+## AI Team Topology
+
+EmpireOS should support as many teams and subteams as needed, but only the relevant teams wake up for the current mission.
+
+```txt
+Owner
+  -> Spine
+    -> AI Chief of Staff
+      -> Executive Teams
+      -> Domain Teams
+      -> Capability Teams
+      -> Mission Squads
+        -> Subteams
+          -> Agents
+```
+
+The first active teams should be seeded from templates:
 
 | Team | Mission | Why First |
 |---|---|---|
@@ -88,7 +106,9 @@ Capture
 | DealFlow Team | Analyzes deals, buyer fit, diligence gaps, and outreach angles | Supports MiamiCreme and wealth building |
 | Money Team | Cash flow, bills, credit/funding, income opportunities, financial risk | Protects survival and growth |
 
-See [`docs/architecture/AI_TEAMS_MISSION_ARCHITECTURE.md`](./docs/architecture/AI_TEAMS_MISSION_ARCHITECTURE.md).
+The full topology includes executive, money, dealflow, product, research, career, operations, family/home, health, brand/content, PromptOps, and security/privacy groups.
+
+See [`docs/architecture/AI_TEAMS_MISSION_ARCHITECTURE.md`](./docs/architecture/AI_TEAMS_MISSION_ARCHITECTURE.md) and [`docs/architecture/AI_TEAM_TOPOLOGY.md`](./docs/architecture/AI_TEAM_TOPOLOGY.md).
 
 ## Empire Recorder Pipeline
 
@@ -109,6 +129,7 @@ Empire Recorder must be consent-first, owner-only, private-storage-only, and int
 
 - [`docs/vision/EMPIRE_COMMAND_CENTER_VISION.md`](./docs/vision/EMPIRE_COMMAND_CENTER_VISION.md) — pivot vision for Empire Command Center
 - [`docs/architecture/AI_TEAMS_MISSION_ARCHITECTURE.md`](./docs/architecture/AI_TEAMS_MISSION_ARCHITECTURE.md) — AI Teams mission architecture
+- [`docs/architecture/AI_TEAM_TOPOLOGY.md`](./docs/architecture/AI_TEAM_TOPOLOGY.md) — full team/subteam org chart and template strategy
 - [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — deploy + first passkey login
 - [`docs/PROGRESS.md`](./docs/PROGRESS.md) — status & next steps
 - [`docs/EMPIRE_RECORDER.md`](./docs/EMPIRE_RECORDER.md) — audio recorder / conversation intelligence architecture
@@ -146,7 +167,8 @@ Empire Recorder must be consent-first, owner-only, private-storage-only, and int
     │   ├── SPINE_DESIGN.md
     │   ├── MODULE_DESIGN.md
     │   ├── DECISION_ENGINE.md
-    │   └── AI_TEAMS_MISSION_ARCHITECTURE.md
+    │   ├── AI_TEAMS_MISSION_ARCHITECTURE.md
+    │   └── AI_TEAM_TOPOLOGY.md
     └── runbook/
         ├── BRANCHING.md
         ├── RUNBOOK.md
