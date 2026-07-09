@@ -9,19 +9,80 @@ import type {
   AiTeamTemplate,
   CreateMissionDTO,
   ListMissionsQuery,
+  MissionTransitionDTO,
 } from './team.schemas';
 
 export type TeamTemplateWithMembers = AiTeamTemplate & {
   members: AiTeamMemberTemplate[];
 };
 
+export type TeamWithMembers = AiTeam & {
+  members: AiTeamMember[];
+};
+
+export type MissionTaskRow = {
+  id: string;
+  user_id: string;
+  mission_id: string;
+  assigned_member_id: string | null;
+  title: string;
+  description: string | null;
+  status: 'backlog' | 'ready' | 'running' | 'review' | 'done' | 'blocked';
+  depends_on_task_ids: string[];
+  output_artifact_ids: string[];
+  review_notes: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MissionMessageRow = {
+  id: string;
+  user_id: string;
+  mission_id: string | null;
+  team_id: string | null;
+  sender_type: 'owner' | 'agent' | 'system';
+  sender_name: string | null;
+  content: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type MissionReviewRow = {
+  id: string;
+  user_id: string;
+  mission_id: string;
+  summary: string;
+  output_artifact_ids: string[];
+  action_draft_ids: string[];
+  risks: string[];
+  assumptions: string[];
+  recommended_approval: 'approve' | 'revise' | 'reject';
+  next_steps: string[];
+  status: 'pending' | 'approved' | 'rejected' | 'revision_requested';
+  reviewed_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MissionEventRow = {
+  id: string;
+  user_id: string;
+  mission_id: string;
+  event_type: string;
+  summary: string | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
+
 export type MissionDetail = {
   mission: AiMission;
   team: AiTeam | null;
-  tasks: Array<Record<string, unknown>>;
-  messages: Array<Record<string, unknown>>;
-  reviews: Array<Record<string, unknown>>;
-  events: Array<Record<string, unknown>>;
+  tasks: MissionTaskRow[];
+  messages: MissionMessageRow[];
+  reviews: MissionReviewRow[];
+  events: MissionEventRow[];
 };
 
 function slugForInstance(slug: string): string {
@@ -33,9 +94,13 @@ function titleFromObjective(objective: string): string {
   return clean.length > 80 ? `${clean.slice(0, 77)}...` : clean;
 }
 
+function reviewSummary(mission: AiMission): string {
+  return `Review package for ${mission.title}. Confirm outputs, risks, assumptions, and next approved actions before the Spine is updated.`;
+}
+
 export async function listTeamTemplates(
   supabase: SupabaseClient,
-  userId: string,
+  _userId: string,
 ): Promise<AppResult<TeamTemplateWithMembers[]>> {
   const { data: templates, error } = await supabase
     .from('ai_team_templates')
@@ -76,7 +141,7 @@ export async function listTeamTemplates(
 export async function listTeams(
   supabase: SupabaseClient,
   userId: string,
-): Promise<AppResult<Array<AiTeam & { members: AiTeamMember[] }>>> {
+): Promise<AppResult<TeamWithMembers[]>> {
   const { data: teams, error } = await supabase
     .from('ai_teams')
     .select('*')
@@ -314,11 +379,151 @@ export async function getMissionDetail(
   return ok({
     mission: row,
     team: (team.data as AiTeam | null) ?? null,
-    tasks: (tasks.data ?? []) as Array<Record<string, unknown>>,
-    messages: (messages.data ?? []) as Array<Record<string, unknown>>,
-    reviews: (reviews.data ?? []) as Array<Record<string, unknown>>,
-    events: (events.data ?? []) as Array<Record<string, unknown>>,
+    tasks: (tasks.data ?? []) as MissionTaskRow[],
+    messages: (messages.data ?? []) as MissionMessageRow[],
+    reviews: (reviews.data ?? []) as MissionReviewRow[],
+    events: (events.data ?? []) as MissionEventRow[],
   });
+}
+
+export async function transitionMission(
+  supabase: SupabaseClient,
+  userId: string,
+  missionId: string,
+  input: MissionTransitionDTO,
+): Promise<AppResult<MissionDetail>> {
+  const detail = await getMissionDetail(supabase, userId, missionId);
+  if (!detail.ok) return detail;
+
+  const { mission, team, tasks } = detail.data;
+  const now = new Date().toISOString();
+
+  if (input.action === 'approve') {
+    if (!['draft', 'pending_approval'].includes(mission.status)) {
+      return err(appError('invalid_state', 'Only draft or pending missions can be approved.'));
+    }
+
+    const { data: members, error: membersError } = await supabase
+      .from('ai_team_members')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('team_id', mission.team_id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true });
+
+    if (membersError) return err(appError('db_error', membersError.message));
+
+    const memberRows = (members ?? []) as AiTeamMember[];
+    if (tasks.length === 0) {
+      const rows = [
+        ...memberRows.slice(0, 6).map((member) => ({
+          user_id: userId,
+          mission_id: mission.id,
+          assigned_member_id: member.id,
+          title: `${member.role}: ${mission.title}`.slice(0, 240),
+          description: `Work through the ${member.lens} lens. Responsibilities: ${member.responsibilities.join(', ') || 'prepare a focused contribution'}. Output must become a reviewable artifact or notes for owner review.`,
+          status: 'ready',
+          metadata: { generatedBy: 'mission_approval', memberName: member.name },
+        })),
+        {
+          user_id: userId,
+          mission_id: mission.id,
+          assigned_member_id: null,
+          title: 'Prepare owner review package',
+          description: 'Summarize outputs, risks, assumptions, action drafts, and recommended next steps before anything updates the Spine.',
+          status: 'ready',
+          metadata: { generatedBy: 'mission_approval', reviewTask: true },
+        },
+      ];
+
+      const { error: taskError } = await supabase.from('ai_mission_tasks').insert(rows);
+      if (taskError) return err(appError('db_error', taskError.message));
+    }
+
+    const { error: updateError } = await supabase
+      .from('ai_missions')
+      .update({ status: 'approved', approved_at: now })
+      .eq('id', mission.id)
+      .eq('user_id', userId);
+    if (updateError) return err(appError('db_error', updateError.message));
+
+    await appendMissionEvent(supabase, userId, mission.id, 'mission_approved', input.note ?? 'Mission approved by owner.', { teamName: team?.name });
+    await appendMissionMessage(supabase, userId, mission.id, mission.team_id, 'system', 'EmpireOS', `Mission approved. ${team?.name ?? 'AI team'} can prepare controlled work for review.`);
+  }
+
+  if (input.action === 'start') {
+    if (!['approved', 'blocked'].includes(mission.status)) {
+      return err(appError('invalid_state', 'Only approved or blocked missions can be started.'));
+    }
+    const { error: updateError } = await supabase
+      .from('ai_missions')
+      .update({ status: 'running', started_at: mission.started_at ?? now })
+      .eq('id', mission.id)
+      .eq('user_id', userId);
+    if (updateError) return err(appError('db_error', updateError.message));
+    await appendMissionEvent(supabase, userId, mission.id, 'mission_started', input.note ?? 'Mission moved to running.', {});
+  }
+
+  if (input.action === 'send_to_review') {
+    if (!['approved', 'running', 'blocked'].includes(mission.status)) {
+      return err(appError('invalid_state', 'Only approved, running, or blocked missions can be sent to review.'));
+    }
+    const { error: reviewError } = await supabase.from('ai_mission_reviews').insert({
+      user_id: userId,
+      mission_id: mission.id,
+      summary: input.note ?? reviewSummary(mission),
+      risks: ['Execution has not been fully automated yet; verify outputs before approval.'],
+      assumptions: ['Tasks were generated from the team template and mission objective.'],
+      recommended_approval: 'revise',
+      next_steps: ['Review generated tasks', 'Route approved task work through POST /api/ai/agent/run', 'Approve only safe action drafts'],
+      status: 'pending',
+      metadata: { generatedBy: 'mission_transition' },
+    });
+    if (reviewError) return err(appError('db_error', reviewError.message));
+
+    const { error: updateError } = await supabase
+      .from('ai_missions')
+      .update({ status: 'review' })
+      .eq('id', mission.id)
+      .eq('user_id', userId);
+    if (updateError) return err(appError('db_error', updateError.message));
+    await appendMissionEvent(supabase, userId, mission.id, 'mission_sent_to_review', input.note ?? 'Mission review package created.', {});
+  }
+
+  if (input.action === 'complete') {
+    if (mission.status !== 'review') {
+      return err(appError('invalid_state', 'Only missions in review can be completed.'));
+    }
+    const { error: updateError } = await supabase
+      .from('ai_missions')
+      .update({ status: 'done', completed_at: now })
+      .eq('id', mission.id)
+      .eq('user_id', userId);
+    if (updateError) return err(appError('db_error', updateError.message));
+    await appendMissionEvent(supabase, userId, mission.id, 'mission_completed', input.note ?? 'Mission completed after review.', {});
+  }
+
+  if (input.action === 'block') {
+    const { error: updateError } = await supabase
+      .from('ai_missions')
+      .update({ status: 'blocked' })
+      .eq('id', mission.id)
+      .eq('user_id', userId);
+    if (updateError) return err(appError('db_error', updateError.message));
+    await appendMissionEvent(supabase, userId, mission.id, 'mission_blocked', input.note ?? 'Mission blocked.', {});
+  }
+
+  if (input.action === 'cancel') {
+    const { error: updateError } = await supabase
+      .from('ai_missions')
+      .update({ status: 'cancelled', cancelled_at: now })
+      .eq('id', mission.id)
+      .eq('user_id', userId);
+    if (updateError) return err(appError('db_error', updateError.message));
+    await appendMissionEvent(supabase, userId, mission.id, 'mission_cancelled', input.note ?? 'Mission cancelled.', {});
+  }
+
+  return getMissionDetail(supabase, userId, missionId);
 }
 
 export async function appendMissionEvent(
@@ -335,5 +540,24 @@ export async function appendMissionEvent(
     event_type: eventType,
     summary,
     payload,
+  });
+}
+
+async function appendMissionMessage(
+  supabase: SupabaseClient,
+  userId: string,
+  missionId: string,
+  teamId: string | null,
+  senderType: 'owner' | 'agent' | 'system',
+  senderName: string,
+  content: string,
+): Promise<void> {
+  await supabase.from('ai_team_messages').insert({
+    user_id: userId,
+    mission_id: missionId,
+    team_id: teamId,
+    sender_type: senderType,
+    sender_name: senderName,
+    content,
   });
 }
