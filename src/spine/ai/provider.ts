@@ -15,19 +15,12 @@ export type AIProvider =
   | 'openai'
   | 'google'
   | 'lmstudio'
-  // OpenAI-API-compatible providers with generous free tiers (see
-  // OPENAI_COMPATIBLE below). Reached through the OpenAI SDK + a base URL.
   | 'groq'
   | 'cerebras'
   | 'openrouter'
   | 'mistral'
   | 'stub';
 
-/**
- * OpenAI-API-compatible free-tier providers: base URL + a sensible free default
- * model. Any of these works via the OpenAI SDK by swapping the base URL, so
- * they share one implementation. The model can still be overridden per config.
- */
 export const OPENAI_COMPATIBLE: Record<
   'groq' | 'cerebras' | 'openrouter' | 'mistral',
   { baseURL: string; defaultModel: string }
@@ -44,11 +37,9 @@ export const OPENAI_COMPATIBLE: Record<
 type OpenAICompatibleProvider = keyof typeof OPENAI_COMPATIBLE;
 type CallableProvider = Exclude<AIProvider, 'stub'>;
 
-/** A resolved, ready-to-use credential — a provider + the key to call it with. */
 export interface AICredential {
   provider: CallableProvider;
   apiKey: string;
-  /** The user-selected model for this provider (honored for any provider). */
   model?: string;
 }
 
@@ -62,10 +53,6 @@ export interface AICallOptions {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
-  /**
-   * Explicit credential (a user-configured provider). When present it overrides
-   * the env-based provider selection. Absent → fall back to env keys.
-   */
   credential?: AICredential;
 }
 
@@ -77,7 +64,6 @@ export interface AIResponse {
   outputTokens?: number;
 }
 
-/** Preferred provider from env keys (router first, paid direct keys second, local/private, then free tiers). */
 export function activeProvider(): AIProvider {
   if (hasRequestyProvider()) return 'requesty';
   if (aiKeys.anthropic) return 'anthropic';
@@ -105,9 +91,39 @@ export function envProviderChain(): CallableProvider[] {
   return chain;
 }
 
-// ---------------------------------------------------------------------------
-// Provider implementations
-// ---------------------------------------------------------------------------
+function isPrivateIpv4(hostname: string): boolean {
+  const parts = hostname.split('.').map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+  const [a, b] = parts;
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 169 && b === 254) ||
+    (a === 100 && b >= 64 && b <= 127)
+  );
+}
+
+/**
+ * LM Studio is a local/private fallback, not a generic external proxy. Restrict
+ * the server-side base URL to localhost/private-network hosts to reduce SSRF and
+ * accidental public egress risk.
+ */
+export function isAllowedLMStudioBaseURL(baseURL: string): boolean {
+  try {
+    const url = new URL(baseURL);
+    const host = url.hostname.toLowerCase();
+    if (!['http:', 'https:'].includes(url.protocol)) return false;
+    if (host === 'localhost' || host.endsWith('.local')) return true;
+    if (host === '::1' || host === '[::1]') return true;
+    return isPrivateIpv4(host);
+  } catch {
+    return false;
+  }
+}
 
 async function callAnthropic(
   messages: AIMessage[],
@@ -118,26 +134,19 @@ async function callAnthropic(
   const client = new Anthropic({ apiKey });
 
   const model = opts.model ?? 'claude-sonnet-4-6';
-  const systemPrompt = opts.systemPrompt;
-
   const response = await client.messages.create({
     model,
     max_tokens: opts.maxTokens ?? 1024,
     temperature: opts.temperature ?? 0.3,
-    ...(systemPrompt ? { system: systemPrompt } : {}),
+    ...(opts.systemPrompt ? { system: opts.systemPrompt } : {}),
     messages: messages
       .filter((message) => message.role !== 'system')
-      .map((message) => ({
-        role: message.role as 'user' | 'assistant',
-        content: message.content,
-      })),
+      .map((message) => ({ role: message.role as 'user' | 'assistant', content: message.content })),
   });
 
   const firstContent = response.content[0];
-  const text = firstContent?.type === 'text' ? firstContent.text : '';
-
   return {
-    text,
+    text: firstContent?.type === 'text' ? firstContent.text : '',
     provider: 'anthropic',
     model,
     inputTokens: response.usage.input_tokens,
@@ -154,34 +163,18 @@ async function callOpenAI(
   const client = new OpenAI({ apiKey });
 
   const model = opts.model ?? 'gpt-4o-mini';
-  const msgs = opts.systemPrompt
-    ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages]
-    : messages;
-
-  // o-series reasoning models (o1/o3/o4-…) reject `max_tokens` (require
-  // `max_completion_tokens`) and only accept the default temperature, so omit
-  // it. Chat-completions models use the classic params.
+  const msgs = opts.systemPrompt ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages] : messages;
   const isOSeries = /^o\d/i.test(model);
   const maxTokens = opts.maxTokens ?? 1024;
-  const tokenParam = isOSeries
-    ? { max_completion_tokens: maxTokens }
-    : { max_tokens: maxTokens };
-  const tempParam = isOSeries ? {} : { temperature: opts.temperature ?? 0.3 };
-
   const response = await client.chat.completions.create({
     model,
-    ...tokenParam,
-    ...tempParam,
-    messages: msgs.map((message) => ({
-      role: message.role,
-      content: message.content,
-    })),
+    ...(isOSeries ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+    ...(isOSeries ? {} : { temperature: opts.temperature ?? 0.3 }),
+    messages: msgs.map((message) => ({ role: message.role, content: message.content })),
   });
 
-  const text = response.choices[0]?.message.content ?? '';
-
   return {
-    text,
+    text: response.choices[0]?.message.content ?? '',
     provider: 'openai',
     model,
     inputTokens: response.usage?.prompt_tokens,
@@ -204,14 +197,9 @@ async function callRequesty(
     requestyConfig.fastModel ??
     requestyConfig.deepModel ??
     requestyConfig.visionModel;
-  if (!model) {
-    throw new Error('Requesty is configured without a REQUESTY_*_MODEL value.');
-  }
+  if (!model) throw new Error('Requesty is configured without a REQUESTY_*_MODEL value.');
 
-  const msgs = opts.systemPrompt
-    ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages]
-    : messages;
-
+  const msgs = opts.systemPrompt ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages] : messages;
   const response = await client.chat.completions.create({
     model,
     max_tokens: opts.maxTokens ?? 1024,
@@ -219,10 +207,8 @@ async function callRequesty(
     messages: msgs.map((message) => ({ role: message.role, content: message.content })),
   });
 
-  const text = response.choices[0]?.message.content ?? '';
-
   return {
-    text,
+    text: response.choices[0]?.message.content ?? '',
     provider: 'requesty',
     model,
     inputTokens: response.usage?.prompt_tokens,
@@ -235,18 +221,17 @@ async function callLMStudio(
   opts: AICallOptions,
   apiKey: string,
 ): Promise<AIResponse> {
+  if (!isAllowedLMStudioBaseURL(lmStudioConfig.baseURL)) {
+    throw new Error('LMSTUDIO_BASE_URL must point to localhost or a private-network host.');
+  }
+
   const { default: OpenAI } = await import('openai');
   const client = new OpenAI({ apiKey, baseURL: lmStudioConfig.baseURL });
 
   const model = opts.model ?? lmStudioConfig.defaultModel;
-  if (!model) {
-    throw new Error('LM Studio is enabled without LMSTUDIO_DEFAULT_MODEL.');
-  }
+  if (!model) throw new Error('LM Studio is enabled without LMSTUDIO_DEFAULT_MODEL.');
 
-  const msgs = opts.systemPrompt
-    ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages]
-    : messages;
-
+  const msgs = opts.systemPrompt ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages] : messages;
   const response = await client.chat.completions.create({
     model,
     max_tokens: opts.maxTokens ?? 1024,
@@ -254,10 +239,8 @@ async function callLMStudio(
     messages: msgs.map((message) => ({ role: message.role, content: message.content })),
   });
 
-  const text = response.choices[0]?.message.content ?? '';
-
   return {
-    text,
+    text: response.choices[0]?.message.content ?? '',
     provider: 'lmstudio',
     model,
     inputTokens: response.usage?.prompt_tokens,
@@ -277,22 +260,12 @@ async function callGoogle(
 
   const parts: string[] = [];
   if (opts.systemPrompt) parts.push(opts.systemPrompt);
-  for (const message of messages) {
-    parts.push(`${message.role.toUpperCase()}: ${message.content}`);
-  }
+  for (const message of messages) parts.push(`${message.role.toUpperCase()}: ${message.content}`);
 
   const result = await genModel.generateContent(parts.join('\n\n'));
-  const text = result.response.text();
-
-  return { text, provider: 'google', model };
+  return { text: result.response.text(), provider: 'google', model };
 }
 
-/**
- * Call any OpenAI-API-compatible provider (Groq / Cerebras / OpenRouter /
- * Mistral) via the OpenAI SDK with a swapped base URL. These are the free-tier
- * fallbacks — each has independent rate limits, so failing over across them
- * multiplies free capacity.
- */
 async function callOpenAICompatible(
   provider: OpenAICompatibleProvider,
   messages: AIMessage[],
@@ -304,10 +277,7 @@ async function callOpenAICompatible(
   const client = new OpenAI({ apiKey, baseURL: cfg.baseURL });
 
   const model = opts.model ?? cfg.defaultModel;
-  const msgs = opts.systemPrompt
-    ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages]
-    : messages;
-
+  const msgs = opts.systemPrompt ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages] : messages;
   const response = await client.chat.completions.create({
     model,
     max_tokens: opts.maxTokens ?? 1024,
@@ -315,10 +285,8 @@ async function callOpenAICompatible(
     messages: msgs.map((message) => ({ role: message.role, content: message.content })),
   });
 
-  const text = response.choices[0]?.message.content ?? '';
-
   return {
-    text,
+    text: response.choices[0]?.message.content ?? '',
     provider,
     model,
     inputTokens: response.usage?.prompt_tokens,
@@ -326,10 +294,8 @@ async function callOpenAICompatible(
   };
 }
 
-/** Deterministic stub — returns when no provider is configured. */
 function callStub(messages: AIMessage[], _opts: AICallOptions): AIResponse {
   const last = messages[messages.length - 1]?.content ?? '';
-
   return {
     text: `[STUB] No AI provider configured. Received prompt: "${last.slice(0, 120)}..."`,
     provider: 'stub',
@@ -362,25 +328,12 @@ async function callProvider(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Public entry point
-// ---------------------------------------------------------------------------
-
-/**
- * Call the best available AI provider with a conversation.
- *
- * An explicit `opts.credential` (a user-configured provider) takes precedence;
- * otherwise the env keys pick the provider. Context MUST already be redacted
- * before reaching this function.
- */
 export async function callAI(
   messages: AIMessage[],
   opts: AICallOptions = {},
 ): Promise<AIResponse> {
   const credential = opts.credential;
-  if (credential) {
-    return callProvider(credential.provider, messages, opts, credential.apiKey);
-  }
+  if (credential) return callProvider(credential.provider, messages, opts, credential.apiKey);
 
   const chain = envProviderChain();
   if (chain.length === 0) return callStub(messages, opts);
@@ -391,8 +344,7 @@ export async function callAI(
     if (!provider) continue;
     const apiKey = aiKeys[provider];
     if (!apiKey) continue;
-    const providerOpts =
-      i === 0 ? opts : { ...opts, model: modelForAdvisor(undefined, provider) };
+    const providerOpts = i === 0 ? opts : { ...opts, model: modelForAdvisor(undefined, provider) };
     try {
       return await callProvider(provider, messages, providerOpts, apiKey);
     } catch (error) {
@@ -403,11 +355,7 @@ export async function callAI(
   throw lastError instanceof Error ? lastError : new Error('All configured AI providers failed.');
 }
 
-/** Model name to use for a given advisor role and provider. */
-export function modelForAdvisor(
-  preferredModel: string | undefined,
-  provider: AIProvider,
-): string {
+export function modelForAdvisor(preferredModel: string | undefined, provider: AIProvider): string {
   if (preferredModel && provider === 'anthropic') return preferredModel;
   if (preferredModel && provider === 'requesty') return preferredModel;
   if (preferredModel && provider === 'lmstudio') return preferredModel;
