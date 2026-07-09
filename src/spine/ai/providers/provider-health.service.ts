@@ -8,6 +8,7 @@ export function buildProviderHealthSummary(
 ) {
   const capabilities = getProviderCapabilities();
   const requesty = capabilities.find((provider) => provider.provider === 'requesty');
+  const lmstudio = capabilities.find((provider) => provider.provider === 'lmstudio');
   return {
     configuredCount: providers.length,
     enabledCount,
@@ -22,6 +23,19 @@ export function buildProviderHealthSummary(
       baseUrlConfigured: Boolean(process.env.REQUESTY_BASE_URL || 'https://router.requesty.ai/v1'),
       routePurpose: 'primary_router',
       routeModels: requesty?.models ?? [],
+      latencyMs: null,
+      failures: 0,
+      estimatedCostAvailable: false,
+    },
+    lmstudio: {
+      configured: Boolean(lmstudio?.configured),
+      enabled: Boolean(lmstudio?.enabled),
+      baseUrlConfigured: Boolean(process.env.LMSTUDIO_BASE_URL || 'http://localhost:1234/v1'),
+      routePurpose: 'local_private_fallback',
+      routeModels: lmstudio?.models ?? [],
+      localOnly: true,
+      mobileOnlyWarning:
+        'LM Studio must be reachable from the EmpireOS server. Phones do not run the local model by themselves.',
       latencyMs: null,
       failures: 0,
       estimatedCostAvailable: false,
