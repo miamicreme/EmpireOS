@@ -8,8 +8,9 @@ Private execution operating system for KJB Empire planning.
 - **Modules** — own detail. Domain-specific units of work and state.
 - **Universal Input** — normalizes documents, spreadsheets, screenshots, camera frames, video frames, and audio into agent artifacts.
 - **Career Command** — upgraded job-hunt module with fit scoring, drafter-reviewer application workflow, interview prep, offer decision support, and outcome calibration. See [`docs/JOB_HUNT_INTELLIGENCE.md`](./docs/JOB_HUNT_INTELLIGENCE.md).
-- **Empire Recorder** — planned private conversation-intelligence module for recording interviews/meetings, saving audio, transcribing, translating, analyzing, and drafting follow-ups. See [`docs/EMPIRE_RECORDER.md`](./docs/EMPIRE_RECORDER.md).
+- **Empire Recorder** — private conversation-intelligence module for recording interviews/meetings, saving audio, transcribing, translating, analyzing, and drafting follow-ups. See [`docs/EMPIRE_RECORDER.md`](./docs/EMPIRE_RECORDER.md).
 - **AI Decision Engine** — a multi-advisor engine that turns information into decisions.
+- **Provider Router** — routes AI work through Requesty, direct cloud keys, LM Studio local/private fallback, free OpenAI-compatible fallbacks, and stub mode. See [`docs/INFERENCE_SERVERS.md`](./docs/INFERENCE_SERVERS.md).
 - **Jarvis-grade Mentor Agent** — an AI execution layer on top of the Spine that reads context, diagnoses the real issue, maps leverage, spots blind spots, generates briefs, and drafts actions for approval.
 
 Flow: **Inputs create artifacts → Artifacts feed decisions → Decisions create actions → Actions move phases → Phases build the empire.**
@@ -37,7 +38,8 @@ Flow: **Inputs create artifacts → Artifacts feed decisions → Decisions creat
 - ✅ Universal input foundation
 - ✅ Passkey multi-device pairing plan and implementation path
 - ✅ Career Command intelligence helper for fit scoring, pipeline risks, and interview/application next moves
-- 📌 Planned: Empire Recorder conversation-intelligence module
+- ✅ Empire Recorder architecture and module path
+- ✅ LM Studio local/private provider support path
 - ⏭️ Validation, deployment, and live Supabase wiring next
 
 See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next steps.
@@ -52,8 +54,9 @@ See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next st
 6. ✅ Individual module UIs
 7. ✅ Jarvis-grade AI mentor surface
 8. ✅ Career Command intelligence extraction
-9. 📌 Empire Recorder architecture and implementation
-10. ⏭️ Validation and deployment
+9. ✅ Empire Recorder architecture and implementation path
+10. ✅ LM Studio provider routing support
+11. ⏭️ Validation and deployment
 
 ## Career Command Pipeline
 
@@ -86,12 +89,27 @@ Record interview
 
 Empire Recorder must be consent-first, owner-only, private-storage-only, and integrated into the existing artifact and agent runtime instead of becoming a separate AI subsystem.
 
+## AI Provider Routing
+
+```txt
+Requesty
+  -> Anthropic
+  -> OpenAI
+  -> Google
+  -> LM Studio local/private fallback
+  -> Groq / Cerebras / OpenRouter / Mistral
+  -> Stub fallback
+```
+
+LM Studio is useful for local/private desktop workflows, but mobile-only usage still needs Requesty or another cloud provider because the phone does not run the local model by itself.
+
 ## Important Docs
 
 - [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — deploy + first passkey login
 - [`docs/PROGRESS.md`](./docs/PROGRESS.md) — status & next steps
 - [`docs/JOB_HUNT_INTELLIGENCE.md`](./docs/JOB_HUNT_INTELLIGENCE.md) — Career Command / job-hunt intelligence extraction
 - [`docs/EMPIRE_RECORDER.md`](./docs/EMPIRE_RECORDER.md) — audio recorder / conversation intelligence architecture
+- [`docs/INFERENCE_SERVERS.md`](./docs/INFERENCE_SERVERS.md) — Requesty, LM Studio, and production inference strategy
 - [`docs/MENTOR_GENIUS_PROMPT.md`](./docs/MENTOR_GENIUS_PROMPT.md) — mentor behavior standard
 - [`CLAUDE_BUILD_INSTRUCTIONS.md`](./CLAUDE_BUILD_INSTRUCTIONS.md)
 - [`MASTER_GUIDE.md`](./MASTER_GUIDE.md)
@@ -112,6 +130,7 @@ Empire Recorder must be consent-first, owner-only, private-storage-only, and int
     ├── SECURITY.md
     ├── JOB_HUNT_INTELLIGENCE.md
     ├── EMPIRE_RECORDER.md
+    ├── INFERENCE_SERVERS.md
     ├── MENTOR_GENIUS_PROMPT.md
     ├── prompts/
     │   ├── Backend_Spine_Prompt_V3_High_Tech.md
