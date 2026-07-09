@@ -2,7 +2,7 @@
  * AI provider management tests.
  *
  * Covers the security-critical paths: encryption round-trips, the public shape
- * never carries the cipher, the 5-provider cap, credential resolution (own key
+ * never carries the cipher, the provider cap, credential resolution (own key
  * + decryption), and API auth enforcement.
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest';
@@ -48,9 +48,6 @@ describe('crypto', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Recording Supabase mock (per-table rows, count + insert support)
-// ---------------------------------------------------------------------------
 function withId(row: Record<string, unknown> | null) {
   return row
     ? { id: 'gen-id', created_at: 't', updated_at: 't', user_id: 'user-1', ...row }
@@ -117,14 +114,10 @@ function makeClient(
   } as unknown as SupabaseClient;
 }
 
-// ---------------------------------------------------------------------------
-// Provider config service
-// ---------------------------------------------------------------------------
 describe('provider-config.service', () => {
   it('creates a provider and never returns the cipher', async () => {
     const { createProvider } = await import('@/spine/ai/providers/provider-config.service');
     const client = makeClient({ ai_providers: [], ai_provider_secrets: [] });
-    // Pass the mock as the admin client so the secret write stays in-test.
     const result = await createProvider(
       client,
       'user-1',
@@ -143,16 +136,15 @@ describe('provider-config.service', () => {
     expect(result.data.provider).toBe('anthropic');
     expect(result.data.hasOwnKey).toBe(true);
     expect(result.data.apiKeyHint).toBe('••••1234');
-    // The secret-free public shape must not carry the cipher.
     expect('api_key_cipher' in (result.data as unknown as Record<string, unknown>)).toBe(false);
   });
 
-  it('enforces the 5-provider cap', async () => {
+  it('enforces the provider cap', async () => {
     const { createProvider } = await import('@/spine/ai/providers/provider-config.service');
-    const five = Array.from({ length: 5 }, (_, i) => ({ id: `p${i}` }));
-    const client = makeClient({ ai_providers: five });
+    const six = Array.from({ length: 6 }, (_, i) => ({ id: `p${i}` }));
+    const client = makeClient({ ai_providers: six });
     const result = await createProvider(client, 'user-1', {
-      label: 'Sixth',
+      label: 'Seventh',
       provider: 'openai',
       model: 'gpt-4o',
       isDefault: false,
@@ -168,21 +160,10 @@ describe('provider-config.service', () => {
     const { resolveUserCredential } = await import('@/spine/ai/providers/provider-config.service');
     const client = makeClient({
       ai_providers: [
-        {
-          id: 'p1',
-          provider: 'anthropic',
-          model: 'claude-opus-4-8',
-          has_own_key: true,
-          enabled: true,
-          is_default: true,
-          rank: 0,
-        },
+        { id: 'p1', provider: 'anthropic', model: 'claude-opus-4-8', has_own_key: true, enabled: true, is_default: true, rank: 0 },
       ],
-      ai_provider_secrets: [
-        { provider_id: 'p1', api_key_cipher: encryptSecret('sk-ant-live-9999') },
-      ],
+      ai_provider_secrets: [{ provider_id: 'p1', api_key_cipher: encryptSecret('sk-ant-live-9999') }],
     });
-    // Pass the mock as the admin client used to read the locked secrets table.
     const cred = await resolveUserCredential(client, 'user-1', client);
     expect(cred).not.toBeNull();
     expect(cred?.provider).toBe('anthropic');
@@ -210,11 +191,7 @@ describe('provider-config.service', () => {
   it('propagates a secret read failure instead of masking the key', async () => {
     const { resolveCredentialForId } = await import('@/spine/ai/providers/provider-config.service');
     const client = makeClient(
-      {
-        ai_providers: [
-          { id: 'p1', provider: 'anthropic', model: 'claude-opus-4-8', has_own_key: true, enabled: true, is_default: true, rank: 0 },
-        ],
-      },
+      { ai_providers: [{ id: 'p1', provider: 'anthropic', model: 'claude-opus-4-8', has_own_key: true, enabled: true, is_default: true, rank: 0 }] },
       { tableErrors: { ai_provider_secrets: { message: 'read fail' } } },
     );
     const result = await resolveCredentialForId(client, 'user-1', 'p1', client);
@@ -225,20 +202,12 @@ describe('provider-config.service', () => {
 
   it('returns null when no provider has a usable key', async () => {
     const { resolveUserCredential } = await import('@/spine/ai/providers/provider-config.service');
-    // No own key + no env key for google → unusable.
-    const client = makeClient({
-      ai_providers: [
-        { id: 'p1', provider: 'google', model: 'gemini-2.5-flash', has_own_key: false, enabled: true, is_default: true, rank: 0 },
-      ],
-    });
+    const client = makeClient({ ai_providers: [{ id: 'p1', provider: 'google', model: 'gemini-2.5-flash', has_own_key: false, enabled: true, is_default: true, rank: 0 }] });
     const cred = await resolveUserCredential(client, 'user-1');
     expect(cred).toBeNull();
   });
 });
 
-// ---------------------------------------------------------------------------
-// Provider failover in the structured runner
-// ---------------------------------------------------------------------------
 describe('runStructured provider failover', () => {
   it('falls over to the next credential when the first provider throws', async () => {
     vi.resetModules();
@@ -250,9 +219,7 @@ describe('runStructured provider failover', () => {
         callAI: vi.fn(async (_messages, opts) => {
           const provider = opts?.credential?.provider ?? 'env';
           calls.push(provider);
-          if (provider === 'openai') {
-            throw new Error('429 You exceeded your current quota');
-          }
+          if (provider === 'openai') throw new Error('429 You exceeded your current quota');
           return { text: '{"answer":"ok"}', provider, model: opts?.model ?? 'm' };
         }),
       };
@@ -273,7 +240,6 @@ describe('runStructured provider failover', () => {
       ],
     });
 
-    // Tried openai first (threw), then fell over to anthropic.
     expect(calls).toEqual(['openai', 'anthropic']);
     expect(result.provider).toBe('anthropic');
     expect((result.data as { answer: string }).answer).toBe('ok');
@@ -281,9 +247,6 @@ describe('runStructured provider failover', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// API auth
-// ---------------------------------------------------------------------------
 describe('AI providers API auth', () => {
   it('GET /api/ai/providers returns 401 when unauthenticated', async () => {
     vi.resetModules();
