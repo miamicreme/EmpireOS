@@ -11,15 +11,29 @@ on:
       - main
       - 'feature/**'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
-    name: Typecheck, lint, and build
+    name: Typecheck, lint, test, and build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co'
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'ci-placeholder-anon-key'
+      SUPABASE_SERVICE_ROLE_KEY: 'ci-placeholder-service-role-key'
+      OWNER_EMAIL: 'owner@empire.local'
+      WEBAUTHN_ORIGIN: 'http://localhost:3000'
+      WEBAUTHN_RP_ID: 'localhost'
+      AI_PROVIDER_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+      LMSTUDIO_ENABLED: 'false'
 
     steps:
       - name: Checkout
@@ -32,13 +46,16 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Typecheck
         run: npm run typecheck
 
       - name: Lint
         run: npm run lint
+
+      - name: Test
+        run: npm test -- --run
 
       - name: Build
         run: npm run build
