@@ -20,7 +20,7 @@ high-level [`MASTER_GUIDE.md`](../MASTER_GUIDE.md) and the architecture docs und
 | Dashboard UI | ✅ Done | Command center: Empire Score, module health, action queue, decisions |
 | Module UIs | ✅ Done | All 6 wired to their APIs with optimistic updates |
 | AI owner surfaces | ✅ Done in code | `/ai/input`, `/ai/camera`, `/ai/runs/[id]`, `/ai/memory`, `/ai/providers`, `/settings/security` now exist; manual browser proof still pending, and image-byte vision proof is still incomplete |
-| AI Teams Core | ✅ Backend slice started | Team templates, owner teams, missions, tasks, messages, reviews, events, schemas, and API routes added on `feature-ai-teams-core` |
+| AI Teams Core | ✅ MVP slice complete on branch | Templates, active teams, missions, transitions, task generation, review queue, schemas, APIs, and UI pages added on `feature-ai-teams-core` |
 | Design system | ✅ Done | Tokens, primitives, motion, toasts, modals, data tables |
 | Auth | ✅ Done | Passkey / Face ID (WebAuthn), multi-passkey recovery, route gate |
 | Tests | ⚠ Environment-blocked | Typecheck/lint/build pass in this workspace; Vitest is blocked by the installed Node runtime version |
@@ -58,7 +58,7 @@ Each exposes `getMetrics` / `getActions` / `getDecisionContext` / `getHealth` /
   - `GET /api/ai/team-templates`
   - `GET /api/ai/teams`
   - `GET/POST /api/ai/missions`
-  - `GET /api/ai/missions/[id]`
+  - `GET/PATCH /api/ai/missions/[id]`
 
 ### UI (`src/app`, `src/components`)
 - Dark, depth-tinted design system with motion, ambient background, and a
@@ -73,16 +73,23 @@ Each exposes `getMetrics` / `getActions` / `getDecisionContext` / `getHealth` /
 - `/ai/memory` durable memory workbench.
 - `/ai/providers` provider health/status surface.
 - `/settings/security` owner security posture surface.
+- AI Teams Core feature branch adds:
+  - `/ai/org`
+  - `/ai/team-templates`
+  - `/ai/teams`
+  - `/ai/missions/[id]`
+  - `/ai/review`
 
 ### AI Teams Core feature branch
 - Added migration `0023_ai_teams_core.sql`.
 - Added default system team templates for the first 10 teams.
 - Added owner-scoped active team, member, mission, task, message, review, and event tables.
-- Added Zod schemas for teams, members, missions, autonomy, priority, and mission creation.
-- Added repository service to list templates, instantiate an owner team from a template, create a pending mission, and read mission details.
-- Added API routes for templates, teams, missions, and mission detail.
+- Added Zod schemas for teams, members, missions, autonomy, priority, mission creation, and mission transitions.
+- Added repository service to list templates, instantiate an owner team from a template, create a pending mission, transition missions, generate ready tasks on approval, create review packages, and read mission details.
+- Added API routes for templates, teams, missions, mission detail, and mission status transitions.
+- Added UI pages for organization chart, templates, active teams, mission detail, and review queue.
 - Added schema validation tests.
-- Agent execution is intentionally not implemented yet; missions remain approval-gated and still must route through `POST /api/ai/agent/run` when execution is added.
+- Agent execution is intentionally not wired yet; mission tasks remain approval-gated and must route through `POST /api/ai/agent/run` when execution automation is added.
 
 ### Quality
 - Validation on 2026-07-04:
@@ -104,13 +111,12 @@ Ordered by leverage.
 > **Deploying?** Follow the step-by-step [`DEPLOYMENT.md`](./DEPLOYMENT.md) guide
 > (env vars, Vercel, first passkey login).
 
-### A. AI Teams Core completion _(highest product leverage)_
+### A. AI Teams Core validation _(highest product leverage)_
 1. Run the new migration against a live/local Supabase project.
 2. Run typecheck/lint/build from a compatible Node runtime.
-3. Add `/ai/org`, `/ai/team-templates`, `/ai/teams`, and `/ai/missions/[id]` UI.
-4. Add mission approval transition and task generation.
-5. Route approved mission tasks through `POST /api/ai/agent/run` without creating a second AI subsystem.
-6. Add `/ai/review` for mission review packages.
+3. Browser-smoke the new pages: `/ai/org`, `/ai/team-templates`, `/ai/teams`, `/ai/missions/[id]`, and `/ai/review`.
+4. Create a mission from a template, approve it, confirm tasks generate, send it to review, and confirm the review package appears.
+5. Add task-level execution that routes approved mission tasks through `POST /api/ai/agent/run` without creating a second AI subsystem.
 
 ### B. Deployment & live data
 1. Provision a real Supabase project; run the migrations and seed reference
@@ -158,6 +164,7 @@ Ordered by leverage.
 - **No live Supabase wiring yet** — the app renders graceful empty states until
   environment variables point at a real project.
 - **AI Teams Core has not been runtime-validated in this chat** — branch changes need local/CI typecheck, migration, and API smoke tests.
+- **Task execution is not automated yet** — the branch creates teams, missions, tasks, and review packages, but approved task execution still needs a safe bridge into `POST /api/ai/agent/run`.
 
 ## Universal input intelligence V7 pass
 
