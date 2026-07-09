@@ -35,6 +35,18 @@ type ProviderHealth = {
     failures: number;
     estimatedCostAvailable: boolean;
   };
+  lmstudio?: {
+    configured: boolean;
+    enabled: boolean;
+    baseUrlConfigured: boolean;
+    routePurpose: string;
+    routeModels: Array<{ purpose: string; model: string; enabled: boolean }>;
+    localOnly: boolean;
+    mobileOnlyWarning: string;
+    latencyMs: number | null;
+    failures: number;
+    estimatedCostAvailable: boolean;
+  };
   providers: Array<{ id: string; provider: string; model: string; enabled: boolean; isDefault: boolean; hasOwnKey: boolean; usesEnvKey: boolean }>;
 };
 
@@ -52,6 +64,7 @@ const providerLabel: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   google: 'Google',
+  lmstudio: 'LM Studio',
   groq: 'Groq',
   cerebras: 'Cerebras',
   openrouter: 'OpenRouter',
@@ -176,6 +189,36 @@ export function ProvidersWorkbench() {
             </div>
           ) : (
             <EmptyState message="No Requesty route models are configured." />
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="space-y-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-mono uppercase tracking-widest text-empire-muted">LM Studio local fallback</p>
+              <p className="mt-2 text-sm text-gray-100">
+                Local fallback: {health?.lmstudio?.configured && health.lmstudio.enabled ? 'configured' : 'not configured'}
+              </p>
+              <p className="mt-1 text-xs font-mono text-empire-muted">
+                {health?.lmstudio?.mobileOnlyWarning ?? 'Phones need cloud providers unless a reachable local server is running.'}
+              </p>
+            </div>
+            <Badge variant={health?.lmstudio?.configured ? 'yellow' : 'muted'}>
+              {health?.lmstudio?.configured ? 'local ready' : 'optional'}
+            </Badge>
+          </div>
+          {health?.lmstudio?.routeModels.length ? (
+            <div className="flex flex-wrap gap-2">
+              {health.lmstudio.routeModels.map((route) => (
+                <Badge key={`${route.purpose}:${route.model}`} variant="yellow">
+                  {route.purpose}: {route.model}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No LM Studio local model is configured." />
           )}
         </div>
       </Card>
