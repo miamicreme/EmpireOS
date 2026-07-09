@@ -10,6 +10,7 @@ const LINKS: Array<{ href: Route; title: string; desc: string; icon: string }> =
   { href: '/ai/org' as Route, title: 'AI Organization', desc: 'Full EmpireOS AI company chart', icon: '♜' },
   { href: '/ai/team-templates' as Route, title: 'Team Templates', desc: 'Reusable AI team blueprints', icon: '▦' },
   { href: '/ai/teams' as Route, title: 'AI Teams', desc: 'Active teams, missions, and members', icon: '☷' },
+  { href: '/ai/review' as Route, title: 'Review Queue', desc: 'Mission packages before Spine updates', icon: '✓' },
   { href: '/ai/input' as Route, title: 'Universal Input', desc: 'Upload, analyze, and hand off artifacts', icon: '⌁' },
   { href: '/ai/camera' as Route, title: 'Camera', desc: 'Explicit snapshot and frame sampling flow', icon: '◩' },
   { href: '/ai/memory' as Route, title: 'Memory', desc: 'Durable memory states and controls', icon: '◌' },
