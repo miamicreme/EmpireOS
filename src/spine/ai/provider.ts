@@ -2,18 +2,19 @@
  * AI provider abstraction layer.
  *
  * Selects the best available provider at runtime:
- *   Requesty → Anthropic → OpenAI → Google → free OpenAI-compatible providers → stub
+ *   Requesty → Anthropic → OpenAI → Google → LM Studio → free OpenAI-compatible providers → stub
  *
  * All external calls go through `callAI`. Context is always redacted before
  * reaching this layer — callers are responsible for that gate.
  */
-import { aiKeys, hasRequestyProvider, requestyConfig } from '@/lib/env';
+import { aiKeys, hasLMStudioProvider, hasRequestyProvider, lmStudioConfig, requestyConfig } from '@/lib/env';
 
 export type AIProvider =
   | 'requesty'
   | 'anthropic'
   | 'openai'
   | 'google'
+  | 'lmstudio'
   // OpenAI-API-compatible providers with generous free tiers (see
   // OPENAI_COMPATIBLE below). Reached through the OpenAI SDK + a base URL.
   | 'groq'
@@ -76,12 +77,13 @@ export interface AIResponse {
   outputTokens?: number;
 }
 
-/** Preferred provider from env keys (router first, paid direct keys second, then free tiers). */
+/** Preferred provider from env keys (router first, paid direct keys second, local/private, then free tiers). */
 export function activeProvider(): AIProvider {
   if (hasRequestyProvider()) return 'requesty';
   if (aiKeys.anthropic) return 'anthropic';
   if (aiKeys.openai) return 'openai';
   if (aiKeys.google) return 'google';
+  if (hasLMStudioProvider()) return 'lmstudio';
   if (aiKeys.groq) return 'groq';
   if (aiKeys.cerebras) return 'cerebras';
   if (aiKeys.openrouter) return 'openrouter';
@@ -95,6 +97,7 @@ export function envProviderChain(): CallableProvider[] {
   if (aiKeys.anthropic) chain.push('anthropic');
   if (aiKeys.openai) chain.push('openai');
   if (aiKeys.google) chain.push('google');
+  if (hasLMStudioProvider()) chain.push('lmstudio');
   if (aiKeys.groq) chain.push('groq');
   if (aiKeys.cerebras) chain.push('cerebras');
   if (aiKeys.openrouter) chain.push('openrouter');
@@ -227,6 +230,41 @@ async function callRequesty(
   };
 }
 
+async function callLMStudio(
+  messages: AIMessage[],
+  opts: AICallOptions,
+  apiKey: string,
+): Promise<AIResponse> {
+  const { default: OpenAI } = await import('openai');
+  const client = new OpenAI({ apiKey, baseURL: lmStudioConfig.baseURL });
+
+  const model = opts.model ?? lmStudioConfig.defaultModel;
+  if (!model) {
+    throw new Error('LM Studio is enabled without LMSTUDIO_DEFAULT_MODEL.');
+  }
+
+  const msgs = opts.systemPrompt
+    ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages]
+    : messages;
+
+  const response = await client.chat.completions.create({
+    model,
+    max_tokens: opts.maxTokens ?? 1024,
+    temperature: opts.temperature ?? 0.3,
+    messages: msgs.map((message) => ({ role: message.role, content: message.content })),
+  });
+
+  const text = response.choices[0]?.message.content ?? '';
+
+  return {
+    text,
+    provider: 'lmstudio',
+    model,
+    inputTokens: response.usage?.prompt_tokens,
+    outputTokens: response.usage?.completion_tokens,
+  };
+}
+
 async function callGoogle(
   messages: AIMessage[],
   opts: AICallOptions,
@@ -314,6 +352,8 @@ async function callProvider(
       return callOpenAI(messages, opts, apiKey);
     case 'google':
       return callGoogle(messages, opts, apiKey);
+    case 'lmstudio':
+      return callLMStudio(messages, opts, apiKey);
     case 'groq':
     case 'cerebras':
     case 'openrouter':
@@ -370,6 +410,7 @@ export function modelForAdvisor(
 ): string {
   if (preferredModel && provider === 'anthropic') return preferredModel;
   if (preferredModel && provider === 'requesty') return preferredModel;
+  if (preferredModel && provider === 'lmstudio') return preferredModel;
 
   switch (provider) {
     case 'anthropic':
@@ -387,6 +428,8 @@ export function modelForAdvisor(
       return 'gpt-4o-mini';
     case 'google':
       return 'gemini-2.5-flash';
+    case 'lmstudio':
+      return lmStudioConfig.defaultModel ?? 'lmstudio-unconfigured';
     case 'groq':
     case 'cerebras':
     case 'openrouter':
