@@ -72,11 +72,25 @@ LMSTUDIO_DEFAULT_MODEL=qwen2.5-7b-instruct
 LMSTUDIO_FAST_MODEL=llama-3.2-3b-instruct
 ```
 
-Use a different base URL when LM Studio runs on another machine:
+Use a different base URL when LM Studio runs on another private machine:
 
 ```env
 LMSTUDIO_BASE_URL=http://192.168.1.50:1234/v1
 ```
+
+Allowed LM Studio hosts:
+
+```txt
+localhost
+127.0.0.1
+10.0.0.0/8
+172.16.0.0/12
+192.168.0.0/16
+100.64.0.0/10
+*.local
+```
+
+Public LM Studio base URLs are rejected. For public/server GPU inference, use a production inference server behind a normal provider adapter instead of routing it through the LM Studio local/private adapter.
 
 Do not expose this URL to the browser. It is server-side only.
 
@@ -156,4 +170,5 @@ Audio file -> transcription provider -> transcript -> provider router -> analysi
 - Provider keys and base URLs are never sent to the client.
 - Local provider failures do not break the app.
 - No sensitive source content should be logged.
+- LM Studio is restricted to localhost/private-network base URLs.
 - Stub mode remains available for development and empty-env deploys.
