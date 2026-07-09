@@ -23,7 +23,32 @@ Copy the exact base URL and model IDs from Requesty. The base URL defaults to `h
 - `deep` / high-stakes uses `REQUESTY_DEEP_MODEL`.
 - `vision` / image / camera uses `REQUESTY_VISION_MODEL`.
 
-If Requesty is missing or a Requesty call fails, EmpireOS keeps the existing direct provider key path as backup: Anthropic, OpenAI, Google, Groq, Cerebras, OpenRouter, Mistral, then stub mode.
+If Requesty is missing or a Requesty call fails, EmpireOS keeps the existing backup path:
+
+```txt
+Anthropic -> OpenAI -> Google -> LM Studio -> Groq -> Cerebras -> OpenRouter -> Mistral -> stub
+```
+
+LM Studio is intentionally after the main direct cloud providers and before free-tier OpenAI-compatible fallbacks. It is useful for local/private desktop workflows, but it must be reachable from the EmpireOS server.
+
+## LM Studio local fallback
+
+```env
+LMSTUDIO_ENABLED=true
+LMSTUDIO_BASE_URL=http://localhost:1234/v1
+LMSTUDIO_API_KEY=lm-studio
+LMSTUDIO_DEFAULT_MODEL=qwen2.5-7b-instruct
+LMSTUDIO_FAST_MODEL=llama-3.2-3b-instruct
+```
+
+Mobile-only warning:
+
+```txt
+A phone can use EmpireOS, but a phone does not run LM Studio inside the browser.
+EmpireOS can use LM Studio only when the LM Studio server is running on a reachable PC, Mac, or server.
+```
+
+For production self-hosted inference, prefer vLLM, SGLang, TGI, or NVIDIA NIM instead of LM Studio. See [`docs/INFERENCE_SERVERS.md`](./INFERENCE_SERVERS.md).
 
 ## Safety
 
