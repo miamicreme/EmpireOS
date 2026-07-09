@@ -7,6 +7,9 @@ import { AiChiefOfStaffWidget } from '@/components/ui/ai/AiDashboardWidgets';
 export const dynamic = 'force-dynamic';
 
 const LINKS: Array<{ href: Route; title: string; desc: string; icon: string }> = [
+  { href: '/ai/org' as Route, title: 'AI Organization', desc: 'Full EmpireOS AI company chart', icon: '♜' },
+  { href: '/ai/team-templates' as Route, title: 'Team Templates', desc: 'Reusable AI team blueprints', icon: '▦' },
+  { href: '/ai/teams' as Route, title: 'AI Teams', desc: 'Active teams, missions, and members', icon: '☷' },
   { href: '/ai/input' as Route, title: 'Universal Input', desc: 'Upload, analyze, and hand off artifacts', icon: '⌁' },
   { href: '/ai/camera' as Route, title: 'Camera', desc: 'Explicit snapshot and frame sampling flow', icon: '◩' },
   { href: '/ai/memory' as Route, title: 'Memory', desc: 'Durable memory states and controls', icon: '◌' },
@@ -23,7 +26,7 @@ export default function AiHubPage() {
     <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
       <PageHeader
         title="AI Chief of Staff"
-        subtitle="Empire OS reads your Spine + Modules and turns it into ranked actions"
+        subtitle="Empire OS reads your Spine + Modules, creates missions, and routes controlled work to AI Teams"
       />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
