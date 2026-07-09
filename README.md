@@ -15,6 +15,8 @@ Private execution operating system for KJB Empire planning.
 
 Flow: **Inputs create artifacts → Artifacts feed decisions → Decisions create actions → Actions move phases → Phases build the empire.**
 
+Core law: **The Spine owns priority. Modules own detail. Decisions create actions. Actions move phases. Phases build the empire.** See [`docs/SPINE_MODULE_GUARDRAILS.md`](./docs/SPINE_MODULE_GUARDRAILS.md).
+
 ## Tech Stack
 
 - Next.js (App Router)
@@ -29,11 +31,12 @@ Flow: **Inputs create artifacts → Artifacts feed decisions → Decisions creat
 
 - ✅ Documentation & repo organization
 - ✅ Backend spine (actions, decisions, metrics, reviews, events, audit)
-- ✅ Module system (6 modules on a uniform `ModuleContract`)
+- ✅ Module system (`ModuleContract` + `src/spine/module-registry.ts`)
+- ✅ Safe Spine fanout — one module failure does not take down aggregate metrics/actions/health/context
 - ✅ AI decision engine (multi-advisor, redaction-gated)
 - ✅ Module CRUD + review API routes (auth + RLS + Zod on every write)
 - ✅ Dashboard UI + command center
-- ✅ Individual module UIs (all 6 wired to their APIs)
+- ✅ Individual module UIs wired through their module/API boundaries
 - ✅ AI Chief of Staff / Jarvis-grade mentor surface
 - ✅ Universal input foundation
 - ✅ Passkey multi-device pairing plan and implementation path
@@ -56,7 +59,8 @@ See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next st
 8. ✅ Career Command intelligence extraction
 9. ✅ Empire Recorder architecture and implementation path
 10. ✅ LM Studio provider routing support
-11. ⏭️ Validation and deployment
+11. ✅ Spine/module guardrails and safe module fanout
+12. ⏭️ Validation and deployment
 
 ## Career Command Pipeline
 
@@ -107,6 +111,7 @@ LM Studio is useful for local/private desktop workflows, but mobile-only usage s
 
 - [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — deploy + first passkey login
 - [`docs/PROGRESS.md`](./docs/PROGRESS.md) — status & next steps
+- [`docs/SPINE_MODULE_GUARDRAILS.md`](./docs/SPINE_MODULE_GUARDRAILS.md) — Spine-first module boundaries and best-practice checklist
 - [`docs/JOB_HUNT_INTELLIGENCE.md`](./docs/JOB_HUNT_INTELLIGENCE.md) — Career Command / job-hunt intelligence extraction
 - [`docs/EMPIRE_RECORDER.md`](./docs/EMPIRE_RECORDER.md) — audio recorder / conversation intelligence architecture
 - [`docs/INFERENCE_SERVERS.md`](./docs/INFERENCE_SERVERS.md) — Requesty, LM Studio, and production inference strategy
@@ -128,6 +133,7 @@ LM Studio is useful for local/private desktop workflows, but mobile-only usage s
 ├── MASTER_GUIDE.md
 └── docs/
     ├── SECURITY.md
+    ├── SPINE_MODULE_GUARDRAILS.md
     ├── JOB_HUNT_INTELLIGENCE.md
     ├── EMPIRE_RECORDER.md
     ├── INFERENCE_SERVERS.md
