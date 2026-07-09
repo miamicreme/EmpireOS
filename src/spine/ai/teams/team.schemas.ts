@@ -8,6 +8,7 @@ export const aiMissionStatusSchema = z.enum(['draft', 'pending_approval', 'appro
 export const aiMissionPrioritySchema = z.enum(['low', 'medium', 'high', 'urgent']);
 export const aiMissionTaskStatusSchema = z.enum(['backlog', 'ready', 'running', 'review', 'done', 'blocked']);
 export const aiMemoryScopeSchema = z.enum(['mission', 'team', 'module', 'global_redacted']);
+export const aiMissionTransitionActionSchema = z.enum(['approve', 'start', 'send_to_review', 'complete', 'block', 'cancel']);
 
 const stringArray = z.array(z.string().min(1).max(120)).max(40).default([]);
 const uuidArray = z.array(z.string().uuid()).max(20).default([]);
@@ -153,3 +154,9 @@ export const listMissionsQuerySchema = z.object({
   teamId: z.string().uuid().optional(),
 });
 export type ListMissionsQuery = z.infer<typeof listMissionsQuerySchema>;
+
+export const missionTransitionSchema = z.object({
+  action: aiMissionTransitionActionSchema,
+  note: z.string().max(2000).optional(),
+});
+export type MissionTransitionDTO = z.infer<typeof missionTransitionSchema>;
