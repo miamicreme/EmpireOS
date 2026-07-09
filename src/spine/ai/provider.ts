@@ -96,7 +96,10 @@ function isPrivateIpv4(hostname: string): boolean {
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
     return false;
   }
-  const [a, b] = parts;
+
+  const a = parts[0] ?? -1;
+  const b = parts[1] ?? -1;
+
   return (
     a === 10 ||
     a === 127 ||
