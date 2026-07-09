@@ -7,6 +7,7 @@ Private execution operating system for KJB Empire planning.
 - **Spine** — owns priority. The central nervous system that decides what matters now.
 - **Modules** — own detail. Domain-specific units of work and state.
 - **Universal Input** — normalizes documents, spreadsheets, screenshots, camera frames, video frames, and audio into agent artifacts.
+- **Career Command** — upgraded job-hunt module with fit scoring, drafter-reviewer application workflow, interview prep, offer decision support, and outcome calibration. See [`docs/JOB_HUNT_INTELLIGENCE.md`](./docs/JOB_HUNT_INTELLIGENCE.md).
 - **Empire Recorder** — planned private conversation-intelligence module for recording interviews/meetings, saving audio, transcribing, translating, analyzing, and drafting follow-ups. See [`docs/EMPIRE_RECORDER.md`](./docs/EMPIRE_RECORDER.md).
 - **AI Decision Engine** — a multi-advisor engine that turns information into decisions.
 - **Jarvis-grade Mentor Agent** — an AI execution layer on top of the Spine that reads context, diagnoses the real issue, maps leverage, spots blind spots, generates briefs, and drafts actions for approval.
@@ -35,6 +36,7 @@ Flow: **Inputs create artifacts → Artifacts feed decisions → Decisions creat
 - ✅ AI Chief of Staff / Jarvis-grade mentor surface
 - ✅ Universal input foundation
 - ✅ Passkey multi-device pairing plan and implementation path
+- ✅ Career Command intelligence helper for fit scoring, pipeline risks, and interview/application next moves
 - 📌 Planned: Empire Recorder conversation-intelligence module
 - ⏭️ Validation, deployment, and live Supabase wiring next
 
@@ -49,8 +51,25 @@ See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next st
 5. ✅ Dashboard UI
 6. ✅ Individual module UIs
 7. ✅ Jarvis-grade AI mentor surface
-8. 📌 Empire Recorder architecture and implementation
-9. ⏭️ Validation and deployment
+8. ✅ Career Command intelligence extraction
+9. 📌 Empire Recorder architecture and implementation
+10. ⏭️ Validation and deployment
+
+## Career Command Pipeline
+
+```txt
+Paste/upload job
+  -> Extract role/company/pay/requirements
+  -> Score fit
+  -> Identify strengths/gaps
+  -> Recommend apply/skip/call first
+  -> Draft resume bullets
+  -> Draft cover letter
+  -> Run reviewer critique
+  -> Create interview prep
+  -> Track outcome
+  -> Feed calibration back to the Spine
+```
 
 ## Empire Recorder Pipeline
 
@@ -71,6 +90,7 @@ Empire Recorder must be consent-first, owner-only, private-storage-only, and int
 
 - [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — deploy + first passkey login
 - [`docs/PROGRESS.md`](./docs/PROGRESS.md) — status & next steps
+- [`docs/JOB_HUNT_INTELLIGENCE.md`](./docs/JOB_HUNT_INTELLIGENCE.md) — Career Command / job-hunt intelligence extraction
 - [`docs/EMPIRE_RECORDER.md`](./docs/EMPIRE_RECORDER.md) — audio recorder / conversation intelligence architecture
 - [`docs/MENTOR_GENIUS_PROMPT.md`](./docs/MENTOR_GENIUS_PROMPT.md) — mentor behavior standard
 - [`CLAUDE_BUILD_INSTRUCTIONS.md`](./CLAUDE_BUILD_INSTRUCTIONS.md)
@@ -90,6 +110,7 @@ Empire Recorder must be consent-first, owner-only, private-storage-only, and int
 ├── MASTER_GUIDE.md
 └── docs/
     ├── SECURITY.md
+    ├── JOB_HUNT_INTELLIGENCE.md
     ├── EMPIRE_RECORDER.md
     ├── MENTOR_GENIUS_PROMPT.md
     ├── prompts/
