@@ -30,6 +30,8 @@ const CANDIDATE_MIME_TYPES = [
   'audio/ogg;codecs=opus',
 ];
 
+const PROCESSABLE_STATUSES = new Set(['uploaded', 'transcribed', 'translated', 'failed']);
+
 function pickSupportedMimeType(): string | null {
   if (typeof MediaRecorder === 'undefined') return null;
   return CANDIDATE_MIME_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? null;
@@ -52,19 +54,6 @@ function statusLabel(status: string): string {
   return status.replace(/_/g, ' ');
 }
 
-/** Runs transcribe → (translate if needed) → analyze in sequence for a fresh upload. */
-async function runPipeline(id: string, onStep: () => void) {
-  const transcribed = await api.post<{ recording: { language: string | null } }>('/api/recorder/transcribe', { id });
-  onStep();
-  if (!transcribed.ok) return;
-
-  await api.post('/api/recorder/translate', { id });
-  onStep();
-
-  await api.post('/api/recorder/analyze', { id });
-  onStep();
-}
-
 export default function RecorderPage() {
   const { success, error } = useToast();
   const [recordings, setRecordings] = useState<RecordingRow[]>([]);
@@ -72,6 +61,7 @@ export default function RecorderPage() {
   const [consentChecked, setConsentChecked] = useState(false);
   const [title, setTitle] = useState('');
   const [phase, setPhase] = useState<'idle' | 'recording' | 'paused' | 'uploading'>('idle');
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [level, setLevel] = useState(0);
   const [micError, setMicError] = useState<string | null>(null);
@@ -210,28 +200,23 @@ export default function RecorderPage() {
         return;
       }
 
-      success('Recording saved — transcribing…');
+      success('Recording saved. Click Process when you are ready to send it to AI.');
       setTitle('');
       setElapsed(0);
       setPhase('idle');
       setConsentChecked(false);
       void load();
-      void runPipeline(json.data.id, () => void load());
     } catch {
       error('Upload failed — check your connection.');
       setPhase('idle');
     }
   }
 
-  async function retry(id: string, status: string) {
-    const endpoint =
-      status === 'failed' || status === 'uploaded'
-        ? '/api/recorder/transcribe'
-        : status === 'transcribed'
-          ? '/api/recorder/translate'
-          : '/api/recorder/analyze';
-    const res = await api.post(endpoint, { id });
-    if (res.ok) success('Retrying…');
+  async function processRecording(id: string) {
+    setProcessingId(id);
+    const res = await api.post(`/api/recorder/${id}/process`, {});
+    setProcessingId(null);
+    if (res.ok) success('Recording processed');
     else error(res.error.message);
     void load();
   }
@@ -252,7 +237,7 @@ export default function RecorderPage() {
     <main className="flex-1 overflow-y-auto p-4 sm:p-6">
       <PageHeader
         title="Empire Recorder"
-        subtitle="Record interviews and conversations, then transcribe, translate, and turn them into notes and action drafts."
+        subtitle="Record interviews and conversations, save privately, then explicitly process them into transcripts, notes, and action drafts."
       />
 
       <div className="space-y-6 max-w-2xl">
@@ -354,9 +339,9 @@ export default function RecorderPage() {
                       </p>
                     </Link>
                     <Badge variant={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
-                    {r.status === 'failed' && (
-                      <Button size="sm" variant="subtle" onClick={() => retry(r.id, r.status)}>
-                        Retry
+                    {PROCESSABLE_STATUSES.has(r.status) && (
+                      <Button size="sm" variant="subtle" loading={processingId === r.id} onClick={() => processRecording(r.id)}>
+                        Process
                       </Button>
                     )}
                     <button
