@@ -2,7 +2,11 @@ import { z } from 'zod';
 import { err, ok } from '@/lib/result';
 import { appError } from '@/lib/errors';
 import { transcribeAudio } from '@/spine/ai/audio';
-import { downloadAudioBytes, patchRecording } from '@/modules/recorder/service';
+import {
+  downloadAudioBytes,
+  getRecordingById,
+  patchRecording,
+} from '@/modules/recorder/service';
 import { emitRecorderEvent } from '@/modules/recorder/events';
 import type { ToolDefinition } from './tool.types';
 
@@ -37,13 +41,13 @@ export const recorderTranscribeTool: ToolDefinition<TranscribeInput, TranscribeO
       context.userId,
       input.recordingId,
     );
-    if (!downloaded.ok) return downloaded;
+    if (!downloaded.ok) return err(downloaded.error);
 
     const marking = await patchRecording(context.supabase, context.userId, input.recordingId, {
       status: 'transcribing',
       error: null,
     });
-    if (!marking.ok) return marking;
+    if (!marking.ok) return err(marking.error);
 
     const extension = downloaded.data.mimeType.includes('webm') ? 'webm' : 'audio';
     const transcription = await transcribeAudio(
@@ -66,7 +70,7 @@ export const recorderTranscribeTool: ToolDefinition<TranscribeInput, TranscribeO
       language: transcription.data.language,
       error: null,
     });
-    if (!updated.ok) return updated;
+    if (!updated.ok) return err(updated.error);
 
     await emitRecorderEvent(
       context.supabase,
@@ -95,8 +99,13 @@ export const recorderTranscribeTool: ToolDefinition<TranscribeInput, TranscribeO
     return ok(parsed.data);
   },
   async verify(context, output) {
-    const recording = await patchRecording(context.supabase, context.userId, output.recordingId, {});
-    if (!recording.ok) return recording;
+    const recording = await getRecordingById(
+      context.supabase,
+      context.userId,
+      output.recordingId,
+    );
+    if (!recording.ok) return err(recording.error);
+
     return ok(
       recording.data.status === 'transcribed' &&
         typeof recording.data.transcript === 'string' &&
