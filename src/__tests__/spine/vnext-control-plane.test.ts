@@ -30,10 +30,10 @@ describe('VNext control plane', () => {
     expect(migration).toContain('output_hash');
   });
 
-  it('routes Jarvis through the governed Tool Gateway', () => {
-    const route = read('src/app/api/jarvis/runs/route.ts');
-    const service = read('src/spine/jarvis/jarvis.service.ts');
-    expect(route).toContain('runJarvisCommand');
+  it('routes Empire through the governed Tool Gateway', () => {
+    const route = read('src/app/api/empire/runs/route.ts');
+    const service = read('src/spine/empire/empire.service.ts');
+    expect(route).toContain('runEmpireCommand');
     expect(service).toContain('executeTool');
     expect(service).toContain('spine.get_daily_context');
     expect(service).toContain('recorder.transcribe');
