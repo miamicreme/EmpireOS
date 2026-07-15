@@ -70,4 +70,4 @@ create policy "owner updates tool receipts" on public.tool_run_receipts
   for update using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 comment on table public.tool_approval_requests is 'Exact-operation approvals bound to one tool version and one input hash.';
-comment on table public.tool_run_receipts is 'Safe, source-content-free execution receipts for governed Jarvis tools.';
+comment on table public.tool_run_receipts is 'Safe, source-content-free execution receipts for governed Empire tools.';
