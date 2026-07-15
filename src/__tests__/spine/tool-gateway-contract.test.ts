@@ -8,7 +8,7 @@ import { getTool, listTools } from '@/spine/tools/tool-registry';
 const context = {
   userId: '00000000-0000-4000-8000-000000000001',
   supabase: {} as never,
-  traceId: 'trace-test-1',
+  traceId: '00000000-0000-4000-8000-000000000002',
 };
 
 describe('Tool Gateway', () => {
@@ -18,6 +18,14 @@ describe('Tool Gateway', () => {
     expect(tool?.moduleId).toBe('recorder');
     expect(tool?.sideEffect).toBe('reversible_write');
     expect(listTools().some((item) => item.id === 'recorder.transcribe')).toBe(true);
+  });
+
+  it('registers action-draft approval as a governed confirmed write', () => {
+    const tool = getTool('spine.approve_action_draft');
+    expect(tool).toBeDefined();
+    expect(tool?.moduleId).toBe('spine');
+    expect(tool?.riskLevel).toBe('medium');
+    expect(tool?.approvalPolicy).toBe('confirm');
   });
 
   it('rejects unknown tools', async () => {
@@ -32,6 +40,14 @@ describe('Tool Gateway', () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('validation');
+  });
+
+  it('blocks approval-gated writes without an exact approval id', async () => {
+    const result = await executeTool('spine.approve_action_draft', context, {
+      actionDraftId: '00000000-0000-4000-8000-000000000003',
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('tool_not_allowed');
   });
 });
 
