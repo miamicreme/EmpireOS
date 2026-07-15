@@ -39,7 +39,7 @@ export const suggestedDraftSchema = z.object({
 
 export const synthesisOutputSchema = z.object({
   answer: z.string().default(''),
-  jarvisBrief: z.string().max(1800).default(''),
+  empireBrief: z.string().max(1800).default(''),
   operatingMode: z.string().max(80).default('mentor_operator'),
   realIssue: z.string().max(1200).default(''),
   mentorNote: z.string().max(2500).default(''),
@@ -125,9 +125,6 @@ export const specialistVoteSchema = z.object({
   missingData: z.array(z.string()).default([]),
 });
 
-// ---------------------------------------------------------------------------
-// Other route inputs
-// ---------------------------------------------------------------------------
 export const approveDraftSchema = z.object({
   action: z.enum(['approve', 'reject']).default('approve'),
   edits: z
