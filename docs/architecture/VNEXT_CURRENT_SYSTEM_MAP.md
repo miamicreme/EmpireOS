@@ -4,7 +4,7 @@ Status: initial verified baseline for Program 0 (Freeze and Inspect).
 
 ## Product reality
 
-EmpireOS currently contains a strong collection of modules, APIs, AI services, and owner-only workflows, but the experience is page-centric and the AI control plane is fragmented across several service paths. VNext will preserve working domain functionality while converging execution behind one governed Jarvis runtime.
+EmpireOS currently contains a strong collection of modules, APIs, AI services, and owner-only workflows, but the experience is page-centric and the AI control plane is fragmented across several service paths. VNext preserves working domain functionality while converging execution behind one governed Empire runtime.
 
 ## Current architectural layers
 
@@ -90,7 +90,7 @@ module-specific AI helpers
 recorder transcription/translation/analysis routes
 ```
 
-These are not automatically wrong, but VNext requires one authoritative orchestration path for user intent, planning, governed tool execution, approval, verification, and receipts.
+These are not automatically wrong, but VNext requires one authoritative Empire orchestration path for user intent, planning, governed tool execution, approval, verification, and receipts.
 
 ## Current recorder flow
 
@@ -104,7 +104,7 @@ record in browser
 → approve/reject
 ```
 
-Current gap: transcription can degrade to deterministic stub output. VNext must return an explicit unavailable state instead of saving or presenting fake transcript content as if it were operational evidence.
+The previous fake-transcript fallback has been removed on the VNext branch. Missing speech capability now returns an explicit unavailable state instead of saving synthetic transcript content as evidence.
 
 ## Current provider flow
 
@@ -127,7 +127,7 @@ Current gap: one global order is too coarse for all capabilities. Speech, vision
 
 ```txt
 Owner request
-→ Jarvis Runtime
+→ Empire Runtime
 → intent and plan
 → Tool Gateway
 → policy and approval
@@ -136,7 +136,7 @@ Owner request
 → operation receipt
 → event ledger
 → Spine priority refresh
-→ Jarvis response
+→ Empire response
 ```
 
 ## Program 0 remaining inventory work
