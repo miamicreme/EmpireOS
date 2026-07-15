@@ -10,7 +10,6 @@ import {
   createJarvisRun,
   getJarvisRun,
   updateJarvisRun,
-  type JarvisRunStatus,
 } from './jarvis-run.repository';
 
 export const jarvisRunSchema = z.object({
@@ -72,23 +71,6 @@ function safeRequestSummary(intent: JarvisIntent): string {
     default:
       return 'Owner request requires clarification or an unsupported capability.';
   }
-}
-
-function terminalPatch(
-  status: Extract<JarvisRunStatus, 'completed' | 'needs_input' | 'failed'>,
-  message: string,
-  extra: Record<string, unknown> = {},
-): Record<string, unknown> & {
-  status: Extract<JarvisRunStatus, 'completed' | 'needs_input' | 'failed'>;
-  response_message: string;
-  completed_at: string;
-} {
-  return {
-    status,
-    response_message: message,
-    completed_at: new Date().toISOString(),
-    ...extra,
-  };
 }
 
 async function completeToolRun(
@@ -315,7 +297,7 @@ export async function continueJarvisRun(
   return completeToolRun(
     supabase,
     userId,
-    run.id,
+    run.data.id,
     run.data.trace_id,
     run.data.intent as JarvisIntent,
     pendingToolId,
