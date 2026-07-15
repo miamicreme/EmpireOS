@@ -1,6 +1,6 @@
 # EmpireOS VNext — Implementation Plan
 
-This is the approved execution order. Work is incremental; working modules are preserved while control converges behind Jarvis.
+This is the approved execution order. Work is incremental; working modules are preserved while control converges behind Empire.
 
 ## Program 0 — Freeze and inspect
 
@@ -59,11 +59,9 @@ src/spine/tools/tool-audit.ts
 Initial tools:
 
 ```txt
-recorder.get
-recorder.getAnalysis
-spine.listActions
-spine.createActionDraft
-spine.getTodayContext
+recorder.transcribe
+spine.get_daily_context
+spine.approve_action_draft
 ```
 
 Exit gate:
@@ -92,15 +90,17 @@ An approved operation cannot be changed after approval.
 A used, expired, rejected, or mismatched approval cannot execute.
 ```
 
-## Program 4 — Unified Jarvis Runtime
+## Program 4 — Unified Empire Runtime
 
 Routes:
 
 ```txt
-POST /api/jarvis/runs
-GET /api/jarvis/runs/[id]
-POST /api/jarvis/runs/[id]/continue
-POST /api/jarvis/runs/[id]/cancel
+POST /api/empire/runs
+GET /api/empire/runs/[id]
+POST /api/empire/runs/[id]/continue
+POST /api/empire/runs/[id]/cancel
+POST /api/empire/approvals
+POST /api/empire/approvals/[id]/approve
 ```
 
 Runtime stages:
@@ -112,6 +112,7 @@ awaiting_approval
 executing
 verifying
 completed
+needs_input
 failed
 cancelled
 ```
@@ -190,7 +191,7 @@ tests
 Exit gate per module:
 
 ```txt
-Jarvis accesses the module only through registered tools and safe read context.
+Empire accesses the module only through registered tools and safe read context.
 ```
 
 ## Program 8 — Memory
@@ -205,7 +206,7 @@ Deliverables:
 Exit gate:
 
 ```txt
-The owner can inspect, correct, restrict, and forget anything Jarvis remembers.
+The owner can inspect, correct, restrict, and forget anything Empire remembers.
 ```
 
 ## Program 9 — UX replacement
@@ -214,7 +215,7 @@ Primary navigation:
 
 ```txt
 Today
-Jarvis
+Empire
 Capture
 Work
 History
@@ -284,6 +285,8 @@ Direct-to-main feature changes are suspended during VNext foundation work.
 3. Remove recorder fake transcript success.
 4. Add trace context and operation receipt primitives.
 5. Add Tool Gateway contracts.
-6. Register first recorder and Spine tools.
-7. Add tests.
-8. Open PR for review; do not merge until green.
+6. Register the first Recorder and Spine tools.
+7. Add exact-operation approvals.
+8. Add durable Empire runs and endpoints.
+9. Add tests.
+10. Keep the PR draft until validation is green.
