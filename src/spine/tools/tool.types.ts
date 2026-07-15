@@ -11,11 +11,13 @@ export interface ToolExecutionContext {
   supabase: SupabaseClient;
   traceId: string;
   runId?: string;
-  approvedToolIds?: ReadonlySet<string>;
+  approvalId?: string;
 }
 
 export interface ToolReceipt<T> {
+  receiptId: string;
   toolId: string;
+  toolVersion: string;
   traceId: string;
   status: 'verified' | 'unverified';
   startedAt: string;
