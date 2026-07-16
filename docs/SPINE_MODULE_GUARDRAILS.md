@@ -21,7 +21,7 @@ The Spine is the central nervous system. It owns:
 - decision context aggregation
 - global health reporting
 - phase movement
-- final mentor/Jarvis synthesis
+- final Empire synthesis
 
 Modules own domain detail. A module owns:
 
@@ -107,14 +107,27 @@ It does not own:
 - global priority
 - final daily recommendation
 - provider routing
-- Jarvis final synthesis
+- Empire final synthesis
 - cross-module action ranking
 
 Recorder flow must stay:
 
 ```txt
-Record -> private storage -> transcript -> module artifact/context -> Spine/Jarvis action drafts
+Record -> private storage -> transcript -> module artifact/context -> Empire -> approval-gated Spine action drafts
 ```
+
+## Empire control boundary
+
+Empire is the real conversational execution layer. It may understand intent, create plans, request approvals, call registered tools, verify results, and report receipts.
+
+Empire may not:
+
+- bypass module services
+- write arbitrary database records
+- execute unregistered tools
+- skip exact-operation approval
+- claim completion without proof
+- override the Spine as global priority authority
 
 ## AI provider boundary
 
@@ -132,7 +145,7 @@ speech_transcription
 translation
 ```
 
-Modules should not hardcode provider-specific logic unless the capability is explicitly provider-specific. Empire Recorder may use a dedicated transcription backend for speech-to-text, but its analysis/translation/follow-up reasoning should flow through the normal provider router.
+Modules should not hardcode provider-specific logic unless the capability is explicitly provider-specific. Empire Recorder may use a dedicated transcription backend for speech-to-text, but its analysis, translation, and follow-up reasoning should flow through the normal provider router.
 
 ## Local provider rule
 
@@ -173,6 +186,6 @@ No module should expose:
 - Avoids public URLs
 - Avoids raw content logging
 - Has docs and manual test plan
-- Does not duplicate the AI runtime
+- Does not duplicate the Empire runtime
 - Does not bypass the provider router
 - Fails safely without taking down the Spine

@@ -24,7 +24,7 @@ Let the owner record interviews, meetings, voice notes, and conversations from m
 - risks
 - unanswered questions
 - action drafts for approval
-- agent artifact for deeper Jarvis-grade mentor reasoning
+- agent artifact for deeper Empire mentor reasoning
 
 ## Module name and blurb
 
@@ -234,6 +234,20 @@ Text translation and analysis use the existing provider router:
 Speech-to-text is separate from chat inference. Current transcription uses the audio transcription backend in `src/spine/ai/audio.ts`.
 
 Do not expose provider keys or local provider URLs to the client.
+
+## Empire integration
+
+Empire Recorder remains a module. Empire can invoke recorder capabilities only through registered tools and owner-scoped module services.
+
+```txt
+Recording artifact
+  -> Empire reads trusted transcript evidence
+  -> Empire proposes follow-ups
+  -> owner approves exact actions
+  -> Spine receives verified actions
+```
+
+Empire must never claim transcription, analysis, or action creation without a verified backend result or receipt.
 
 ## UX requirements
 

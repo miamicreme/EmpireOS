@@ -1,14 +1,4 @@
-/**
- * V3 Compact Reasoning Agent — type surface.
- *
- * One runtime, one endpoint, ten tables. Intermediate work is recorded as typed
- * agent_run_events; final outputs are agent_artifacts; proposed work is
- * agent_action_drafts that the user approves into Spine global_actions.
- */
-
-// ---------------------------------------------------------------------------
-// Runtime
-// ---------------------------------------------------------------------------
+/** V3 Compact Reasoning Agent type surface. */
 export type RuntimePath =
   | 'fast_path'
   | 'standard_path'
@@ -159,7 +149,7 @@ export interface AgentRunOutput {
   artifactId: string | null;
   artifactType: ArtifactType;
   answer: string;
-  jarvisBrief?: string;
+  empireBrief?: string;
   operatingMode?: string;
   realIssue?: string;
   mentorNote: string;
@@ -279,7 +269,7 @@ export interface IntentResult {
 
 export interface SynthesisOutput {
   answer: string;
-  jarvisBrief: string;
+  empireBrief: string;
   operatingMode: string;
   realIssue: string;
   mentorNote: string;

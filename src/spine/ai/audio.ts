@@ -1,44 +1,43 @@
 /**
- * Audio transcription.
+ * Audio transcription capability.
  *
- * Speech-to-text is a distinct capability from the text-completion abstraction
- * in `provider.ts` (none of the configured chat providers accept raw audio
- * bytes here) — OpenAI Whisper is the only wired transcription backend today.
- * Absent an OpenAI key, this degrades to a deterministic stub, matching the
- * rest of the AI layer's "never require API keys to run the app" rule.
+ * Speech-to-text is distinct from chat completion. This service returns a typed
+ * failure when no real transcription backend is configured; it never returns a
+ * fake transcript or marks stub output as successful work.
  */
 import { aiKeys } from '@/lib/env';
 import { logger } from '@/lib/logger';
+import { appError } from '@/lib/errors';
+import { err, ok, type AppResult } from '@/lib/result';
 
 export interface TranscriptionResult {
   text: string;
   language: string | null;
   durationSeconds: number | null;
-  provider: 'openai' | 'stub';
-}
-
-function stubTranscription(reason: string): TranscriptionResult {
-  return {
-    text: `[STUB] ${reason} Configure OPENAI_API_KEY to enable real transcription.`,
-    language: null,
-    durationSeconds: null,
-    provider: 'stub',
-  };
+  provider: 'openai';
 }
 
 /**
  * Transcribe an audio file with OpenAI Whisper. `audio` is the raw file bytes
- * as uploaded by the client; `fileName` should keep a real extension since the
- * API infers format from it.
+ * as uploaded by the client; `fileName` should retain a supported extension.
  */
 export async function transcribeAudio(
   audio: Buffer,
   mimeType: string,
   fileName: string,
-): Promise<TranscriptionResult> {
+): Promise<AppResult<TranscriptionResult>> {
   const apiKey = aiKeys.openai;
   if (!apiKey) {
-    return stubTranscription('No transcription provider configured.');
+    return err(
+      appError(
+        'capability_unavailable',
+        'Audio transcription is not configured.',
+        {
+          capability: 'speech_to_text',
+          requiredConfiguration: ['OPENAI_API_KEY'],
+        },
+      ),
+    );
   }
 
   try {
@@ -52,20 +51,25 @@ export async function transcribeAudio(
       response_format: 'verbose_json',
     });
 
-    // `verbose_json` includes `language` and `duration`; the SDK's base type
-    // only guarantees `text`, so read the extra fields defensively.
-    const extended = response as unknown as { text: string; language?: string; duration?: number };
+    const extended = response as unknown as {
+      text: string;
+      language?: string;
+      duration?: number;
+    };
 
-    return {
-      text: extended.text ?? '',
+    if (!extended.text?.trim()) {
+      return err(appError('ai_provider_error', 'Transcription provider returned an empty transcript.'));
+    }
+
+    return ok({
+      text: extended.text,
       language: extended.language ?? null,
       durationSeconds: typeof extended.duration === 'number' ? extended.duration : null,
       provider: 'openai',
-    };
-  } catch (error) {
-    logger.warn('audio_transcription_failed', {
-      error: error instanceof Error ? error.message : String(error),
     });
-    return stubTranscription('Transcription provider call failed.');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Transcription provider call failed.';
+    logger.warn('audio_transcription_failed', { error: message });
+    return err(appError('ai_provider_error', 'Audio transcription failed.', { provider: 'openai' }));
   }
 }

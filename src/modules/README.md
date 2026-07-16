@@ -2,7 +2,7 @@
 
 Each module owns a domain, implements `ModuleContract`, and is registered in `src/spine/module-registry.ts`.
 
-The Spine owns priority. Modules own detail. A module should never bypass the Spine for global ranking, daily priority, cross-module action ordering, or final Jarvis synthesis.
+The Spine owns priority. Modules own detail. A module should never bypass the Spine for global ranking, daily priority, cross-module action ordering, or final Empire synthesis.
 
 ## Registered Modules
 
@@ -27,7 +27,7 @@ Every module folder contains:
 - `schemas.ts` — Zod validation schemas
 - `metrics.ts` — `getMetrics()` + `getHealth()`
 - `actions.ts` — `getActions()` from global_actions
-- `decisions.ts` — `getDecisionContext()` for AI layer
+- `decisions.ts` — `getDecisionContext()` for the Empire intelligence layer
 - `events.ts` — emit safe system events
 - `health.ts` — re-export of `getHealth()` when useful
 - `service.ts` — CRUD functions + `ModuleContract` export
@@ -44,7 +44,7 @@ Every module folder contains:
 
 - Modules own domain data and domain workflows.
 - The Spine owns global priority, phase movement, and cross-module decisions.
-- AI-generated module outputs should become artifacts, decision context, or approval-gated action drafts.
+- Empire-generated module outputs should become artifacts, decision context, or approval-gated action drafts.
 - Sensitive files must use private storage only.
 - No module should log raw transcripts, audio content, secrets, or full private payloads.
 - Module failures should degrade safely and show red health, not crash the whole Spine.

@@ -10,6 +10,10 @@ export type AppErrorCode =
   | 'conflict'
   | 'db_error'
   | 'redaction_blocked'
+  | 'capability_unavailable'
+  | 'tool_not_found'
+  | 'tool_not_allowed'
+  | 'tool_execution_failed'
   | 'ai_provider_error'
   | 'invalid_state'
   | 'internal';
@@ -35,15 +39,19 @@ export function httpStatusForError(code: AppErrorCode): number {
       return 401;
     case 'forbidden':
     case 'redaction_blocked':
+    case 'tool_not_allowed':
       return 403;
     case 'not_found':
+    case 'tool_not_found':
       return 404;
     case 'validation':
       return 422;
     case 'conflict':
-      return 409;
     case 'invalid_state':
       return 409;
+    case 'capability_unavailable':
+      return 503;
+    case 'tool_execution_failed':
     case 'ai_provider_error':
     case 'db_error':
     case 'internal':

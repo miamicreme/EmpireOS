@@ -11,7 +11,7 @@ Private execution operating system for KJB Empire planning.
 - **Empire Recorder** — private conversation-intelligence module for recording interviews/meetings, saving audio, transcribing, translating, analyzing, and drafting follow-ups. See [`docs/EMPIRE_RECORDER.md`](./docs/EMPIRE_RECORDER.md).
 - **AI Decision Engine** — a multi-advisor engine that turns information into decisions.
 - **Provider Router** — routes AI work through Requesty, direct cloud keys, LM Studio local/private fallback, free OpenAI-compatible fallbacks, and stub mode. See [`docs/INFERENCE_SERVERS.md`](./docs/INFERENCE_SERVERS.md).
-- **Jarvis-grade Mentor Agent** — an AI execution layer on top of the Spine that reads context, diagnoses the real issue, maps leverage, spots blind spots, generates briefs, and drafts actions for approval.
+- **Empire Intelligence** — the real conversational execution layer above the Spine. It reads trusted context, diagnoses the real issue, plans governed work, requests approval, executes registered tools, verifies outcomes, and returns receipts.
 
 Flow: **Inputs create artifacts → Artifacts feed decisions → Decisions create actions → Actions move phases → Phases build the empire.**
 
@@ -37,12 +37,13 @@ Core law: **The Spine owns priority. Modules own detail. Decisions create action
 - ✅ Module CRUD + review API routes (auth + RLS + Zod on every write)
 - ✅ Dashboard UI + command center
 - ✅ Individual module UIs wired through their module/API boundaries
-- ✅ AI Chief of Staff / Jarvis-grade mentor surface
+- ✅ Empire conversational intelligence surface
 - ✅ Universal input foundation
 - ✅ Passkey multi-device pairing plan and implementation path
 - ✅ Career Command intelligence helper for fit scoring, pipeline risks, and interview/application next moves
 - ✅ Empire Recorder architecture and module path
 - ✅ LM Studio local/private provider support path
+- 🚧 Empire VNext control plane: governed tools, approvals, receipts, durable runs
 - ⏭️ Validation, deployment, and live Supabase wiring next
 
 See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next steps.
@@ -55,12 +56,13 @@ See [`docs/PROGRESS.md`](./docs/PROGRESS.md) for the detailed status and next st
 4. ✅ Decision engine
 5. ✅ Dashboard UI
 6. ✅ Individual module UIs
-7. ✅ Jarvis-grade AI mentor surface
+7. ✅ Empire conversational intelligence surface
 8. ✅ Career Command intelligence extraction
 9. ✅ Empire Recorder architecture and implementation path
 10. ✅ LM Studio provider routing support
 11. ✅ Spine/module guardrails and safe module fanout
-12. ⏭️ Validation and deployment
+12. 🚧 Empire governed execution runtime
+13. ⏭️ Validation and deployment
 
 ## Career Command Pipeline
 
@@ -87,11 +89,27 @@ Record interview
   -> Translate
   -> Analyze conversation
   -> Create voice_transcript_analysis artifact
-  -> Send to Jarvis-grade mentor agent
+  -> Send to Empire
   -> Draft approval-gated Spine actions
 ```
 
-Empire Recorder must be consent-first, owner-only, private-storage-only, and integrated into the existing artifact and agent runtime instead of becoming a separate AI subsystem.
+Empire Recorder must be consent-first, owner-only, private-storage-only, and integrated into the existing artifact and Empire runtime instead of becoming a separate AI subsystem.
+
+## Empire Execution Flow
+
+```txt
+Owner request
+  -> Empire understands intent
+  -> Empire plans with registered tools only
+  -> Approval policy is enforced
+  -> Module service executes
+  -> Postcondition is verified
+  -> Receipt is stored
+  -> Spine is updated
+  -> Empire reports proof
+```
+
+Empire is not a fictional assistant or a chat theme. It is the real control plane connecting conversation to governed backend execution.
 
 ## AI Provider Routing
 
@@ -115,7 +133,7 @@ LM Studio is useful for local/private desktop workflows, but mobile-only usage s
 - [`docs/JOB_HUNT_INTELLIGENCE.md`](./docs/JOB_HUNT_INTELLIGENCE.md) — Career Command / job-hunt intelligence extraction
 - [`docs/EMPIRE_RECORDER.md`](./docs/EMPIRE_RECORDER.md) — audio recorder / conversation intelligence architecture
 - [`docs/INFERENCE_SERVERS.md`](./docs/INFERENCE_SERVERS.md) — Requesty, LM Studio, and production inference strategy
-- [`docs/MENTOR_GENIUS_PROMPT.md`](./docs/MENTOR_GENIUS_PROMPT.md) — mentor behavior standard
+- [`docs/MENTOR_GENIUS_PROMPT.md`](./docs/MENTOR_GENIUS_PROMPT.md) — Empire mentor behavior standard
 - [`CLAUDE_BUILD_INSTRUCTIONS.md`](./CLAUDE_BUILD_INSTRUCTIONS.md)
 - [`MASTER_GUIDE.md`](./MASTER_GUIDE.md)
 - [`docs/prompts/Backend_Spine_Prompt_V3_High_Tech.md`](./docs/prompts/Backend_Spine_Prompt_V3_High_Tech.md)

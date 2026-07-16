@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
 import { jsonError, jsonResult } from '@/lib/api';
@@ -5,8 +6,8 @@ import { appError } from '@/lib/errors';
 import { ok } from '@/lib/result';
 import { analyzeRecording, translateTranscript } from '@/modules/recorder/analysis';
 import { emitRecorderEvent } from '@/modules/recorder/events';
-import { downloadAudioBytes, getRecordingById, patchRecording } from '@/modules/recorder/service';
-import { transcribeAudio } from '@/spine/ai/audio';
+import { getRecordingById, patchRecording } from '@/modules/recorder/service';
+import { executeTool } from '@/spine/tools/tool-executor';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,10 +24,9 @@ function looksEnglish(language: string | null): boolean {
  * POST /api/recorder/[id]/process
  *
  * Explicit owner action that runs transcription, translation, and analysis.
- * This keeps the recorder consent-first: upload/save does not send audio to AI
- * until the owner clicks Process.
+ * Upload/save never sends audio to AI until the owner clicks Process.
  */
-export async function POST(_request: Request, { params }: Params) {
+export async function POST(request: Request, { params }: Params) {
   const supabase = createClient();
   const auth = await requireUserId(supabase);
   if (!auth.ok) return jsonError(auth.error);
@@ -43,26 +43,22 @@ export async function POST(_request: Request, { params }: Params) {
     let language = current.data.language;
 
     if (!transcript) {
-      const downloaded = await downloadAudioBytes(supabase, auth.data, id);
-      if (!downloaded.ok) return jsonError(downloaded.error);
+      const traceId = request.headers.get('x-trace-id') ?? randomUUID();
+      const transcriptionRun = await executeTool(
+        'recorder.transcribe',
+        { userId: auth.data, supabase, traceId },
+        { recordingId: id },
+      );
+      if (!transcriptionRun.ok) return jsonError(transcriptionRun.error);
 
-      await patchRecording(supabase, auth.data, id, { status: 'transcribing', error: null });
-      const transcribed = await transcribeAudio(downloaded.data.bytes, downloaded.data.mimeType, `${id}.audio`);
-      transcript = transcribed.text;
-      language = transcribed.language;
+      const transcribedRecording = await getRecordingById(supabase, auth.data, id);
+      if (!transcribedRecording.ok) return jsonError(transcribedRecording.error);
+      transcript = transcribedRecording.data.transcript;
+      language = transcribedRecording.data.language;
+    }
 
-      const updated = await patchRecording(supabase, auth.data, id, {
-        status: 'transcribed',
-        transcript,
-        language,
-        error: null,
-      });
-      if (!updated.ok) return jsonError(updated.error);
-
-      await emitRecorderEvent(supabase, auth.data, 'recording.transcribed', id, {
-        provider: transcribed.provider,
-        language,
-      });
+    if (!transcript) {
+      return jsonError(appError('invalid_state', 'Transcription completed without a transcript.'));
     }
 
     if (!translatedTranscript) {

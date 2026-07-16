@@ -1,6 +1,4 @@
-/**
- * Agent orchestrator — the one runtime behind POST /api/ai/agent/run.
- */
+/** Agent orchestrator — the one runtime behind POST /api/ai/agent/run. */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ok, type AppResult } from '@/lib/result';
 import { logger } from '@/lib/logger';
@@ -73,18 +71,27 @@ export async function runAgent(
   if (runResult.data.reused) {
     return ok(
       await reconstructOutput(
-        supabase, userId, runResult.data.run, runResult.data.run.thread_id ?? thread.data.id,
+        supabase,
+        userId,
+        runResult.data.run,
+        runResult.data.run.thread_id ?? thread.data.id,
       ),
     );
   }
   const runId = runResult.data.run.id;
 
   let order = 0;
-  const event = (type: Parameters<typeof repo.appendEvent>[4], summary?: string, payload?: Record<string, unknown>) =>
-    repo.appendEvent(supabase, userId, runId, order++, type, { summary, payload });
+  const event = (
+    type: Parameters<typeof repo.appendEvent>[4],
+    summary?: string,
+    payload?: Record<string, unknown>,
+  ) => repo.appendEvent(supabase, userId, runId, order++, type, { summary, payload });
 
   const failRun = async (message: string): Promise<void> => {
-    await repo.appendEvent(supabase, userId, runId, order++, 'error', { summary: message, status: 'failed' });
+    await repo.appendEvent(supabase, userId, runId, order++, 'error', {
+      summary: message,
+      status: 'failed',
+    });
     await repo.finalizeRun(supabase, userId, runId, {
       status: 'failed',
       errorMessage: message,
@@ -124,7 +131,6 @@ export async function runAgent(
     }
 
     const credentialPromise = resolveStrategyCredentials(supabase, userId);
-
     const packResult = await buildContextPack(supabase, userId, route.intent);
     if (!packResult.ok) {
       await failRun(packResult.error.message);
@@ -136,15 +142,20 @@ export async function runAgent(
       .join('\n');
     if (inputArtifactSummary) {
       pack.relevantFacts = { ...pack.relevantFacts, attachedInputArtifacts: inputArtifactSummary };
-      pack.sourceRefs = [...pack.sourceRefs, ...inputArtifacts.data.map((artifact) => `agent_artifact:${artifact.id}`)];
+      pack.sourceRefs = [
+        ...pack.sourceRefs,
+        ...inputArtifacts.data.map((artifact) => `agent_artifact:${artifact.id}`),
+      ];
       pack.summary = `${pack.summary} Attached inputs: ${inputArtifacts.data.length}.`;
     }
-    await event('context_built', pack.summary, { contextHash: pack.contextHash, tokenEstimate: pack.tokenEstimate, inputArtifactCount: inputArtifacts.data.length });
+    await event('context_built', pack.summary, {
+      contextHash: pack.contextHash,
+      tokenEstimate: pack.tokenEstimate,
+      inputArtifactCount: inputArtifacts.data.length,
+    });
 
     const existingPack = await repo.findContextPackByHash(supabase, userId, pack.contextHash);
-    if (!existingPack) {
-      await repo.saveContextPack(supabase, userId, runId, pack);
-    }
+    if (!existingPack) await repo.saveContextPack(supabase, userId, runId, pack);
 
     const memoryRequests = evaluateMemoryGate(context, route.intent, route.stakes);
     await event('memory_gate', `${memoryRequests.length} memory question(s)`);
@@ -167,24 +178,43 @@ export async function runAgent(
     );
     const credentials = await credentialPromise;
     const providerName = effectiveProviderName(credentials);
-    await event('provider_selected', strategy.reason, { provider: providerName, model: strategy.model });
+    await event('provider_selected', strategy.reason, {
+      provider: providerName,
+      model: strategy.model,
+    });
 
     let votes: SpecialistVote[] = [];
     if (route.runtimePath === 'deep_path' && strategy.specialists.length > 0) {
       votes = await runSpecialistCouncil(
-        supabase, userId, runId, strategy.specialists, pack, input.command, strategy.model, credentials,
+        supabase,
+        userId,
+        runId,
+        strategy.specialists,
+        pack,
+        input.command,
+        strategy.model,
+        credentials,
       );
-      for (const v of votes) {
+      for (const vote of votes) {
         await repo.appendEvent(supabase, userId, runId, order++, 'specialist_vote', {
-          summary: `${v.specialist}: ${v.recommendation.slice(0, 120)}`,
-          status: v.status === 'invalid_output' ? 'invalid_output' : 'complete',
-          payload: { specialist: v.specialist, confidence: v.confidence },
+          summary: `${vote.specialist}: ${vote.recommendation.slice(0, 120)}`,
+          status: vote.status === 'invalid_output' ? 'invalid_output' : 'complete',
+          payload: { specialist: vote.specialist, confidence: vote.confidence },
         });
       }
     }
 
     const synth = await synthesizeFinal(
-      supabase, userId, runId, input.command, pack, context, votes, strategy.model, route.runtimePath, credentials,
+      supabase,
+      userId,
+      runId,
+      input.command,
+      pack,
+      context,
+      votes,
+      strategy.model,
+      route.runtimePath,
+      credentials,
     );
     const out = synth.output;
     const reasoningArtifact = buildReasoningArtifact({
@@ -198,7 +228,10 @@ export async function runAgent(
       votes,
       output: out,
     });
-    await event('final_synthesized', out.answer.slice(0, 160), { confidence: out.confidence, operatingMode: out.operatingMode });
+    await event('final_synthesized', out.answer.slice(0, 160), {
+      confidence: out.confidence,
+      operatingMode: out.operatingMode,
+    });
 
     const artifact = await repo.saveArtifact(supabase, userId, runId, {
       artifactType: route.artifactType,
@@ -206,7 +239,7 @@ export async function runAgent(
       summary: out.reasoningSummary,
       contentJson: {
         answer: out.answer,
-        jarvisBrief: out.jarvisBrief,
+        empireBrief: out.empireBrief,
         operatingMode: out.operatingMode,
         realIssue: out.realIssue,
         mentorNote: out.mentorNote,
@@ -227,7 +260,7 @@ export async function runAgent(
         risks: out.risks,
         opportunities: out.opportunities,
         nextActions: out.nextActions,
-        specialistVotes: votes.filter((v) => v.status === 'valid'),
+        specialistVotes: votes.filter((vote) => vote.status === 'valid'),
         researchRequests: research.requests,
         memoryRequests,
         inputArtifacts: inputArtifacts.data.map((artifact) => ({
@@ -247,7 +280,11 @@ export async function runAgent(
     }
 
     const draftsResult = await repo.createActionDrafts(
-      supabase, userId, runId, artifact.data.id, out.suggestedDrafts,
+      supabase,
+      userId,
+      runId,
+      artifact.data.id,
+      out.suggestedDrafts,
     );
     const drafts = draftsResult.ok ? draftsResult.data : [];
     if (drafts.length > 0) {
@@ -289,7 +326,7 @@ export async function runAgent(
       artifactId: artifact.data.id,
       artifactType: route.artifactType,
       answer: out.answer,
-      jarvisBrief: out.jarvisBrief,
+      empireBrief: out.empireBrief,
       operatingMode: out.operatingMode,
       realIssue: out.realIssue,
       mentorNote: out.mentorNote,
@@ -312,8 +349,12 @@ export async function runAgent(
       memoryRequests,
       researchRequests: research.requests,
       specialistVotes: votes
-        .filter((v) => v.status === 'valid')
-        .map((v) => ({ specialist: v.specialist, recommendation: v.recommendation, confidence: v.confidence })),
+        .filter((vote) => vote.status === 'valid')
+        .map((vote) => ({
+          specialist: vote.specialist,
+          recommendation: vote.recommendation,
+          confidence: vote.confidence,
+        })),
       providerSummary: {
         providersUsed: [providerName],
         fallbackUsed: false,
@@ -323,7 +364,10 @@ export async function runAgent(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('agent_run_failed', { runId, error: message });
-    await repo.appendEvent(supabase, userId, runId, order++, 'error', { summary: message, status: 'failed' });
+    await repo.appendEvent(supabase, userId, runId, order++, 'error', {
+      summary: message,
+      status: 'failed',
+    });
     await repo.finalizeRun(supabase, userId, runId, {
       status: 'failed',
       errorMessage: message,
@@ -338,7 +382,7 @@ export async function runAgent(
       artifactId: null,
       artifactType: 'answer',
       answer: 'The agent run failed. Please try again.',
-      jarvisBrief: '',
+      empireBrief: '',
       operatingMode: '',
       realIssue: '',
       mentorNote: '',
@@ -361,7 +405,11 @@ export async function runAgent(
       memoryRequests: [],
       researchRequests: [],
       specialistVotes: [],
-      providerSummary: { providersUsed: [], fallbackUsed: false, latencyMs: Date.now() - startedAt },
+      providerSummary: {
+        providersUsed: [],
+        fallbackUsed: false,
+        latencyMs: Date.now() - startedAt,
+      },
     });
   }
 }
@@ -380,7 +428,9 @@ async function reconstructOutput(
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  const content = (artifactRow as repo.ArtifactRow | null)?.content_json as Record<string, unknown> | undefined;
+  const content = (artifactRow as repo.ArtifactRow | null)?.content_json as
+    | Record<string, unknown>
+    | undefined;
 
   const { data: draftRows } = await supabase
     .from('agent_action_drafts')
@@ -395,9 +445,11 @@ async function reconstructOutput(
     status: run.status,
     intent: (run.intent as AgentRunOutput['intent']) ?? 'general',
     artifactId: (artifactRow as repo.ArtifactRow | null)?.id ?? null,
-    artifactType: ((artifactRow as repo.ArtifactRow | null)?.artifact_type as AgentRunOutput['artifactType']) ?? 'answer',
+    artifactType:
+      ((artifactRow as repo.ArtifactRow | null)?.artifact_type as AgentRunOutput['artifactType']) ??
+      'answer',
     answer: run.final_summary ?? (content?.answer as string) ?? '',
-    jarvisBrief: (content?.jarvisBrief as string) ?? '',
+    empireBrief: (content?.empireBrief as string) ?? '',
     operatingMode: (content?.operatingMode as string) ?? '',
     realIssue: (content?.realIssue as string) ?? '',
     mentorNote: (content?.mentorNote as string) ?? '',
@@ -410,7 +462,8 @@ async function reconstructOutput(
     conversationStarters: (content?.conversationStarters as string[]) ?? [],
     nextBestQuestion: (content?.nextBestQuestion as string) ?? '',
     reasoningSummary: (content?.reasoningSummary as string) ?? '',
-    reasoningArtifact: (content?.reasoningArtifact as AgentRunOutput['reasoningArtifact']) ?? null,
+    reasoningArtifact:
+      (content?.reasoningArtifact as AgentRunOutput['reasoningArtifact']) ?? null,
     confidence: run.confidence ?? 0.5,
     riskLevel: (run.risk_level as AgentRunOutput['riskLevel']) ?? 'low',
     risks: (content?.risks as string[]) ?? [],
@@ -420,6 +473,10 @@ async function reconstructOutput(
     memoryRequests: [],
     researchRequests: [],
     specialistVotes: [],
-    providerSummary: { providersUsed: [], fallbackUsed: false, latencyMs: run.latency_ms ?? 0 },
+    providerSummary: {
+      providersUsed: [],
+      fallbackUsed: false,
+      latencyMs: run.latency_ms ?? 0,
+    },
   };
 }
