@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { ZodType } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import type { AppResult } from '@/lib/result';
 
 export type ToolRiskLevel = 'read' | 'low' | 'medium' | 'high' | 'critical';
@@ -31,8 +31,8 @@ export interface ToolDefinition<I, O> {
   version: string;
   moduleId: string;
   description: string;
-  inputSchema: ZodType<I>;
-  outputSchema: ZodType<O>;
+  inputSchema: ZodType<I, ZodTypeDef, unknown>;
+  outputSchema: ZodType<O, ZodTypeDef, unknown>;
   riskLevel: ToolRiskLevel;
   sideEffect: ToolSideEffect;
   approvalPolicy: ToolApprovalPolicy;
