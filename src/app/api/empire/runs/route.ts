@@ -13,16 +13,16 @@ function isGovernedCommand(body: { message: string; recordingId?: string; action
       body.actionDraftId ||
       /approve.*action|activate.*draft|create.*spine action/.test(message) ||
       /transcrib|recording|interview audio/.test(message) ||
-      /focus|today|priority|priorities|what matters|highest[- ]leverage/.test(message),
+      /what should i focus|focus today|review.*priorit|show.*priorit|what matters most|highest[- ]leverage|spine context/.test(message),
   );
 }
 
 /**
  * POST /api/empire/runs
  *
- * Authoritative Empire command path. Governed operational intents stay on the
- * Tool Gateway path. All other natural-language requests are delegated to the
- * broader AI runtime and persisted as Empire runs, without bypassing approvals.
+ * Empire is the single owner-facing command path. Governed operational intents
+ * use the Tool Gateway, approvals, and receipts. All other natural-language
+ * requests use the broader provider-backed intelligence runtime.
  */
 export async function POST(request: Request) {
   const supabase = createClient();
