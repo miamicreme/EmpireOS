@@ -16,8 +16,7 @@ interface NavItem {
 
 const CORE: NavItem[] = [
   { href: '/today' as Route, label: 'Today', icon: '⬡' },
-  { href: '/empire' as Route, label: 'Empire Voice', icon: '◉' },
-  { href: '/ai' as Route, label: 'AI Command', icon: '✦' },
+  { href: '/empire' as Route, label: 'Empire', icon: '◉' },
   { href: '/ai/input' as Route, label: 'Inputs', icon: '⇥' },
   { href: '/recorder' as Route, label: 'Recorder', icon: '●' },
   { href: '/actions' as Route, label: 'Actions', icon: '⚡' },
