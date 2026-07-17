@@ -4,6 +4,7 @@ import { appError } from '@/lib/errors';
 import { err, ok, type AppResult } from '@/lib/result';
 import { runAgent } from '@/spine/ai/agent/agent-orchestrator.service';
 import { createEmpireRun, updateEmpireRun } from './empire-run.repository';
+import { decideEmpireDelegation, type EmpireConductorDecision } from './conductor-agent.service';
 
 export interface EmpireConversationResult {
   runId: string;
@@ -20,6 +21,12 @@ export interface EmpireConversationResult {
     runtimePath: string;
     providerSummary: unknown;
     nextBestQuestion?: string;
+    conductor: {
+      provider: string;
+      model: string;
+      decision: EmpireConductorDecision;
+    };
+    specialistAgents: string[];
   };
   nextBestQuestion?: string;
 }
@@ -41,18 +48,25 @@ export async function runEmpireGeneralConversation(
     conversationId: input.conversationId,
     status: 'understanding',
     intent: 'general_conversation',
-    requestSummary: 'Owner requested general conversational intelligence through Empire.',
+    requestSummary: 'Owner requested conversational intelligence through Empire Conductor.',
   });
   if (!created.ok) return created;
 
   const planning = await updateEmpireRun(supabase, userId, runId, { status: 'planning' });
   if (!planning.ok) return planning;
 
+  const conductor = await decideEmpireDelegation(supabase, userId, message);
+  const decision = conductor.decision;
+
   const agent = await runAgent(supabase, userId, {
     command: message,
-    modeHint: 'empire_conversation',
-    runtimePreference: 'standard',
+    modeHint: decision.responseMode === 'delegated' ? 'empire_orchestrated' : 'empire_conversation',
+    moduleHint: decision.moduleHint ?? undefined,
+    runtimePreference: decision.runtimePreference,
+    threadId: input.conversationId ?? undefined,
     idempotency: `empire:${runId}`,
+    useResearch: decision.useResearch,
+    goDeeper: decision.goDeeper || decision.responseMode === 'delegated',
   });
 
   if (!agent.ok) {
@@ -62,11 +76,23 @@ export async function runEmpireGeneralConversation(
       completed_at: new Date().toISOString(),
       error_code: agent.error.code,
       error_message: agent.error.message.slice(0, 1000),
+      safe_result: {
+        conductorProvider: conductor.provider,
+        conductorModel: conductor.model,
+        conductorDecision: decision,
+      },
     });
     return agent;
   }
 
   const answer = agent.data.answer.trim() || agent.data.mentorNote.trim();
+  const specialistAgents = agent.data.specialistVotes.map((vote) => vote.specialist);
+  const conductorData = {
+    provider: conductor.provider,
+    model: conductor.model,
+    decision,
+  };
+
   if (!answer) {
     const fallback = 'I understood the request, but the AI provider returned no usable answer.';
     await updateEmpireRun(supabase, userId, runId, {
@@ -74,7 +100,14 @@ export async function runEmpireGeneralConversation(
       response_message: fallback,
       next_best_question: agent.data.nextBestQuestion ?? 'Could you restate the outcome you need?',
       completed_at: new Date().toISOString(),
-      safe_result: { agentRunId: agent.data.runId, emptyAnswer: true },
+      safe_result: {
+        agentRunId: agent.data.runId,
+        emptyAnswer: true,
+        conductorProvider: conductor.provider,
+        conductorModel: conductor.model,
+        conductorDecision: decision,
+        specialistAgents,
+      },
     });
     return ok({
       runId,
@@ -92,6 +125,8 @@ export async function runEmpireGeneralConversation(
         runtimePath: agent.data.runtimePath,
         providerSummary: agent.data.providerSummary,
         nextBestQuestion: agent.data.nextBestQuestion,
+        conductor: conductorData,
+        specialistAgents,
       },
     });
   }
@@ -111,6 +146,10 @@ export async function runEmpireGeneralConversation(
       providersUsed: agent.data.providerSummary.providersUsed,
       fallbackUsed: agent.data.providerSummary.fallbackUsed,
       actionDraftCount: agent.data.actionDrafts.length,
+      conductorProvider: conductor.provider,
+      conductorModel: conductor.model,
+      conductorDecision: decision,
+      specialistAgents,
     },
   });
   if (!updated.ok) return updated;
@@ -131,6 +170,8 @@ export async function runEmpireGeneralConversation(
       runtimePath: agent.data.runtimePath,
       providerSummary: agent.data.providerSummary,
       nextBestQuestion: agent.data.nextBestQuestion,
+      conductor: conductorData,
+      specialistAgents,
     },
   });
 }
