@@ -17,6 +17,7 @@ import { projectsModule } from '@/modules/projects/service';
 import { acquisitionsModule } from '@/modules/acquisitions/service';
 import { dealIntelModule } from '@/modules/deal-intel/service';
 import { recorderModule } from '@/modules/recorder/service';
+import { contentIntelligenceModule } from '@/modules/content-intelligence/service';
 import { logger } from '@/lib/logger';
 import type { ModuleContract } from './module-contract';
 import type { ModuleHealthCheck } from './module-contract';
@@ -37,6 +38,7 @@ export const moduleRegistry: ReadonlyArray<ModuleContract> = [
   acquisitionsModule,
   dealIntelModule,
   recorderModule,
+  contentIntelligenceModule,
 ];
 
 export function getActiveModules(): ReadonlyArray<ModuleContract> {
