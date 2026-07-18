@@ -39,13 +39,12 @@ services:
         sync: false
 
       # --- Passkey / WebAuthn (required) --------------------------------------
-      # WEBAUTHN_RP_ID must equal the site's registrable domain; WEBAUTHN_ORIGIN
-      # is the full origin (scheme + host). Set these to your Render URL or your
-      # custom domain BEFORE registering a passkey.
+      # Temporary production domain. Change both values together before moving
+      # to a custom domain, then register new passkeys on that domain.
       - key: WEBAUTHN_ORIGIN
-        sync: false
+        value: https://empireos.onrender.com
       - key: WEBAUTHN_RP_ID
-        sync: false
+        value: empireos.onrender.com
       - key: WEBAUTHN_RP_NAME
         value: Empire OS
       - key: OWNER_EMAIL
