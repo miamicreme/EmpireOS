@@ -39,12 +39,16 @@ export async function POST(request: Request) {
     });
   }
 
-  const result = isGovernedCommand(parsed.data)
-    ? await runEmpireCommand(supabase, auth.data, parsed.data)
-    : await runEmpireGeneralConversation(supabase, auth.data, {
-        message: parsed.data.message,
-        conversationId: parsed.data.conversationId,
-      });
+  if (isGovernedCommand(parsed.data)) {
+    const governedResult = await runEmpireCommand(supabase, auth.data, parsed.data);
+    return governedResult.ok ? jsonResult(governedResult) : jsonError(governedResult.error);
+  }
 
-  return result.ok ? jsonResult(result) : jsonError(result.error);
+  const conversationResult = await runEmpireGeneralConversation(supabase, auth.data, {
+    message: parsed.data.message,
+    conversationId: parsed.data.conversationId,
+  });
+  return conversationResult.ok
+    ? jsonResult(conversationResult)
+    : jsonError(conversationResult.error);
 }
