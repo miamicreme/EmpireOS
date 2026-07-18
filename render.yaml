@@ -39,12 +39,12 @@ services:
         sync: false
 
       # --- Passkey / WebAuthn (required) --------------------------------------
-      # Temporary production domain. Change both values together before moving
-      # to a custom domain, then register new passkeys on that domain.
+      # Canonical production domain. Keep these values in sync. Passkeys are
+      # cryptographically bound to this relying-party domain.
       - key: WEBAUTHN_ORIGIN
-        value: https://empireos.onrender.com
+        value: https://empire.kohronburton.com
       - key: WEBAUTHN_RP_ID
-        value: empireos.onrender.com
+        value: empire.kohronburton.com
       - key: WEBAUTHN_RP_NAME
         value: Empire OS
       - key: OWNER_EMAIL
