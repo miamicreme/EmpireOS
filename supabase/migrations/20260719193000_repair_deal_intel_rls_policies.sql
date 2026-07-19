@@ -60,6 +60,19 @@ as $$
   );
 $$;
 
+create or replace function public.deal_intel_asset_matches_deal(p_asset_id uuid, p_deal_id uuid)
+returns boolean
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select p_asset_id is null or exists (
+    select 1 from public.deal_intel_assets a
+    where a.id = p_asset_id and a.deal_id = p_deal_id
+  );
+$$;
+
 drop policy if exists "owner manages deals" on public.deal_intel_deals;
 create policy "owner manages deals" on public.deal_intel_deals
   for all using ((select auth.uid()) = owner_user_id)
@@ -91,13 +104,14 @@ create policy "owner manages source documents" on public.deal_intel_source_docum
   for all using (public.owns_deal_intel_deal(deal_id))
   with check (public.owns_deal_intel_deal(deal_id));
 
--- canonical_facts: also validate source_document_id and superseded_by_fact_id
--- resolve to the same deal, not just deal_id itself.
+-- canonical_facts: also validate asset_id, source_document_id, and
+-- superseded_by_fact_id all resolve to the same deal, not just deal_id itself.
 drop policy if exists "owner manages canonical facts" on public.deal_intel_canonical_facts;
 create policy "owner manages canonical facts" on public.deal_intel_canonical_facts
   for all using (public.owns_deal_intel_deal(deal_id))
   with check (
     public.owns_deal_intel_deal(deal_id)
+    and public.deal_intel_asset_matches_deal(asset_id, deal_id)
     and public.deal_intel_source_document_matches_deal(source_document_id, deal_id)
     and public.deal_intel_fact_matches_deal(superseded_by_fact_id, deal_id)
   );
