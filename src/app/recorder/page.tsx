@@ -356,38 +356,85 @@ export default function RecorderPage() {
           </div>
         </Card>
 
+        <Card className="p-5 sm:p-6">
+          <div className="grid sm:grid-cols-4 gap-4">
+            <div className="flex flex-col">
+              <div className="text-2xl font-semibold text-empire-blue">{recordings.length}</div>
+              <div className="text-xs text-empire-muted mt-1">Total recordings</div>
+            </div>
+            <div className="flex flex-col">
+              <div className="text-2xl font-semibold text-green-500">
+                {recordings.filter(r => r.status === 'ready').length}
+              </div>
+              <div className="text-xs text-empire-muted mt-1">Ready to use</div>
+            </div>
+            <div className="flex flex-col">
+              <div className="text-2xl font-semibold text-yellow-500">
+                {recordings.filter(r => ['uploading', 'transcribing', 'translating', 'analyzing'].includes(r.status)).length}
+              </div>
+              <div className="text-xs text-empire-muted mt-1">Processing</div>
+            </div>
+            <div className="flex flex-col">
+              <div className="text-2xl font-semibold text-empire-red">
+                {recordings.filter(r => r.status === 'failed').length}
+              </div>
+              <div className="text-xs text-empire-muted mt-1">Failed</div>
+            </div>
+          </div>
+        </Card>
+
         <Card>
           <CardHeader title="Recordings" subtitle={`${recordings.length} saved`} />
           <div className="p-2">
             {loading ? (
               <SkeletonRows rows={3} />
             ) : recordings.length === 0 ? (
-              <EmptyState message="No recordings yet — record your first conversation above." />
+              <div className="py-8">
+                <EmptyState message="No recordings yet. Start by recording your first conversation above." />
+              </div>
             ) : (
               <div className="divide-y divide-border">
                 {recordings.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between gap-3 px-3 py-3">
+                  <div key={r.id} className="flex items-center justify-between gap-4 px-4 py-4 hover:bg-surface-1 transition-colors">
                     <Link href={`/recorder/${r.id}` as Route} className="min-w-0 flex-1 group">
-                      <p className="text-sm text-gray-100 truncate group-hover:text-empire-blue transition-colors">{r.title}</p>
-                      <p className="mt-0.5 text-xs text-empire-muted font-mono">
-                        {new Date(r.created_at).toLocaleString()}
-                        {r.duration_seconds ? ` · ${formatTimer(Math.round(r.duration_seconds))}` : ''}
-                        {r.language ? ` · ${r.language}` : ''}
-                      </p>
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1">
+                          {r.status === 'ready' && <div className="h-2 w-2 rounded-full bg-green-500" />}
+                          {r.status === 'failed' && <div className="h-2 w-2 rounded-full bg-empire-red" />}
+                          {['uploading', 'transcribing', 'translating', 'analyzing'].includes(r.status) && (
+                            <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                          )}
+                          {!['ready', 'failed'].includes(r.status) && !['uploading', 'transcribing', 'translating', 'analyzing'].includes(r.status) && (
+                            <div className="h-2 w-2 rounded-full bg-empire-muted" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-100 truncate group-hover:text-empire-blue transition-colors">
+                            {r.title}
+                          </p>
+                          <p className="mt-1 text-xs text-empire-muted font-mono">
+                            {new Date(r.created_at).toLocaleString()}
+                            {r.duration_seconds ? ` · ${formatTimer(Math.round(r.duration_seconds))}` : ''}
+                            {r.language ? ` · ${r.language}` : ''}
+                          </p>
+                        </div>
+                      </div>
                     </Link>
-                    <Badge variant={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
-                    {PROCESSABLE_STATUSES.has(r.status) && (
-                      <Button size="sm" variant="subtle" loading={processingId === r.id} onClick={() => processRecording(r.id)}>
-                        Process
-                      </Button>
-                    )}
-                    <button
-                      className="text-empire-muted hover:text-empire-red text-xs shrink-0"
-                      onClick={() => remove(r.id)}
-                      aria-label="Delete recording"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
+                      {PROCESSABLE_STATUSES.has(r.status) && (
+                        <Button size="sm" variant="subtle" loading={processingId === r.id} onClick={() => processRecording(r.id)}>
+                          Process
+                        </Button>
+                      )}
+                      <button
+                        className="text-empire-muted hover:text-empire-red transition-colors"
+                        onClick={() => remove(r.id)}
+                        aria-label="Delete recording"
+                      >
+                        <span className="text-sm">✕</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
