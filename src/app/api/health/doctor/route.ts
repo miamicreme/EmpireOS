@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { requireUserId } from '@/lib/security';
 import { jsonError, jsonOk } from '@/lib/api';
 
@@ -24,9 +25,9 @@ interface DoctorResult {
   timestamp: string;
 }
 
-async function checkTable(supabase: ReturnType<typeof createClient>, tableName: string, isCritical = false): Promise<HealthCheck> {
+async function checkTable(supabase: ReturnType<typeof createAdminClient>, tableName: string, isCritical = false): Promise<HealthCheck> {
   try {
-    const { count, error } = await supabase
+    const { error } = await supabase
       .from(tableName)
       .select('*', { count: 'exact', head: true });
 
@@ -60,7 +61,7 @@ async function checkTable(supabase: ReturnType<typeof createClient>, tableName: 
   }
 }
 
-async function checkStorageBucket(supabase: ReturnType<typeof createClient>, bucketName: string, isCritical = false): Promise<HealthCheck> {
+async function checkStorageBucket(supabase: ReturnType<typeof createAdminClient>, bucketName: string, isCritical = false): Promise<HealthCheck> {
   try {
     const { data, error } = await supabase.storage.getBucket(bucketName);
 
@@ -121,26 +122,36 @@ export async function GET() {
 
   const checks: HealthCheck[] = [];
 
-  // Check critical tables
-  const criticalTables = ['recordings', 'actions', 'artifacts', 'global_actions', 'ai_providers'];
-  const optionalTables = ['auth_passkeys'];
-
-  for (const table of criticalTables) {
-    checks.push(await checkTable(supabase, table, true));
-  }
-
-  for (const table of optionalTables) {
-    checks.push(await checkTable(supabase, table, false));
-  }
-
-  // Check storage buckets
-  const buckets = ['recordings'];
-  for (const bucket of buckets) {
-    checks.push(await checkStorageBucket(supabase, bucket, true));
-  }
-
-  // Check environment variables
+  // Environment variables first — table/bucket checks below depend on the
+  // service-role key being present, so surface a missing key as its own
+  // actionable check rather than letting every infra check fail opaquely.
   checks.push(...await checkEnvironmentVariables());
+
+  let admin: ReturnType<typeof createAdminClient> | null = null;
+  try {
+    admin = createAdminClient();
+  } catch {
+    // SUPABASE_SERVICE_ROLE_KEY missing — already reported above.
+  }
+
+  if (admin) {
+    // Table/bucket checks use the service-role client (bypasses RLS) so
+    // "does this exist" isn't confused with "can this user see rows in it".
+    const criticalTables = ['recordings', 'global_actions', 'ai_providers', 'modules'];
+    const optionalTables = ['webauthn_credentials', 'ai_provider_secrets'];
+
+    for (const table of criticalTables) {
+      checks.push(await checkTable(admin, table, true));
+    }
+    for (const table of optionalTables) {
+      checks.push(await checkTable(admin, table, false));
+    }
+
+    const buckets = ['recordings'];
+    for (const bucket of buckets) {
+      checks.push(await checkStorageBucket(admin, bucket, true));
+    }
+  }
 
   // Determine overall health
   const errors = checks.filter(c => c.status === 'error').length;
