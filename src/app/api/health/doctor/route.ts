@@ -112,6 +112,18 @@ async function checkStorageBucket(
   }
 }
 
+function summarize(checks: HealthCheck[]): DoctorResult {
+  const failures = checks.filter((c) => c.status === 'error').length;
+  const warnings = checks.filter((c) => c.status === 'warning').length;
+  const passing = checks.filter((c) => c.status === 'ok').length;
+  return {
+    checks,
+    overallHealth: failures > 0 ? 'red' : warnings > 0 ? 'yellow' : 'green',
+    summary: { passing, warnings, failures },
+    timestamp: new Date().toISOString(),
+  };
+}
+
 async function checkEnvironmentVariables(): Promise<HealthCheck[]> {
   const required = [
     { name: 'NEXT_PUBLIC_SUPABASE_URL', critical: true },
@@ -132,16 +144,25 @@ async function checkEnvironmentVariables(): Promise<HealthCheck[]> {
 
 /** GET /api/health/doctor — comprehensive system health check. */
 export async function GET() {
-  const supabase = createClient();
-  const auth = await requireUserId(supabase);
-  if (!auth.ok) return jsonError(auth.error);
-
   const checks: HealthCheck[] = [];
 
-  // Environment variables first — table/bucket checks below depend on the
-  // service-role key being present, so surface a missing key as its own
-  // actionable check rather than letting every infra check fail opaquely.
+  // Environment variables first, and before constructing any Supabase
+  // client: a missing/malformed NEXT_PUBLIC_SUPABASE_URL or ANON_KEY makes
+  // createClient() below throw synchronously, which is exactly the
+  // misconfiguration this endpoint exists to diagnose. Surfacing it here
+  // means a broken deployment still gets a real answer instead of a bare 500.
   checks.push(...await checkEnvironmentVariables());
+
+  try {
+    const supabase = createClient();
+    const auth = await requireUserId(supabase);
+    if (!auth.ok) return jsonError(auth.error);
+  } catch {
+    // Client construction itself failed (bad URL/key) — env checks above
+    // already flagged it. Nothing further can be verified without a working
+    // Supabase connection, so return what we have instead of crashing.
+    return jsonOk(summarize(checks));
+  }
 
   let admin: ReturnType<typeof createAdminClient> | null = null;
   try {
@@ -169,23 +190,5 @@ export async function GET() {
     }
   }
 
-  // Determine overall health
-  const errors = checks.filter(c => c.status === 'error').length;
-  const warnings = checks.filter(c => c.status === 'warning').length;
-  const passing = checks.filter(c => c.status === 'ok').length;
-
-  const overallHealth = errors > 0 ? 'red' : warnings > 0 ? 'yellow' : 'green';
-
-  const result: DoctorResult = {
-    checks,
-    overallHealth,
-    summary: {
-      passing,
-      warnings,
-      failures: errors,
-    },
-    timestamp: new Date().toISOString(),
-  };
-
-  return jsonOk(result);
+  return jsonOk(summarize(checks));
 }
