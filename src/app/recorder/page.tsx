@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Field, Input } from '@/components/ui/Field';
 import { SkeletonRows } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { WaveformVisualizer } from '@/components/recorder/WaveformVisualizer';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/cn';
 
@@ -284,7 +285,14 @@ export default function RecorderPage() {
             </div>
           )}
 
-          <div className="flex flex-col items-center gap-4 py-4">
+          <div className="flex flex-col items-center gap-6 py-4">
+            {(phase === 'recording' || phase === 'paused') && (
+              <div className="w-full">
+                <p className="text-xs text-empire-muted mb-2">Waveform</p>
+                <WaveformVisualizer level={level} isRecording={phase === 'recording'} />
+              </div>
+            )}
+
             <div
               className={cn(
                 'flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border-2 transition-all',
@@ -316,6 +324,18 @@ export default function RecorderPage() {
             </div>
 
             <div className="text-3xl font-mono nums text-gray-100 tabular-nums">{formatTimer(elapsed)}</div>
+
+            {(phase === 'recording' || phase === 'paused') && (
+              <div className="flex items-center gap-2 text-xs text-empire-muted">
+                <span>Mic Level</span>
+                <div className="h-1.5 w-24 bg-surface-1 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-empire-blue to-empire-red transition-all"
+                    style={{ width: `${level * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {(phase === 'recording' || phase === 'paused') && (
               <div className="flex gap-2">
