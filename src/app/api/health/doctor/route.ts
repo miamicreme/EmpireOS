@@ -124,6 +124,26 @@ function summarize(checks: HealthCheck[]): DoctorResult {
   };
 }
 
+function isValidUrl(value: string): boolean {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Supabase anon/service-role keys are JWTs (three dot-separated segments). */
+function looksLikeSupabaseKey(value: string): boolean {
+  return value.split('.').length === 3;
+}
+
+const ENV_SHAPE_VALIDATORS: Record<string, (value: string) => boolean> = {
+  NEXT_PUBLIC_SUPABASE_URL: isValidUrl,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: looksLikeSupabaseKey,
+  SUPABASE_SERVICE_ROLE_KEY: looksLikeSupabaseKey,
+};
+
 async function checkEnvironmentVariables(): Promise<HealthCheck[]> {
   const required = [
     { name: 'NEXT_PUBLIC_SUPABASE_URL', critical: true },
@@ -131,15 +151,39 @@ async function checkEnvironmentVariables(): Promise<HealthCheck[]> {
     { name: 'SUPABASE_SERVICE_ROLE_KEY', critical: true },
   ];
 
-  return required.map((env) => ({
-    name: `Environment: ${env.name}`,
-    status: process.env[env.name] ? 'ok' : 'error',
-    message: process.env[env.name] ? 'Configured' : 'Missing',
-    recommendation: process.env[env.name]
-      ? undefined
-      : `Set ${env.name} in your .env.local or deployment environment variables.`,
-    severity: env.critical ? 'high' : 'medium',
-  }));
+  return required.map((env) => {
+    const value = process.env[env.name];
+    if (!value) {
+      return {
+        name: `Environment: ${env.name}`,
+        status: 'error' as const,
+        message: 'Missing',
+        recommendation: `Set ${env.name} in your .env.local or deployment environment variables.`,
+        severity: env.critical ? 'high' as const : 'medium' as const,
+      };
+    }
+
+    const shapeOk = ENV_SHAPE_VALIDATORS[env.name]?.(value) ?? true;
+    if (!shapeOk) {
+      return {
+        name: `Environment: ${env.name}`,
+        status: 'error' as const,
+        message: 'Set, but malformed',
+        details: env.name === 'NEXT_PUBLIC_SUPABASE_URL'
+          ? `"${value}" is not a valid URL.`
+          : 'Does not look like a Supabase JWT key (expected three dot-separated segments).',
+        recommendation: `Double-check the value of ${env.name} — it's set but doesn't look right, which will break Supabase client construction.`,
+        severity: env.critical ? 'high' as const : 'medium' as const,
+      };
+    }
+
+    return {
+      name: `Environment: ${env.name}`,
+      status: 'ok' as const,
+      message: 'Configured',
+      severity: env.critical ? 'high' as const : 'medium' as const,
+    };
+  });
 }
 
 /** GET /api/health/doctor — comprehensive system health check. */
@@ -174,8 +218,15 @@ export async function GET() {
   if (admin) {
     // Table/bucket checks use the service-role client (bypasses RLS) so
     // "does this exist" isn't confused with "can this user see rows in it".
-    const criticalTables = ['recordings', 'global_actions', 'ai_providers', 'modules'];
-    const optionalTables = ['webauthn_credentials', 'ai_provider_secrets'];
+    const criticalTables = ['recordings', 'global_actions', 'ai_providers', 'modules', 'empire_documents'];
+    const optionalTables = [
+      'webauthn_credentials',
+      'ai_provider_secrets',
+      'empire_document_extractions',
+      'empire_document_analyses',
+      'empire_document_routes',
+      'empire_document_links',
+    ];
 
     for (const table of criticalTables) {
       checks.push(await checkTable(admin, table, true));
@@ -184,7 +235,10 @@ export async function GET() {
       checks.push(await checkTable(admin, table, false));
     }
 
-    const buckets = [{ name: 'recordings', expectPrivate: true }];
+    const buckets = [
+      { name: 'recordings', expectPrivate: true },
+      { name: 'empire-documents', expectPrivate: true },
+    ];
     for (const bucket of buckets) {
       checks.push(await checkStorageBucket(admin, bucket.name, true, bucket.expectPrivate));
     }
