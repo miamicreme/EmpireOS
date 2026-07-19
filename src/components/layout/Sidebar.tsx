@@ -94,6 +94,11 @@ function NavBody({
             active={isActive('/settings/ai')}
             onNavigate={onNavigate}
           />
+          <NavLink
+            item={{ href: '/settings/empire-doctor' as Route, label: 'Empire Doctor', icon: '✚' }}
+            active={isActive('/settings/empire-doctor')}
+            onNavigate={onNavigate}
+          />
           <button
             onClick={onLogout}
             className="group flex w-[calc(100%-1.5rem)] items-center gap-3 px-3.5 py-2.5 mx-3 rounded-lg text-[13.5px] text-gray-400 border border-transparent hover:text-gray-100 hover:bg-surface-2/70 hover:border-border transition-all duration-150"

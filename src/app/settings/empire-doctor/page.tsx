@@ -13,11 +13,18 @@ interface HealthCheck {
   status: 'ok' | 'warning' | 'error';
   message: string;
   details?: string;
+  recommendation?: string;
+  severity: 'low' | 'medium' | 'high';
 }
 
 interface DoctorResult {
   checks: HealthCheck[];
   overallHealth: 'green' | 'yellow' | 'red';
+  summary: {
+    passing: number;
+    warnings: number;
+    failures: number;
+  };
   timestamp: string;
 }
 
@@ -78,8 +85,8 @@ export default function EmpireDoctorPage() {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-100">Overall Status</h3>
                   <p className="text-sm text-empire-muted mt-1">
-                    {doctor.checks.filter(c => c.status === 'error').length} errors,{' '}
-                    {doctor.checks.filter(c => c.status === 'warning').length} warnings
+                    {doctor.summary.passing} passing · {doctor.summary.warnings} warnings ·{' '}
+                    {doctor.summary.failures} failing
                   </p>
                 </div>
                 <div className={cn(
@@ -112,6 +119,11 @@ export default function EmpireDoctorPage() {
                         {check.details && (
                           <p className="text-xs text-empire-muted mt-1 font-mono break-all">
                             {check.details}
+                          </p>
+                        )}
+                        {check.recommendation && (
+                          <p className="text-xs text-empire-blue mt-1.5">
+                            → {check.recommendation}
                           </p>
                         )}
                       </div>
