@@ -34,6 +34,28 @@ export interface EmpireRunRow {
   updated_at: string;
 }
 
+type SupabaseLikeError = { code?: string; message: string; details?: string | null; hint?: string | null };
+
+function empireRunDbError(error: SupabaseLikeError) {
+  const missingTable =
+    error.code === 'PGRST205' ||
+    error.message.includes("Could not find the table 'public.empire_runs'") ||
+    error.message.toLowerCase().includes('schema cache');
+
+  if (missingTable) {
+    return appError(
+      'capability_unavailable',
+      'Empire is finishing a database upgrade. Apply the latest Supabase migrations, then try again.',
+      { dependency: 'public.empire_runs', migration: '20260719121500_repair_empire_runs.sql' },
+    );
+  }
+
+  return appError('db_error', 'Empire could not save this run.', {
+    code: error.code,
+    message: error.message,
+  });
+}
+
 export async function createEmpireRun(
   supabase: SupabaseClient,
   input: {
@@ -60,7 +82,7 @@ export async function createEmpireRun(
     .select('*')
     .single();
 
-  if (error) return err(appError('db_error', error.message));
+  if (error) return err(empireRunDbError(error));
   return ok(data as EmpireRunRow);
 }
 
@@ -89,7 +111,7 @@ export async function updateEmpireRun(
     .select('*')
     .maybeSingle();
 
-  if (error) return err(appError('db_error', error.message));
+  if (error) return err(empireRunDbError(error));
   if (!data) return err(appError('not_found', 'Empire run not found.'));
   return ok(data as EmpireRunRow);
 }
@@ -106,7 +128,7 @@ export async function getEmpireRun(
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error) return err(appError('db_error', error.message));
+  if (error) return err(empireRunDbError(error));
   if (!data) return err(appError('not_found', 'Empire run not found.'));
   return ok(data as EmpireRunRow);
 }
