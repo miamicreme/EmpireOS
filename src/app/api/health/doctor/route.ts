@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUserId } from '@/lib/security';
-import { jsonError, jsonResult } from '@/lib/api';
+import { jsonError, jsonOk } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,15 +9,22 @@ interface HealthCheck {
   status: 'ok' | 'warning' | 'error';
   message: string;
   details?: string;
+  recommendation?: string;
+  severity: 'low' | 'medium' | 'high';
 }
 
 interface DoctorResult {
   checks: HealthCheck[];
   overallHealth: 'green' | 'yellow' | 'red';
+  summary: {
+    passing: number;
+    warnings: number;
+    failures: number;
+  };
   timestamp: string;
 }
 
-async function checkTable(supabase: ReturnType<typeof createClient>, tableName: string): Promise<HealthCheck> {
+async function checkTable(supabase: ReturnType<typeof createClient>, tableName: string, isCritical = false): Promise<HealthCheck> {
   try {
     const { count, error } = await supabase
       .from(tableName)
@@ -29,13 +36,18 @@ async function checkTable(supabase: ReturnType<typeof createClient>, tableName: 
         status: 'error',
         message: `Table does not exist or is inaccessible`,
         details: error.message,
+        recommendation: isCritical
+          ? `Run migration 0022_recorder_module or equivalent. See RECORDER_SETUP.md for details.`
+          : `Check that the table exists and migration has been applied.`,
+        severity: isCritical ? 'high' : 'medium',
       };
     }
 
     return {
       name: `Table: ${tableName}`,
       status: 'ok',
-      message: `Table exists`,
+      message: `Table exists and accessible`,
+      severity: 'low',
     };
   } catch (err) {
     return {
@@ -43,11 +55,12 @@ async function checkTable(supabase: ReturnType<typeof createClient>, tableName: 
       status: 'error',
       message: 'Failed to check table',
       details: String(err),
+      severity: isCritical ? 'high' : 'medium',
     };
   }
 }
 
-async function checkStorageBucket(supabase: ReturnType<typeof createClient>, bucketName: string): Promise<HealthCheck> {
+async function checkStorageBucket(supabase: ReturnType<typeof createClient>, bucketName: string, isCritical = false): Promise<HealthCheck> {
   try {
     const { data, error } = await supabase.storage.getBucket(bucketName);
 
@@ -57,13 +70,19 @@ async function checkStorageBucket(supabase: ReturnType<typeof createClient>, buc
         status: 'error',
         message: 'Bucket does not exist',
         details: error?.message,
+        recommendation: isCritical
+          ? `Create the storage bucket via Supabase dashboard or migration. Check RECORDER_SETUP.md`
+          : `Verify the bucket exists in Supabase Storage.`,
+        severity: isCritical ? 'high' : 'medium',
       };
     }
 
+    const visibilityStatus = data.public ? '(public)' : '(private)';
     return {
       name: `Storage bucket: ${bucketName}`,
       status: 'ok',
-      message: `Bucket exists (public: ${data.public})`,
+      message: `Bucket exists ${visibilityStatus}`,
+      severity: 'low',
     };
   } catch (err) {
     return {
@@ -71,21 +90,26 @@ async function checkStorageBucket(supabase: ReturnType<typeof createClient>, buc
       status: 'error',
       message: 'Failed to check bucket',
       details: String(err),
+      severity: isCritical ? 'high' : 'medium',
     };
   }
 }
 
 async function checkEnvironmentVariables(): Promise<HealthCheck[]> {
   const required = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY',
+    { name: 'NEXT_PUBLIC_SUPABASE_URL', critical: true },
+    { name: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', critical: true },
+    { name: 'SUPABASE_SERVICE_ROLE_KEY', critical: true },
   ];
 
-  return required.map((envVar) => ({
-    name: `Environment: ${envVar}`,
-    status: process.env[envVar] ? 'ok' : 'error',
-    message: process.env[envVar] ? 'Configured' : 'Missing',
+  return required.map((env) => ({
+    name: `Environment: ${env.name}`,
+    status: process.env[env.name] ? 'ok' : 'error',
+    message: process.env[env.name] ? 'Configured' : 'Missing',
+    recommendation: process.env[env.name]
+      ? undefined
+      : `Set ${env.name} in your .env.local or deployment environment variables.`,
+    severity: env.critical ? 'high' : 'medium',
   }));
 }
 
@@ -98,15 +122,21 @@ export async function GET() {
   const checks: HealthCheck[] = [];
 
   // Check critical tables
-  const criticalTables = ['recordings', 'actions', 'artifacts', 'global_actions', 'ai_providers', 'auth_passkeys'];
+  const criticalTables = ['recordings', 'actions', 'artifacts', 'global_actions', 'ai_providers'];
+  const optionalTables = ['auth_passkeys'];
+
   for (const table of criticalTables) {
-    checks.push(await checkTable(supabase, table));
+    checks.push(await checkTable(supabase, table, true));
+  }
+
+  for (const table of optionalTables) {
+    checks.push(await checkTable(supabase, table, false));
   }
 
   // Check storage buckets
   const buckets = ['recordings'];
   for (const bucket of buckets) {
-    checks.push(await checkStorageBucket(supabase, bucket));
+    checks.push(await checkStorageBucket(supabase, bucket, true));
   }
 
   // Check environment variables
@@ -115,14 +145,20 @@ export async function GET() {
   // Determine overall health
   const errors = checks.filter(c => c.status === 'error').length;
   const warnings = checks.filter(c => c.status === 'warning').length;
+  const passing = checks.filter(c => c.status === 'ok').length;
 
   const overallHealth = errors > 0 ? 'red' : warnings > 0 ? 'yellow' : 'green';
 
   const result: DoctorResult = {
     checks,
     overallHealth,
+    summary: {
+      passing,
+      warnings,
+      failures: errors,
+    },
     timestamp: new Date().toISOString(),
   };
 
-  return jsonResult(result);
+  return jsonOk(result);
 }

@@ -66,6 +66,7 @@ export default function RecorderPage() {
   const [elapsed, setElapsed] = useState(0);
   const [level, setLevel] = useState(0);
   const [micError, setMicError] = useState<string | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -79,14 +80,11 @@ export default function RecorderPage() {
     const res = await api.get<RecordingRow[]>('/api/recorder');
     if (res.ok) {
       setRecordings(res.data);
-      setMicError(null);
+      setDbError(null);
+    } else if (/relation .* does not exist|could not find the table/i.test(res.error.message)) {
+      setDbError('Database setup is incomplete. Click Initialize Recorder or contact the administrator.');
     } else {
-      // Check if this is a database initialization error
-      if (res.error.message.includes('recordings')) {
-        setMicError('Recorder isn\'t initialized yet. Database setup is incomplete. Please contact the administrator.');
-      } else {
-        error(res.error.message);
-      }
+      error(res.error.message);
     }
     setLoading(false);
   }, [error]);
@@ -250,15 +248,15 @@ export default function RecorderPage() {
         subtitle="Record interviews and conversations, save privately, then explicitly process them into transcripts, notes, and action drafts."
       />
 
-      {micError && (
+      {dbError && (
         <div className="rounded-lg border border-empire-red/50 bg-empire-red/5 px-4 py-3 mb-6 max-w-2xl">
-          <p className="text-sm text-empire-red font-medium mb-2">Recorder isn't initialized</p>
-          <p className="text-xs text-empire-red/90">{micError}</p>
+          <p className="text-sm text-empire-red font-medium mb-2">Recorder isn&apos;t initialized yet</p>
+          <p className="text-xs text-empire-red/90">{dbError}</p>
         </div>
       )}
 
       <div className="space-y-6 max-w-2xl">
-        {!micError && (
+        {!dbError && (
         <Card className="p-5 sm:p-6">
           <div className="rounded-lg border border-empire-yellow/25 bg-empire-yellow/10 px-4 py-3 mb-5">
             <label className="flex items-start gap-3 text-sm text-gray-200 cursor-pointer">
@@ -355,6 +353,7 @@ export default function RecorderPage() {
             {micError && <p className="text-xs text-empire-red">{micError}</p>}
           </div>
         </Card>
+        )}
 
         <Card className="p-5 sm:p-6">
           <div className="grid sm:grid-cols-4 gap-4">
@@ -441,7 +440,6 @@ export default function RecorderPage() {
             )}
           </div>
         </Card>
-        )}
       </div>
     </main>
   );
