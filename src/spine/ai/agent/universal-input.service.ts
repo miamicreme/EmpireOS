@@ -113,11 +113,29 @@ export async function analyzeUniversalInput(
   const a = analysis.data;
   const requiresResearch = highStakesNeedsResearch(data.extractedText, input.inputType);
   const artifactType = requiresResearch && !input.allowDeepAnalysis ? 'research_needed' : toAgentArtifactType(a.artifactType);
-  const route = classifyDestination(data.extractedText, data.fileName);
+  const route = classifyDestination(data.extractedText, data.fileName ?? undefined);
   const provider = 'provider' in a ? a.provider : null;
   const contentJson = {
     artifactType, title: a.title, summary: a.summary, keyFacts: a.keyFacts, risks: a.risks, opportunities: a.opportunities, recommendedActions: a.recommendedActions, confidence: a.confidence, sourceReferences: data.sourceRefs,
-    input: { documentId: input.documentId ?? null, inputType: input.inputType, fileName: data.fileName, mimeType: data.mimeType, textPreview: data.extractedText.slice(0, 2000), rowsPreview: data.rows.slice(0, 5), imageDescriptions, transcriptPreview: data.transcript?.slice(0, 2000) ?? null },
+    input: {
+      documentId: input.documentId ?? null,
+      inputType: input.inputType,
+      fileName: data.fileName,
+      mimeType: data.mimeType,
+      textPreview: data.extractedText.slice(0, 2000),
+      rowsPreview: data.rows.slice(0, 5),
+      imageDescriptions,
+      imageByteMetadata: data.imageInputs.map((image) => ({
+        mediaType: image.mediaType,
+        format: image.format,
+        byteLength: image.byteLength,
+        sha256: image.sha256,
+        width: image.width,
+        height: image.height,
+        sourceName: image.sourceName,
+      })),
+      transcriptPreview: data.transcript?.slice(0, 2000) ?? null,
+    },
     routing: { provider, highStakes: requiresResearch, researchRequired: artifactType === 'research_needed', cost: data.cost, proposedDestination: route.destinationModule, routingConfidence: route.confidence },
     safety: { redactionChecked: data.redactionChecked, highRiskSecretsRedacted: data.highRiskSecretsRedacted, cameraActivatedServerSide: false, videoStreamStored: false, hiddenChainOfThoughtStored: false },
   };
