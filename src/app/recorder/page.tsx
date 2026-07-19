@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Field, Input } from '@/components/ui/Field';
 import { SkeletonRows } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { WaveformVisualizer } from '@/components/recorder/WaveformVisualizer';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/cn';
 
@@ -65,6 +66,7 @@ export default function RecorderPage() {
   const [elapsed, setElapsed] = useState(0);
   const [level, setLevel] = useState(0);
   const [micError, setMicError] = useState<string | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -76,8 +78,14 @@ export default function RecorderPage() {
 
   const load = useCallback(async () => {
     const res = await api.get<RecordingRow[]>('/api/recorder');
-    if (res.ok) setRecordings(res.data);
-    else error(res.error.message);
+    if (res.ok) {
+      setRecordings(res.data);
+      setDbError(null);
+    } else if (/relation .* does not exist|could not find the table/i.test(res.error.message)) {
+      setDbError('Database setup is incomplete. Click Initialize Recorder or contact the administrator.');
+    } else {
+      error(res.error.message);
+    }
     setLoading(false);
   }, [error]);
 
@@ -240,7 +248,15 @@ export default function RecorderPage() {
         subtitle="Record interviews and conversations, save privately, then explicitly process them into transcripts, notes, and action drafts."
       />
 
+      {dbError && (
+        <div className="rounded-lg border border-empire-red/50 bg-empire-red/5 px-4 py-3 mb-6 max-w-2xl">
+          <p className="text-sm text-empire-red font-medium mb-2">Recorder isn&apos;t initialized yet</p>
+          <p className="text-xs text-empire-red/90">{dbError}</p>
+        </div>
+      )}
+
       <div className="space-y-6 max-w-2xl">
+        {!dbError && (
         <Card className="p-5 sm:p-6">
           <div className="rounded-lg border border-empire-yellow/25 bg-empire-yellow/10 px-4 py-3 mb-5">
             <label className="flex items-start gap-3 text-sm text-gray-200 cursor-pointer">
@@ -267,7 +283,14 @@ export default function RecorderPage() {
             </div>
           )}
 
-          <div className="flex flex-col items-center gap-4 py-4">
+          <div className="flex flex-col items-center gap-6 py-4">
+            {(phase === 'recording' || phase === 'paused') && (
+              <div className="w-full">
+                <p className="text-xs text-empire-muted mb-2">Waveform</p>
+                <WaveformVisualizer level={level} isRecording={phase === 'recording'} />
+              </div>
+            )}
+
             <div
               className={cn(
                 'flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border-2 transition-all',
@@ -301,6 +324,18 @@ export default function RecorderPage() {
             <div className="text-3xl font-mono nums text-gray-100 tabular-nums">{formatTimer(elapsed)}</div>
 
             {(phase === 'recording' || phase === 'paused') && (
+              <div className="flex items-center gap-2 text-xs text-empire-muted">
+                <span>Mic Level</span>
+                <div className="h-1.5 w-24 bg-surface-1 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-empire-blue to-empire-red transition-all"
+                    style={{ width: `${level * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {(phase === 'recording' || phase === 'paused') && (
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={phase === 'recording' ? pauseRecording : resumeRecording}>
                   {phase === 'recording' ? 'Pause' : 'Resume'}
@@ -318,6 +353,34 @@ export default function RecorderPage() {
             {micError && <p className="text-xs text-empire-red">{micError}</p>}
           </div>
         </Card>
+        )}
+
+        <Card className="p-5 sm:p-6">
+          <div className="grid sm:grid-cols-4 gap-4">
+            <div className="flex flex-col">
+              <div className="text-2xl font-semibold text-empire-blue">{recordings.length}</div>
+              <div className="text-xs text-empire-muted mt-1">Total recordings</div>
+            </div>
+            <div className="flex flex-col">
+              <div className="text-2xl font-semibold text-green-500">
+                {recordings.filter(r => r.status === 'ready').length}
+              </div>
+              <div className="text-xs text-empire-muted mt-1">Ready to use</div>
+            </div>
+            <div className="flex flex-col">
+              <div className="text-2xl font-semibold text-yellow-500">
+                {recordings.filter(r => ['uploading', 'transcribing', 'translating', 'analyzing'].includes(r.status)).length}
+              </div>
+              <div className="text-xs text-empire-muted mt-1">Processing</div>
+            </div>
+            <div className="flex flex-col">
+              <div className="text-2xl font-semibold text-empire-red">
+                {recordings.filter(r => r.status === 'failed').length}
+              </div>
+              <div className="text-xs text-empire-muted mt-1">Failed</div>
+            </div>
+          </div>
+        </Card>
 
         <Card>
           <CardHeader title="Recordings" subtitle={`${recordings.length} saved`} />
@@ -325,32 +388,52 @@ export default function RecorderPage() {
             {loading ? (
               <SkeletonRows rows={3} />
             ) : recordings.length === 0 ? (
-              <EmptyState message="No recordings yet — record your first conversation above." />
+              <div className="py-8">
+                <EmptyState message="No recordings yet. Start by recording your first conversation above." />
+              </div>
             ) : (
               <div className="divide-y divide-border">
                 {recordings.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between gap-3 px-3 py-3">
+                  <div key={r.id} className="flex items-center justify-between gap-4 px-4 py-4 hover:bg-surface-1 transition-colors">
                     <Link href={`/recorder/${r.id}` as Route} className="min-w-0 flex-1 group">
-                      <p className="text-sm text-gray-100 truncate group-hover:text-empire-blue transition-colors">{r.title}</p>
-                      <p className="mt-0.5 text-xs text-empire-muted font-mono">
-                        {new Date(r.created_at).toLocaleString()}
-                        {r.duration_seconds ? ` · ${formatTimer(Math.round(r.duration_seconds))}` : ''}
-                        {r.language ? ` · ${r.language}` : ''}
-                      </p>
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1">
+                          {r.status === 'ready' && <div className="h-2 w-2 rounded-full bg-green-500" />}
+                          {r.status === 'failed' && <div className="h-2 w-2 rounded-full bg-empire-red" />}
+                          {['uploading', 'transcribing', 'translating', 'analyzing'].includes(r.status) && (
+                            <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                          )}
+                          {!['ready', 'failed'].includes(r.status) && !['uploading', 'transcribing', 'translating', 'analyzing'].includes(r.status) && (
+                            <div className="h-2 w-2 rounded-full bg-empire-muted" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-100 truncate group-hover:text-empire-blue transition-colors">
+                            {r.title}
+                          </p>
+                          <p className="mt-1 text-xs text-empire-muted font-mono">
+                            {new Date(r.created_at).toLocaleString()}
+                            {r.duration_seconds ? ` · ${formatTimer(Math.round(r.duration_seconds))}` : ''}
+                            {r.language ? ` · ${r.language}` : ''}
+                          </p>
+                        </div>
+                      </div>
                     </Link>
-                    <Badge variant={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
-                    {PROCESSABLE_STATUSES.has(r.status) && (
-                      <Button size="sm" variant="subtle" loading={processingId === r.id} onClick={() => processRecording(r.id)}>
-                        Process
-                      </Button>
-                    )}
-                    <button
-                      className="text-empire-muted hover:text-empire-red text-xs shrink-0"
-                      onClick={() => remove(r.id)}
-                      aria-label="Delete recording"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
+                      {PROCESSABLE_STATUSES.has(r.status) && (
+                        <Button size="sm" variant="subtle" loading={processingId === r.id} onClick={() => processRecording(r.id)}>
+                          Process
+                        </Button>
+                      )}
+                      <button
+                        className="text-empire-muted hover:text-empire-red transition-colors"
+                        onClick={() => remove(r.id)}
+                        aria-label="Delete recording"
+                      >
+                        <span className="text-sm">✕</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
