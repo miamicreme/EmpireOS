@@ -76,8 +76,17 @@ export default function RecorderPage() {
 
   const load = useCallback(async () => {
     const res = await api.get<RecordingRow[]>('/api/recorder');
-    if (res.ok) setRecordings(res.data);
-    else error(res.error.message);
+    if (res.ok) {
+      setRecordings(res.data);
+      setMicError(null);
+    } else {
+      // Check if this is a database initialization error
+      if (res.error.message.includes('recordings')) {
+        setMicError('Recorder isn\'t initialized yet. Database setup is incomplete. Please contact the administrator.');
+      } else {
+        error(res.error.message);
+      }
+    }
     setLoading(false);
   }, [error]);
 
@@ -240,7 +249,15 @@ export default function RecorderPage() {
         subtitle="Record interviews and conversations, save privately, then explicitly process them into transcripts, notes, and action drafts."
       />
 
+      {micError && (
+        <div className="rounded-lg border border-empire-red/50 bg-empire-red/5 px-4 py-3 mb-6 max-w-2xl">
+          <p className="text-sm text-empire-red font-medium mb-2">Recorder isn't initialized</p>
+          <p className="text-xs text-empire-red/90">{micError}</p>
+        </div>
+      )}
+
       <div className="space-y-6 max-w-2xl">
+        {!micError && (
         <Card className="p-5 sm:p-6">
           <div className="rounded-lg border border-empire-yellow/25 bg-empire-yellow/10 px-4 py-3 mb-5">
             <label className="flex items-start gap-3 text-sm text-gray-200 cursor-pointer">
@@ -357,6 +374,7 @@ export default function RecorderPage() {
             )}
           </div>
         </Card>
+        )}
       </div>
     </main>
   );
