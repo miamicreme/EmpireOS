@@ -34,13 +34,13 @@ async function checkTable(supabase: ReturnType<typeof createAdminClient>, tableN
     if (error) {
       return {
         name: `Table: ${tableName}`,
-        status: 'error',
+        status: isCritical ? 'error' : 'warning',
         message: `Table does not exist or is inaccessible`,
         details: error.message,
         recommendation: isCritical
           ? `Run migration 0022_recorder_module or equivalent. See RECORDER_SETUP.md for details.`
-          : `Check that the table exists and migration has been applied.`,
-        severity: isCritical ? 'high' : 'medium',
+          : `Optional feature table — apply its migration if you want this feature enabled.`,
+        severity: isCritical ? 'high' : 'low',
       };
     }
 
@@ -53,28 +53,44 @@ async function checkTable(supabase: ReturnType<typeof createAdminClient>, tableN
   } catch (err) {
     return {
       name: `Table: ${tableName}`,
-      status: 'error',
+      status: isCritical ? 'error' : 'warning',
       message: 'Failed to check table',
       details: String(err),
-      severity: isCritical ? 'high' : 'medium',
+      severity: isCritical ? 'high' : 'low',
     };
   }
 }
 
-async function checkStorageBucket(supabase: ReturnType<typeof createAdminClient>, bucketName: string, isCritical = false): Promise<HealthCheck> {
+async function checkStorageBucket(
+  supabase: ReturnType<typeof createAdminClient>,
+  bucketName: string,
+  isCritical = false,
+  expectPrivate = false,
+): Promise<HealthCheck> {
   try {
     const { data, error } = await supabase.storage.getBucket(bucketName);
 
     if (error || !data) {
       return {
         name: `Storage bucket: ${bucketName}`,
-        status: 'error',
+        status: isCritical ? 'error' : 'warning',
         message: 'Bucket does not exist',
         details: error?.message,
         recommendation: isCritical
           ? `Create the storage bucket via Supabase dashboard or migration. Check RECORDER_SETUP.md`
           : `Verify the bucket exists in Supabase Storage.`,
-        severity: isCritical ? 'high' : 'medium',
+        severity: isCritical ? 'high' : 'low',
+      };
+    }
+
+    if (expectPrivate && data.public) {
+      return {
+        name: `Storage bucket: ${bucketName}`,
+        status: 'error',
+        message: 'Bucket is public — expected private',
+        details: 'Objects in this bucket are reachable via public Supabase Storage URLs with no auth check.',
+        recommendation: `Set the bucket to private (public = false) in Supabase Storage settings. Access should only go through short-lived signed URLs minted server-side.`,
+        severity: 'high',
       };
     }
 
@@ -88,10 +104,10 @@ async function checkStorageBucket(supabase: ReturnType<typeof createAdminClient>
   } catch (err) {
     return {
       name: `Storage bucket: ${bucketName}`,
-      status: 'error',
+      status: isCritical ? 'error' : 'warning',
       message: 'Failed to check bucket',
       details: String(err),
-      severity: isCritical ? 'high' : 'medium',
+      severity: isCritical ? 'high' : 'low',
     };
   }
 }
@@ -147,9 +163,9 @@ export async function GET() {
       checks.push(await checkTable(admin, table, false));
     }
 
-    const buckets = ['recordings'];
+    const buckets = [{ name: 'recordings', expectPrivate: true }];
     for (const bucket of buckets) {
-      checks.push(await checkStorageBucket(admin, bucket, true));
+      checks.push(await checkStorageBucket(admin, bucket.name, true, bucket.expectPrivate));
     }
   }
 
