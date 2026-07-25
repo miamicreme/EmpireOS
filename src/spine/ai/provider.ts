@@ -277,7 +277,15 @@ async function callOpenAICompatible(
 ): Promise<AIResponse> {
   const { default: OpenAI } = await import('openai');
   const cfg = OPENAI_COMPATIBLE[provider];
-  const client = new OpenAI({ apiKey, baseURL: cfg.baseURL });
+
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${provider} provider`);
+  }
+
+  const client = new OpenAI({
+    apiKey,
+    baseURL: cfg.baseURL,
+  });
 
   const model = opts.model ?? cfg.defaultModel;
   const msgs = opts.systemPrompt ? [{ role: 'system' as const, content: opts.systemPrompt }, ...messages] : messages;
