@@ -6,7 +6,7 @@ describe('provider capabilities', () => {
     const env = {
       LMSTUDIO_ENABLED: 'true',
       LMSTUDIO_DEFAULT_MODEL: 'qwen2.5-7b-instruct',
-    } as NodeJS.ProcessEnv;
+    } as unknown as NodeJS.ProcessEnv;
 
     const lmstudio = getProviderCapabilities(env).find((provider) => provider.provider === 'lmstudio');
     expect(lmstudio?.configured).toBe(true);
@@ -22,7 +22,7 @@ describe('provider capabilities', () => {
       REQUESTY_DEFAULT_MODEL: 'rq/default',
       LMSTUDIO_ENABLED: 'true',
       LMSTUDIO_DEFAULT_MODEL: 'qwen2.5-7b-instruct',
-    } as NodeJS.ProcessEnv;
+    } as unknown as NodeJS.ProcessEnv;
 
     const route = routeProviderForTask('local_private', env);
     expect(route.ok).toBe(true);
@@ -34,7 +34,7 @@ describe('provider capabilities', () => {
     const route = routeProviderForTask('local_private', {
       REQUESTY_API_KEY: 'rq-test',
       REQUESTY_DEFAULT_MODEL: 'rq/default',
-    } as NodeJS.ProcessEnv);
+    } as unknown as NodeJS.ProcessEnv);
     expect(route).toEqual({ ok: false, code: 'local_provider_required' });
   });
 });

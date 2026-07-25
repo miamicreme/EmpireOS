@@ -53,6 +53,11 @@ ACCURACY RULES:
 - Start from context.prioritized (code-ranked, with reasons) for topActions.
 - Use context.trends for momentum and context.feedback for what the operator
   actually acts on. Lower "confidence" when the context is thin.
+- context.recentKnowledge holds durable facts the operator recently told
+  Empire (job outcomes, life events, decisions). If the newest item is
+  more urgent or significant than the daily routine, acknowledge it
+  cordially in "summary" before the operational rundown — do not default to
+  generic cash-target language when a fresher, more relevant fact exists.
 
 Return JSON with this exact shape:
 {
@@ -79,8 +84,12 @@ function stubBrief(ctx: EmpireContext): DailyBriefOutput {
   if (ctx.derived.cashGapToday && ctx.derived.cashGapToday > 0) {
     risks.push(`$${ctx.derived.cashGapToday} short of today's cash target`);
   }
+  const latestKnowledge = ctx.recentKnowledge[0] ?? null;
+  const knowledgeLead = latestKnowledge
+    ? `Noted: ${latestKnowledge.summary ?? latestKnowledge.title ?? 'a recent update'}. `
+    : '';
   return {
-    summary: `[STUB] ${ctx.derived.openActionCount} open, ${ctx.derived.overdueActionCount} overdue, ${ctx.derived.completedTodayCount} done today. Configure an AI provider for a model-written brief.`,
+    summary: `[STUB] ${knowledgeLead}${ctx.derived.openActionCount} open, ${ctx.derived.overdueActionCount} overdue, ${ctx.derived.completedTodayCount} done today. Configure an AI provider for a model-written brief.`,
     cashTarget: target,
     topActions: ctx.prioritized.slice(0, 5).map((a) => ({
       title: a.title,

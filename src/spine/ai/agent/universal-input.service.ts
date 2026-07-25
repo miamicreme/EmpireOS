@@ -12,6 +12,7 @@ import { analyzeDocument } from '@/spine/agent/input/document-intelligence.servi
 import { analyzeSpreadsheet } from '@/spine/agent/input/spreadsheet-intelligence.service';
 import { analyzeVision } from '@/spine/agent/input/vision-intelligence.service';
 import { createActionDrafts, saveArtifact } from './agent-repository.service';
+import { captureDocumentKnowledge } from '../knowledge/knowledge-capture.service';
 import type { ArtifactType, SuggestedDraft } from './agent.types';
 import type { UniversalInputAnalyzeDTO } from './agent.schemas';
 
@@ -142,6 +143,15 @@ export async function analyzeUniversalInput(
 
   const artifact = await saveArtifact(supabase, userId, null, { artifactType, title: a.title, summary: artifactType === 'research_needed' ? `${a.summary} Research/deep review is required before final advice.` : a.summary, contentJson, sourceRefs: data.sourceRefs, confidence: a.confidence, riskLevel: requiresResearch ? 'high' : a.risks.length ? 'medium' : 'low' });
   if (!artifact.ok) return artifact;
+
+  await captureDocumentKnowledge(supabase, userId, {
+    destinationModule: route.destinationModule,
+    title: a.title,
+    summary: a.summary,
+    keyFacts: a.keyFacts,
+    confidence: a.confidence,
+    source: input.documentId ? `document:${input.documentId}` : 'pasted_input',
+  });
 
   const drafts: SuggestedDraft[] = input.createDrafts === false ? [] : a.suggestedDrafts;
   const draftResult = await createActionDrafts(supabase, userId, null, artifact.data.id, drafts);

@@ -63,6 +63,9 @@ describe('result contracts', () => {
     const schema = z.object({ value: z.string() });
     const parsed = schema.safeParse({ value: 'verified' });
     expect(parsed.success).toBe(true);
-    if (parsed.success) expect(ok(parsed.data).data.value).toBe('verified');
+    if (!parsed.success) return;
+    const result = ok(parsed.data);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.value).toBe('verified');
   });
 });
