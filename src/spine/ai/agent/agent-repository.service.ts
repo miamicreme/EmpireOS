@@ -642,6 +642,7 @@ export async function saveMemory(
       summary: input.summary ?? null,
       source: input.source ?? 'user',
       confidence: input.confidence ?? 0.8,
+      status: 'active',
     })
     .select('id')
     .single();

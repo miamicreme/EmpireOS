@@ -124,6 +124,28 @@ describe('buildEmpireContext', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.topActions).toEqual([]);
+    expect(result.data.recentKnowledge).toEqual([]);
+  });
+
+  it('surfaces durable knowledge captured from conversation or documents', async () => {
+    const { buildEmpireContext } = await import('@/spine/ai/context/empire-context.service');
+    const client = makeClient({
+      agent_memory_items: [
+        {
+          id: 'm1',
+          memory_type: 'job_application_outcome',
+          title: 'Job application rejected',
+          summary: "Cara emailed — I didn't get the STT position.",
+          created_at: '2026-07-25T00:00:00.000Z',
+          status: 'active',
+        },
+      ],
+    });
+    const result = await buildEmpireContext(client, USER);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.recentKnowledge[0]?.memoryType).toBe('job_application_outcome');
+    expect(result.data.recentKnowledge[0]?.summary).toContain('STT position');
   });
 });
 
@@ -173,6 +195,31 @@ describe('generation in stub mode', () => {
     if (!result.ok) return;
     expect(result.data.saved).toBeNull();
     expect(result.data.brief.cashTarget).toBe(250);
+  });
+
+  it('runChiefOfStaff acknowledges recent knowledge instead of only cash framing', async () => {
+    const { runChiefOfStaff } = await import('@/spine/ai/chief-of-staff.service');
+    const client = makeClient({
+      profiles: [{ id: USER, daily_cash_target: 250, weekly_cash_target: 1500, monthly_cash_target: 6000, current_phase: 'phase_1', risk_tolerance: 'balanced', primary_goal: 'Empire', full_name: null }],
+      global_actions: [action()],
+      decisions: [],
+      daily_reviews: [],
+      weekly_reviews: [],
+      agent_memory_items: [
+        {
+          id: 'm1',
+          memory_type: 'job_application_outcome',
+          title: 'Job application rejected',
+          summary: "Cara emailed — I didn't get the STT position.",
+          created_at: '2026-07-25T00:00:00.000Z',
+          status: 'active',
+        },
+      ],
+    });
+    const result = await runChiefOfStaff(client, USER, { persist: false });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.output.executiveSummary).toContain('STT position');
   });
 
   it('runChiefOfStaff returns ranked actions without persisting', async () => {

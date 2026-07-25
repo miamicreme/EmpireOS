@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 import { routeIntent } from './intent-router.service';
 import { buildContextPack } from './context-pack.service';
 import { evaluateMemoryGate } from './memory-gate.service';
+import { captureConversationKnowledge } from '../knowledge/knowledge-capture.service';
 import { evaluateResearchGate } from './research-gate.service';
 import {
   buildProviderStrategy,
@@ -110,6 +111,11 @@ export async function runAgent(
     await event('intent_detected', route.reason, { intent: route.intent, tags: route.tags });
     await event('capability_plan', 'read_internal_data, build_context_pack, reason, draft_actions');
     await event('permission_check', 'reads approved; external actions are draft-only (approval-gated)');
+
+    // Capture durable facts before the context pack is built, so a fact the
+    // operator just stated (e.g. a job outcome) is already part of memory the
+    // model reads back this same turn — not just on the next one.
+    await captureConversationKnowledge(supabase, userId, input.command);
 
     const inputArtifacts = input.inputArtifactIds?.length
       ? await repo.getArtifactsByIds(supabase, userId, input.inputArtifactIds)
