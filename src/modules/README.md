@@ -17,6 +17,7 @@ The Spine owns priority. Modules own detail. A module should never bypass the Sp
 | Acquisitions | `acquisitions` | phase_2 | Research, track, and close business acquisition targets |
 | Deal Intelligence | `deal-intel` | phase_2 | Analyze deals and create deal intelligence context |
 | Empire Recorder | `recorder` | phase_1 | Record interviews/conversations; transcribe, translate, summarize, and draft actions |
+| Call Assist | `call-command` | phase_1 | Real-time call assistant: detects intent/stage and suggests a structured, spoken-language response |
 
 ## Module Structure
 
