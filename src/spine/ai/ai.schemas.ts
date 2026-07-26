@@ -35,6 +35,14 @@ export const chiefOfStaffOutputSchema = z.object({
   confidence,
 });
 
+/** Real-time call assistant suggestion (Call Assist / V11 Elite). */
+export const callAssistOutputSchema = z.object({
+  response: z.string().default(''),
+  intent: z.string().default('unknown'),
+  confidence,
+  next_action: z.string().default('clarify'),
+});
+
 export const dailyBriefOutputSchema = z.object({
   summary: z.string().default(''),
   cashTarget: z.coerce.number().nullable().catch(null).default(null),
