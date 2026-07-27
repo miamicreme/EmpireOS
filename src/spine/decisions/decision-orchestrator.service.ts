@@ -22,7 +22,8 @@ import {
   redactDecisionContext,
 } from './context-redaction.service';
 import { addAdvisorVote, finalizeDecision, getDecisionWithVotes } from './decision.service';
-import { callAI, activeProvider, modelForAdvisor } from '../ai/provider';
+import { callAI, activeProvider, modelForAdvisor, type AICredential } from '../ai/provider';
+import { resolveUserCredentials } from '../ai/providers/provider-config.service';
 import {
   buildAdvisorPrompt,
   parseAdvisorResponse,
@@ -71,10 +72,11 @@ async function callAdvisor(
   preferredModel: string | undefined,
   question: string,
   redactedCtx: DecisionContext,
+  credential: AICredential | undefined,
   priorVotes?: Array<{ role: string; recommendation: string; confidence: number }>,
 ): Promise<AdvisorOutput> {
-  const provider = activeProvider();
-  const model = modelForAdvisor(preferredModel, provider);
+  const provider = credential?.provider ?? activeProvider();
+  const model = credential?.model ?? modelForAdvisor(preferredModel, provider);
   const { systemPrompt, userPrompt } = buildAdvisorPrompt(
     role,
     question,
@@ -83,6 +85,7 @@ async function callAdvisor(
   );
 
   let raw: string;
+  let modelName: string | null = null;
   if (provider === 'stub') {
     raw = JSON.stringify({
       recommendation: `Stub ${advisorName} recommendation (no AI provider configured).`,
@@ -94,13 +97,14 @@ async function callAdvisor(
   } else {
     const response = await callAI(
       [{ role: 'user', content: userPrompt }],
-      { systemPrompt, model, maxTokens: 1024, temperature: 0.3 },
+      { systemPrompt, model, maxTokens: 1024, temperature: 0.3, credential },
     );
     raw = response.text;
+    modelName = response.model;
     logger.info('advisor_call', {
       role,
-      provider,
-      model,
+      provider: response.provider,
+      model: response.model,
       outputTokens: response.outputTokens,
     });
   }
@@ -109,7 +113,7 @@ async function callAdvisor(
   return {
     role,
     advisorName,
-    modelName: provider !== 'stub' ? model : null,
+    modelName,
     recommendation: parsed.recommendation,
     reasoning: parsed.reasoning,
     confidence: parsed.confidence,
@@ -141,7 +145,9 @@ export async function runAdvisorPanel(
   if (!full.ok) return full;
   const question = full.data.question;
 
-  const provider = activeProvider();
+  const credentials = await resolveUserCredentials(supabase, userId);
+  const credential = credentials[0];
+  const provider = credential?.provider ?? activeProvider();
   logger.info('runAdvisorPanel', { decisionId, provider });
 
   const panelAdvisors = ADVISOR_PANEL.filter((advisor) => advisor.role !== 'final_judge');
@@ -156,6 +162,7 @@ export async function runAdvisorPanel(
           advisor.preferredModel,
           question,
           redacted,
+          credential,
         ),
       ),
     );
@@ -218,6 +225,9 @@ export async function synthesizeFinalRecommendation(
     return err(appError('internal', 'Final Judge advisor is not registered.'));
   }
 
+  const credentials = await resolveUserCredentials(supabase, userId);
+  const credential = credentials[0];
+
   let judgeOutput: AdvisorOutput;
   try {
     judgeOutput = await callAdvisor(
@@ -226,6 +236,7 @@ export async function synthesizeFinalRecommendation(
       judgeAdvisor.preferredModel,
       full.data.question,
       redacted,
+      credential,
       priorVotes,
     );
   } catch (error) {

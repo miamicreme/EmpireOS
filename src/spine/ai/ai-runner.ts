@@ -143,10 +143,17 @@ ${JSON.stringify(safeContext, null, 2)}`;
         credential,
       });
 
+      // callAI resolves its own env-provider failover internally when no credential
+      // is pinned, so the provider/model that actually served the request can differ
+      // from the pre-call guess above — attribute logs and the result to what
+      // actually ran, not what was requested first.
+      const actualProvider = response.provider;
+      const actualModel = response.model;
+
       logger.info('ai_structured_call', {
         feature: opts.feature,
-        provider,
-        model,
+        provider: actualProvider,
+        model: actualModel,
         outputTokens: response.outputTokens,
         attempt: i + 1,
       });
@@ -154,7 +161,7 @@ ${JSON.stringify(safeContext, null, 2)}`;
       const parsed = opts.schema.safeParse(extractJson(response.text));
       let data = (parsed.success ? parsed.data : opts.stub) as T;
       if (!parsed.success) {
-        logger.warn('ai_structured_parse_failed', { feature: opts.feature, provider });
+        logger.warn('ai_structured_parse_failed', { feature: opts.feature, provider: actualProvider });
       }
 
       let inputTokens = response.inputTokens;
@@ -162,7 +169,7 @@ ${JSON.stringify(safeContext, null, 2)}`;
 
       // Optional grounding pass — only worth running when the first pass parsed.
       if (opts.verify && parsed.success) {
-        const verified = await verifyAndGround(opts, safeContext, data, provider, credential);
+        const verified = await verifyAndGround(opts, safeContext, data, actualProvider, credential);
         if (verified) {
           data = verified.data;
           inputTokens = sumTokens(inputTokens, verified.inputTokens);
@@ -170,7 +177,7 @@ ${JSON.stringify(safeContext, null, 2)}`;
         }
       }
 
-      return { data, provider, model, inputTokens, outputTokens };
+      return { data, provider: actualProvider, model: actualModel, inputTokens, outputTokens };
     } catch (e) {
       // Provider failed (rate limit / quota / network). Try the next configured
       // provider in the chain; only rethrow once every option is exhausted.

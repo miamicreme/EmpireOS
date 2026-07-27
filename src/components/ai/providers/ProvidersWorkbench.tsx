@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, EmptyState } from '@/components/ui/Card';
 import { SkeletonRows } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 
 type ProviderConfig = {
   id: string;
@@ -72,6 +73,7 @@ const providerLabel: Record<string, string> = {
 };
 
 export function ProvidersWorkbench() {
+  const { error: toastError } = useToast();
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [health, setHealth] = useState<ProviderHealth | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,7 +104,7 @@ export function ProvidersWorkbench() {
     const response = await api.post<ProviderTest>(`/api/ai/providers/${id}/test`, {});
     setTestingId(null);
     if (!response.ok) {
-      setError(response.error.message);
+      toastError(response.error.message);
       return;
     }
     setTests((current) => ({ ...current, [id]: response.data }));
