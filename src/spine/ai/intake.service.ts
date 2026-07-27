@@ -13,6 +13,7 @@ import type { z } from 'zod';
 import { ok, err, type AppResult } from '@/lib/result';
 import { appError } from '@/lib/errors';
 import { aiConfig } from '@/lib/env';
+import { logger } from '@/lib/logger';
 import { runStructured } from './ai-runner';
 import { resolveUserCredentials } from './providers/provider-config.service';
 import { intakeOutputSchema } from './ai.schemas';
@@ -108,11 +109,14 @@ export async function runIntake(
   // metadata rather than failing the whole intake on a FK violation.
   let moduleId: string | null = null;
   if (routedModule) {
-    const { data: mod } = await supabase
+    const { data: mod, error: moduleLookupError } = await supabase
       .from('modules')
       .select('id')
       .eq('id', routedModule)
       .maybeSingle();
+    if (moduleLookupError) {
+      logger.warn('intake_module_lookup_failed', { routedModule, error: moduleLookupError.message });
+    }
     if (mod) moduleId = routedModule;
   }
 
@@ -151,7 +155,14 @@ export async function runIntake(
       output.suggestedActions,
       { moduleId },
     );
-    if (draftResult.ok) drafts = draftResult.data;
+    if (draftResult.ok) {
+      drafts = draftResult.data;
+    } else {
+      logger.warn('intake_draft_creation_failed', {
+        documentId,
+        error: draftResult.error.message,
+      });
+    }
   }
 
   return ok({ output, documentId, drafts });
