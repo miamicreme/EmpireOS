@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader, EmptyState } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -88,8 +88,12 @@ export default function ModulesPage() {
   const [selectedId, setSelectedId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [running, setRunning] = useState(false);
+  const [runningModuleId, setRunningModuleId] = useState<string | null>(null);
   const [agentOutput, setAgentOutput] = useState<AgentRunOutput | null>(null);
+  const selectedIdRef = useRef(selectedId);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const loadDailyRuns = useCallback(async (items: ModuleManifest[]) => {
     const entries = await Promise.all(
@@ -159,25 +163,27 @@ export default function ModulesPage() {
 
   async function runModuleAi(force = false) {
     if (!selected) return;
-    setRunning(true);
+    const moduleId = selected.id;
+    setRunningModuleId(moduleId);
     const idempotency = force
-      ? `${dailyRunKey(selected.id)}:rerun:${Date.now()}`
-      : dailyRunKey(selected.id);
+      ? `${dailyRunKey(moduleId)}:rerun:${Date.now()}`
+      : dailyRunKey(moduleId);
     const res = await api.post<AgentRunOutput>('/api/ai/agent/run', {
-      command: MODULE_COMMANDS[selected.id] ?? `Review ${selected.name} for today and recommend the next best actions.`,
+      command: MODULE_COMMANDS[moduleId] ?? `Review ${selected.name} for today and recommend the next best actions.`,
       modeHint: 'module_daily_check',
-      moduleHint: selected.id,
+      moduleHint: moduleId,
       artifactTypeHint: 'action_plan',
       runtimePreference: 'standard',
       idempotency,
     });
-    setRunning(false);
+    setRunningModuleId((current) => (current === moduleId ? null : current));
 
     if (res.ok) {
-      setAgentOutput(res.data);
+      // Keyed by moduleId, so this is safe to apply even if the user has since
+      // switched to a different module.
       setDailyRuns((current) => ({
         ...current,
-        [selected.id]: {
+        [moduleId]: {
           id: res.data.runId,
           status: res.data.status,
           intent: res.data.intent,
@@ -188,8 +194,13 @@ export default function ModulesPage() {
           completedAt: new Date().toISOString(),
         },
       }));
-      success(force ? 'Module AI reran' : 'Module AI check complete');
-    } else {
+      // Only surface this response if the user is still looking at this module —
+      // otherwise it would render under the wrong module's header.
+      if (selectedIdRef.current === moduleId) {
+        setAgentOutput(res.data);
+        success(force ? 'Module AI reran' : 'Module AI check complete');
+      }
+    } else if (selectedIdRef.current === moduleId) {
       error(res.error.message);
     }
   }
@@ -275,10 +286,10 @@ export default function ModulesPage() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => runModuleAi(false)} loading={running} disabled={!selected}>
+                  <Button onClick={() => runModuleAi(false)} loading={runningModuleId === selected.id} disabled={!selected}>
                     {selectedRun ? 'Show Today' : 'Run Today'}
                   </Button>
-                  <Button variant="subtle" onClick={() => runModuleAi(true)} loading={running} disabled={!selected}>
+                  <Button variant="subtle" onClick={() => runModuleAi(true)} loading={runningModuleId === selected.id} disabled={!selected}>
                     Rerun AI
                   </Button>
                   <Link href={selected.route as Route}>

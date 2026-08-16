@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { FileUploadPanel } from './FileUploadPanel';
 import { InputArtifactResult, type InputAnalyzeResult, type InputUploadResult, RunLink } from './InputArtifactResult';
@@ -148,6 +148,10 @@ export function AiInputWorkbench() {
   const [analysis, setAnalysis] = useState<InputAnalyzeResult | null>(null);
   const [runResult, setRunResult] = useState<AgentRunResult | null>(null);
   const [notWired, setNotWired] = useState(false);
+  // Bumped on every new analyze attempt (and whenever the file/text selection
+  // changes) so a response that resolves after the user has moved on is a no-op
+  // instead of overwriting the newer selection's blank state.
+  const requestIdRef = useRef(0);
 
   const detectedKind = useMemo(() => detectKind(file, text), [file, text]);
   const fileName = file?.name ?? 'No file selected';
@@ -169,6 +173,7 @@ export function AiInputWorkbench() {
       return;
     }
 
+    const requestId = ++requestIdRef.current;
     setError(null);
     setNotWired(false);
     setAnalysis(null);
@@ -190,10 +195,15 @@ export function AiInputWorkbench() {
       const response = await api.post<InputAnalyzeResult>('/api/ai/input/analyze', payload);
       if (!response.ok) throw new Error(response.error.message);
 
+      // The user may have picked a different file or edited the text since this
+      // request started — an abandoned request's result must not overwrite it.
+      if (requestIdRef.current !== requestId) return;
+
       setAnalysis(response.data);
       setPhase('complete');
       setMessage('Analysis complete. Send the artifact to the agent when you are ready.');
     } catch (err) {
+      if (requestIdRef.current !== requestId) return;
       const msg = err instanceof Error ? err.message : 'Input analysis failed.';
       setError(msg);
       setPhase('error');
@@ -247,6 +257,7 @@ export function AiInputWorkbench() {
         status={message}
         busy={phase === 'uploading' || phase === 'analyzing'}
         onFileChange={(next) => {
+          requestIdRef.current += 1;
           setFile(next);
           setUploadResult(null);
           setAnalysis(null);
@@ -256,6 +267,7 @@ export function AiInputWorkbench() {
           setMessage(next ? `Selected ${next.name}` : 'Ready for an owner-only input.');
         }}
         onTextChange={(value) => {
+          requestIdRef.current += 1;
           setText(value);
           setAnalysis(null);
           setRunResult(null);

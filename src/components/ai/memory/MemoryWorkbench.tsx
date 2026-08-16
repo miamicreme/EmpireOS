@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, EmptyState } from '@/components/ui/Card';
 import { SkeletonRows } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 
 type MemoryItem = {
   id: string;
@@ -29,6 +30,7 @@ function fmtDate(value: string | null) {
 }
 
 export function MemoryWorkbench() {
+  const { error: toastError } = useToast();
   const [status, setStatus] = useState<'active' | 'archived' | 'deleted'>('active');
   const [items, setItems] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export function MemoryWorkbench() {
       status: form.status ?? target?.status ?? undefined,
     });
     if (!response.ok) {
-      setError(response.error.message);
+      toastError(response.error.message);
       return;
     }
     setEditingId(null);
@@ -87,7 +89,7 @@ export function MemoryWorkbench() {
   async function deleteItem(id: string) {
     const response = await api.del(`/api/ai/agent/memory/${id}`);
     if (!response.ok) {
-      setError(response.error.message);
+      toastError(response.error.message);
       return;
     }
     await load();
@@ -96,7 +98,7 @@ export function MemoryWorkbench() {
   async function approveItem(id: string, action: 'approve' | 'reject') {
     const response = await api.post(`/api/ai/agent/memory/${id}/approve`, { action });
     if (!response.ok) {
-      setError(response.error.message);
+      toastError(response.error.message);
       return;
     }
     await load();

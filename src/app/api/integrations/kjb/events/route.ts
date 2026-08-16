@@ -1,6 +1,15 @@
+import { timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
+
+/** Constant-time string compare that tolerates differing lengths. */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 const eventSchema = z.object({
   eventId: z.string().uuid(),
@@ -15,7 +24,7 @@ const eventSchema = z.object({
 function authorized(request: NextRequest): boolean {
   const expected = process.env.KJB_INGEST_TOKEN;
   const provided = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-  return Boolean(expected && provided && provided === expected);
+  return Boolean(expected && provided && safeEqual(provided, expected));
 }
 
 export async function POST(request: NextRequest) {
