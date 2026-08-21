@@ -34,6 +34,7 @@ import type {
   ModuleContextSlice,
   ContextDecision,
   FeedbackSignals,
+  RecentKnowledgeItem,
 } from '../ai.types';
 
 function toContextAction(a: GlobalAction): ContextAction {
@@ -84,6 +85,7 @@ export async function buildEmpireContext(
     metrics,
     metricHistory,
     feedback,
+    recentKnowledge,
   ] = await Promise.all([
     safe(fetchProfile(supabase, userId), null),
     safe(fetchOpenActions(supabase, userId), [] as GlobalAction[]),
@@ -95,6 +97,7 @@ export async function buildEmpireContext(
     safe(getAllModuleMetrics(userId), [] as ModuleMetric[]),
     safe(fetchMetricHistory(supabase, userId), [] as ModuleMetric[]),
     safe(fetchFeedback(supabase, userId), null as FeedbackSignals | null),
+    safe(fetchRecentKnowledge(supabase, userId), [] as RecentKnowledgeItem[]),
   ]);
 
   const contextActions = actions.map(toContextAction);
@@ -175,6 +178,7 @@ export async function buildEmpireContext(
     trends,
     prioritized,
     feedback,
+    recentKnowledge,
   };
 
   return ok(context);
@@ -322,6 +326,32 @@ async function fetchDailyReview(
     .eq('date', date)
     .maybeSingle();
   return (data ?? null) as DailyReview | null;
+}
+
+async function fetchRecentKnowledge(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<RecentKnowledgeItem[]> {
+  const { data } = await supabase
+    .from('agent_memory_items')
+    .select('id, memory_type, title, summary, created_at')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(8);
+  return ((data ?? []) as Array<{
+    id: string;
+    memory_type: string;
+    title: string | null;
+    summary: string | null;
+    created_at: string;
+  }>).map((row) => ({
+    id: row.id,
+    memoryType: row.memory_type,
+    title: row.title,
+    summary: row.summary,
+    createdAt: row.created_at,
+  }));
 }
 
 async function fetchWeeklyReview(

@@ -76,25 +76,6 @@ export function getOwnerRecoveryCode(): string | null {
   return code && code.length > 0 ? code : null;
 }
 
-/**
- * Optional AI provider keys. Absence means the engine stays in stub mode.
- * The last four are OpenAI-API-compatible free-tier providers used as fallbacks.
- */
-export const aiKeys = {
-  requesty: process.env.REQUESTY_API_KEY ?? null,
-  openai: process.env.OPENAI_API_KEY ?? null,
-  anthropic: process.env.ANTHROPIC_API_KEY ?? null,
-  google: process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? null,
-  groq: process.env.GROQ_API_KEY ?? null,
-  cerebras: process.env.CEREBRAS_API_KEY ?? null,
-  openrouter: process.env.OPENROUTER_API_KEY ?? null,
-  mistral: process.env.MISTRAL_API_KEY ?? null,
-} as const;
-
-export function hasAnyAiProvider(): boolean {
-  return Object.values(aiKeys).some(Boolean);
-}
-
 export const requestyConfig = {
   apiKey: process.env.REQUESTY_API_KEY ?? null,
   baseURL: process.env.REQUESTY_BASE_URL ?? 'https://router.requesty.ai/v1',
@@ -117,6 +98,39 @@ const requestyModelsConfigured = Boolean(
 
 export function hasRequestyProvider(): boolean {
   return requestyModelsConfigured;
+}
+
+export const lmStudioConfig = {
+  enabled: process.env.LMSTUDIO_ENABLED === 'true',
+  apiKey: process.env.LMSTUDIO_API_KEY ?? 'lm-studio',
+  baseURL: process.env.LMSTUDIO_BASE_URL ?? 'http://localhost:1234/v1',
+  defaultModel: process.env.LMSTUDIO_DEFAULT_MODEL ?? null,
+  fastModel: process.env.LMSTUDIO_FAST_MODEL ?? process.env.LMSTUDIO_DEFAULT_MODEL ?? null,
+} as const;
+
+export function hasLMStudioProvider(): boolean {
+  return Boolean(lmStudioConfig.enabled && lmStudioConfig.baseURL && lmStudioConfig.defaultModel);
+}
+
+/**
+ * Optional AI provider keys. Absence means the engine stays in stub mode.
+ * Free-tier providers are OpenAI-API-compatible fallbacks. LM Studio is a local
+ * OpenAI-compatible development/private fallback when explicitly enabled.
+ */
+export const aiKeys = {
+  requesty: process.env.REQUESTY_API_KEY ?? null,
+  openai: process.env.OPENAI_API_KEY ?? null,
+  anthropic: process.env.ANTHROPIC_API_KEY ?? null,
+  google: process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? null,
+  lmstudio: hasLMStudioProvider() ? lmStudioConfig.apiKey : null,
+  groq: process.env.GROQ_API_KEY ?? null,
+  cerebras: process.env.CEREBRAS_API_KEY ?? null,
+  openrouter: process.env.OPENROUTER_API_KEY ?? null,
+  mistral: process.env.MISTRAL_API_KEY ?? null,
+} as const;
+
+export function hasAnyAiProvider(): boolean {
+  return Object.values(aiKeys).some(Boolean);
 }
 
 /**

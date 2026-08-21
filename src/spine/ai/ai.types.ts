@@ -107,6 +107,19 @@ export interface ContextDecision {
 }
 
 /**
+ * A durable fact the operator has told Empire (job outcomes, life events,
+ * decisions) — captured automatically from conversation or ingested
+ * documents. Surfaced here so every AI feature reads it back, not just chat.
+ */
+export interface RecentKnowledgeItem {
+  id: string;
+  memoryType: string;
+  title: string | null;
+  summary: string | null;
+  createdAt: string;
+}
+
+/**
  * The full Empire context. Built by empire-context.service, redacted before any
  * external call. Keep this JSON-serializable (it is persisted as a snapshot).
  */
@@ -150,6 +163,8 @@ export interface EmpireContext {
   prioritized: PrioritizedAction[];
   /** Revealed preferences learned from prior accept/dismiss/approve/reject. */
   feedback: FeedbackSignals | null;
+  /** Durable facts captured from recent conversation and ingested documents. */
+  recentKnowledge: RecentKnowledgeItem[];
 }
 
 // ---------------------------------------------------------------------------

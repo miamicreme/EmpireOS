@@ -1,0 +1,54 @@
+import { createClient } from '@/lib/supabase/server';
+import { requireUserId } from '@/lib/security';
+import { jsonError, jsonResult, readJson } from '@/lib/api';
+import { runEmpireCommand, empireRunSchema } from '@/spine/empire/empire.service';
+import { runEmpireGeneralConversation } from '@/spine/empire/general-conversation.service';
+
+export const dynamic = 'force-dynamic';
+
+function isGovernedCommand(body: { message: string; recordingId?: string; actionDraftId?: string }): boolean {
+  const message = body.message.toLowerCase();
+  return Boolean(
+    body.recordingId ||
+      body.actionDraftId ||
+      /approve.*action|activate.*draft|create.*spine action/.test(message) ||
+      /transcrib|recording|interview audio/.test(message) ||
+      /what should i focus|focus today|review.*priorit|show.*priorit|what matters most|highest[- ]leverage|spine context/.test(message),
+  );
+}
+
+/**
+ * POST /api/empire/runs
+ *
+ * Empire is the single owner-facing command path. Governed operational intents
+ * use the Tool Gateway, approvals, and receipts. All other natural-language
+ * requests use the broader provider-backed intelligence runtime.
+ */
+export async function POST(request: Request) {
+  const supabase = createClient();
+  const auth = await requireUserId(supabase);
+  if (!auth.ok) return jsonError(auth.error);
+
+  const body = await readJson(request);
+  const parsed = empireRunSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError({
+      code: 'validation',
+      message: 'Invalid Empire request.',
+      details: parsed.error.format(),
+    });
+  }
+
+  if (isGovernedCommand(parsed.data)) {
+    const governedResult = await runEmpireCommand(supabase, auth.data, parsed.data);
+    return governedResult.ok ? jsonResult(governedResult) : jsonError(governedResult.error);
+  }
+
+  const conversationResult = await runEmpireGeneralConversation(supabase, auth.data, {
+    message: parsed.data.message,
+    conversationId: parsed.data.conversationId,
+  });
+  return conversationResult.ok
+    ? jsonResult(conversationResult)
+    : jsonError(conversationResult.error);
+}

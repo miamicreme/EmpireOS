@@ -104,6 +104,19 @@ export default function RecordingDetailPage() {
     void load();
   }, [load]);
 
+  async function processRecording() {
+    if (!recording) return;
+    setBusy(true);
+    const res = await api.post(`/api/recorder/${recording.id}/process`, {});
+    setBusy(false);
+    if (res.ok) {
+      success('Recording processed');
+      void load();
+    } else {
+      error(res.error.message);
+    }
+  }
+
   async function runStep(endpoint: string) {
     if (!recording) return;
     setBusy(true);
@@ -164,18 +177,8 @@ export default function RecordingDetailPage() {
         {recording.error && (
           <Card className="border-empire-red/30 p-4">
             <p className="text-sm text-empire-red">{recording.error}</p>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="mt-3"
-              loading={busy}
-              onClick={() =>
-                runStep(
-                  recording.transcript ? (recording.translated_transcript ? '/api/recorder/analyze' : '/api/recorder/translate') : '/api/recorder/transcribe',
-                )
-              }
-            >
-              Retry
+            <Button size="sm" variant="secondary" className="mt-3" loading={busy} onClick={processRecording}>
+              Retry full process
             </Button>
           </Card>
         )}
@@ -187,20 +190,25 @@ export default function RecordingDetailPage() {
           </Card>
         )}
 
-        {!recording.transcript && !recording.error && (
+        {!recording.summary && !recording.error && (
           <Card className="p-4 flex items-center justify-between gap-4">
-            <p className="text-sm text-empire-muted">Not transcribed yet.</p>
-            <Button size="sm" loading={busy} onClick={() => runStep('/api/recorder/transcribe')}>
-              Transcribe
+            <div>
+              <p className="text-sm text-gray-100">Ready for conversation intelligence.</p>
+              <p className="mt-1 text-xs text-empire-muted">
+                Processing sends the audio/transcript to the configured AI providers for transcription, translation, and analysis.
+              </p>
+            </div>
+            <Button size="sm" loading={busy} onClick={processRecording}>
+              Process
             </Button>
           </Card>
         )}
 
-        {recording.transcript && !recording.summary && !recording.error && (
+        {recording.transcript && !recording.translated_transcript && !recording.error && (
           <Card className="p-4 flex items-center justify-between gap-4">
-            <p className="text-sm text-empire-muted">Transcribed — ready to analyze.</p>
-            <Button size="sm" loading={busy} onClick={() => runStep('/api/recorder/analyze')}>
-              Analyze
+            <p className="text-sm text-empire-muted">Transcript exists — translation can still be run manually.</p>
+            <Button size="sm" variant="secondary" loading={busy} onClick={() => runStep('/api/recorder/translate')}>
+              Translate
             </Button>
           </Card>
         )}

@@ -113,19 +113,19 @@ export async function verifyRegistration(
 }
 
 export async function buildAuthenticationOptions(
-  admin: SupabaseClient,
-  ownerUserId: string,
+  _admin: SupabaseClient,
+  _ownerUserId: string,
 ): Promise<PublicKeyCredentialRequestOptionsJSON> {
   const { rpID } = getWebAuthnConfig();
-  const creds = await listCredentials(admin, ownerUserId);
 
+  // The registered credentials are discoverable passkeys (residentKey=required).
+  // Do not send allowCredentials here. Supplying the stored credential IDs and
+  // transport hints can force Windows into a phone/QR flow when the credential
+  // was first created on iOS or Android. A discoverable request lets the browser
+  // offer Windows Hello, a synced passkey, security key, or phone as appropriate.
+  // The returned credential ID is still looked up and verified server-side.
   const options = await generateAuthenticationOptions({
     rpID,
-    allowCredentials: creds.map((c) => ({
-      id: c.credential_id,
-      transports: transportsOf(c),
-    })),
-    // Require the biometric/PIN gesture on sign-in too (Face ID / Hello).
     userVerification: 'required',
   });
 

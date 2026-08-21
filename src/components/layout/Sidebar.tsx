@@ -16,9 +16,10 @@ interface NavItem {
 
 const CORE: NavItem[] = [
   { href: '/today' as Route, label: 'Today', icon: '⬡' },
-  { href: '/ai' as Route, label: 'AI Command', icon: '✦' },
+  { href: '/empire' as Route, label: 'Empire', icon: '◉' },
   { href: '/ai/input' as Route, label: 'Inputs', icon: '⇥' },
   { href: '/recorder' as Route, label: 'Recorder', icon: '●' },
+  { href: '/call-command' as Route, label: 'Call Assist', icon: '☎' },
   { href: '/actions' as Route, label: 'Actions', icon: '⚡' },
   { href: '/decisions' as Route, label: 'Decisions', icon: '◈' },
   { href: '/modules' as Route, label: 'Modules', icon: '▤' },
@@ -92,6 +93,11 @@ function NavBody({
           <NavLink
             item={{ href: '/settings/ai' as Route, label: 'AI Providers', icon: '⚙' }}
             active={isActive('/settings/ai')}
+            onNavigate={onNavigate}
+          />
+          <NavLink
+            item={{ href: '/settings/empire-doctor' as Route, label: 'Empire Doctor', icon: '✚' }}
+            active={isActive('/settings/empire-doctor')}
             onNavigate={onNavigate}
           />
           <button

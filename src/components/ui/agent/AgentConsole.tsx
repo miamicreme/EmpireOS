@@ -1,10 +1,5 @@
 'use client';
 
-/**
- * No-friction agent command surface. One command bar + quick actions; the agent
- * routes everything (no provider/model/mode pickers). Shows the answer, Jarvis
- * brief, mentor guidance, leverage map, blind spots, and approval-gated actions.
- */
 import { useState } from 'react';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -19,20 +14,6 @@ interface ActionDraft {
   priority: string;
   reason: string | null;
   approvalStatus: string;
-}
-
-interface ReasoningArtifact {
-  problemFrame: {
-    objective: string;
-    stakes: string;
-    canAnswerNow: boolean;
-    knownFacts: string[];
-    unknowns: string[];
-  };
-  assumptions: string[];
-  evidence: Array<{ claim: string; source: string; strength: string }>;
-  options: Array<{ option: string; why: string; nextStep: string }>;
-  whatWouldChangeMyMind: string[];
 }
 
 interface IssueBreakdownItem {
@@ -61,7 +42,7 @@ interface AgentOutput {
   status: string;
   intent: string;
   answer: string;
-  jarvisBrief?: string;
+  empireBrief?: string;
   operatingMode?: string;
   realIssue?: string;
   mentorNote?: string;
@@ -74,32 +55,29 @@ interface AgentOutput {
   conversationStarters?: string[];
   nextBestQuestion?: string;
   reasoningSummary: string;
-  reasoningArtifact: ReasoningArtifact | null;
   confidence: number;
   riskLevel: string;
   risks: string[];
-  opportunities: string[];
   nextActions: Array<{ title: string; priority: string; reason: string }>;
   actionDrafts: ActionDraft[];
   memoryRequests: Array<{ question: string; reason: string }>;
   researchRequests: Array<{ topic: string; reason: string; userActionRequired: string }>;
-  specialistVotes: Array<{ specialist: string; recommendation: string; confidence: number }>;
   providerSummary: { providersUsed: string[]; latencyMs?: number };
 }
 
 const QUICK_ACTIONS = [
-  'Jarvis read: what is happening, what matters, and what should I do next?',
+  'Empire read: what is happening, what matters, and what should I do next?',
   'What is the real issue underneath this?',
   'Find the leverage point and first proof.',
   'Show me the blind spots and anti-patterns.',
   'Break this into a decision path.',
   'Give me a creative angle with validation.',
   'Diagnose the bottleneck before giving actions.',
-  'Run deep strategy with Jarvis-level judgment.',
+  'Run deep strategy with Empire-level judgment.',
 ];
 
-function confidenceTone(n: number): 'green' | 'yellow' | 'red' {
-  return n >= 0.66 ? 'green' : n >= 0.4 ? 'yellow' : 'red';
+function confidenceTone(value: number): 'green' | 'yellow' | 'red' {
+  return value >= 0.66 ? 'green' : value >= 0.4 ? 'yellow' : 'red';
 }
 
 export function AgentConsole() {
@@ -108,9 +86,9 @@ export function AgentConsole() {
   const [error, setError] = useState<string | null>(null);
   const [output, setOutput] = useState<AgentOutput | null>(null);
   const [drafts, setDrafts] = useState<ActionDraft[]>([]);
-  const [showWhy, setShowWhy] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [lastCommand, setLastCommand] = useState('');
+  const [showDetails, setShowDetails] = useState(false);
 
   async function run(cmd: string, opts: { goDeeper?: boolean; useResearch?: boolean } = {}) {
     if (!cmd.trim()) return;
@@ -127,73 +105,60 @@ export function AgentConsole() {
       setOutput(data);
       setDrafts(data.actionDrafts ?? []);
       setThreadId(data.threadId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Agent run failed');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Empire run failed');
     } finally {
       setLoading(false);
     }
   }
 
   async function decide(id: string, action: 'approve' | 'reject') {
-    setDrafts((prev) => prev.filter((d) => d.id !== id));
+    setDrafts((current) => current.filter((draft) => draft.id !== id));
     try {
       await postJson(`/api/ai/agent/action-drafts/${id}/approve`, { action });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update draft');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Failed to update draft');
     }
   }
 
   async function approveAll() {
-    const ids = drafts.map((d) => d.id);
+    const ids = drafts.map((draft) => draft.id);
     setDrafts([]);
     try {
       await postJson('/api/ai/agent/action-drafts', { ids });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to approve drafts');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Failed to approve drafts');
     }
   }
 
-  async function saveMemory() {
-    if (!output) return;
-    try {
-      await postJson('/api/ai/agent/memory', {
-        memoryType: 'decision_pattern',
-        content: output.answer,
-        summary: output.reasoningSummary,
-        source: 'agent_answer',
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save memory');
-    }
-  }
-
-  const issueBreakdown = output?.issueBreakdown?.filter((item) => item.topic || item.insight) ?? [];
-  const leverageMap = output?.leverageMap?.filter((item) => item.lever || item.whyItMatters) ?? [];
-  const decisionPath = output?.decisionPath?.filter((item) => item.step || item.reason) ?? [];
-  const creativeAngles = output?.creativeAngles?.filter(Boolean) ?? [];
-  const conversationStarters = output?.conversationStarters?.filter(Boolean) ?? [];
+  const leverage = output?.leverageMap?.filter((item) => item.lever || item.whyItMatters) ?? [];
+  const decisions = output?.decisionPath?.filter((item) => item.step || item.reason) ?? [];
   const blindSpots = output?.blindSpots?.filter(Boolean) ?? [];
-  const antiPatterns = output?.antiPatterns?.filter(Boolean) ?? [];
 
   return (
     <Card hover>
       <CardHeader
-        title="Empire OS Agent"
-        subtitle={output ? `${output.operatingMode ?? output.runtimePath} · ${output.intent}` : 'Jarvis-grade mentor: situation read before commands'}
+        title="Empire"
+        subtitle={
+          output
+            ? `${output.operatingMode ?? output.runtimePath} · ${output.intent}`
+            : 'Real intelligence connected to the Spine, modules, approvals, and verified execution'
+        }
       />
+
       <div className="p-4 space-y-4">
         <form
           className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            run(command);
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run(command);
           }}
         >
           <input
             value={command}
-            onChange={(e) => setCommand(e.target.value)}
-            placeholder="Give me the Jarvis read: real issue, leverage, blind spots, and next proof."
-            className="flex-1 h-9 px-3 rounded-lg bg-surface-2 border border-border text-sm text-gray-100 placeholder:text-empire-muted focus:outline-none focus:border-empire-blue"
+            onChange={(event) => setCommand(event.target.value)}
+            placeholder="Talk to Empire. Ask for the real issue, leverage, proof, or action."
+            className="flex-1 h-10 px-3 rounded-lg bg-surface-2 border border-border text-sm text-gray-100 placeholder:text-empire-muted focus:outline-none focus:border-empire-blue"
           />
           <Button size="sm" variant="primary" type="submit" loading={loading}>
             Run
@@ -201,53 +166,73 @@ export function AgentConsole() {
         </form>
 
         <div className="flex flex-wrap gap-1.5">
-          {QUICK_ACTIONS.map((q) => (
+          {QUICK_ACTIONS.map((item) => (
             <button
-              key={q}
+              key={item}
+              type="button"
               onClick={() => {
-                setCommand(q);
-                run(q);
+                setCommand(item);
+                void run(item);
               }}
               className="text-[11px] font-mono px-2 py-1 rounded border border-border text-empire-muted hover:text-gray-100 hover:border-empire-muted/40 transition-colors"
             >
-              {q}
+              {item}
             </button>
           ))}
         </div>
 
         {error && <p className="text-xs text-empire-red font-mono">{error}</p>}
+
         {!output && !loading && (
           <p className="text-sm text-empire-muted">
-            One command in. Empire should read the situation, diagnose the real issue, expose leverage and blind spots, then draft practical next moves for approval.
+            Empire reads the situation, identifies the real issue, narrows the field, and only claims execution when the backend produces proof.
           </p>
         )}
 
         {output && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-surface-2 p-4 space-y-3">
-              {output.jarvisBrief && (
+            <section className="rounded-xl border border-border bg-surface-2 p-4 space-y-3">
+              {output.empireBrief && (
                 <div className="rounded-lg border border-empire-blue/20 bg-empire-blue/10 p-3">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-empire-blue mb-1">Jarvis brief</div>
-                  <p className="text-sm text-gray-100 leading-relaxed">{output.jarvisBrief}</p>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-empire-blue mb-1">
+                    Empire brief
+                  </div>
+                  <p className="text-sm text-gray-100 leading-relaxed">{output.empireBrief}</p>
                 </div>
               )}
+
               {output.realIssue && (
                 <p className="text-sm text-gray-300 leading-relaxed">
-                  <span className="text-empire-blue font-mono text-xs uppercase tracking-widest">Real issue: </span>
+                  <span className="text-empire-blue font-mono text-xs uppercase tracking-widest">
+                    Real issue:{' '}
+                  </span>
                   {output.realIssue}
                 </p>
               )}
-              <p className="text-sm text-gray-100 whitespace-pre-wrap leading-relaxed">{output.answer}</p>
+
+              <p className="text-sm text-gray-100 whitespace-pre-wrap leading-relaxed">
+                {output.answer}
+              </p>
+
               {output.mentorNote && (
                 <p className="text-sm text-empire-muted leading-relaxed border-l-2 border-empire-blue/50 pl-3">
                   {output.mentorNote}
                 </p>
               )}
+
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={confidenceTone(output.confidence)}>
                   confidence {Math.round(output.confidence * 100)}%
                 </Badge>
-                <Badge variant={output.riskLevel === 'high' ? 'red' : output.riskLevel === 'medium' ? 'yellow' : 'green'}>
+                <Badge
+                  variant={
+                    output.riskLevel === 'high'
+                      ? 'red'
+                      : output.riskLevel === 'medium'
+                        ? 'yellow'
+                        : 'green'
+                  }
+                >
                   risk {output.riskLevel}
                 </Badge>
                 {output.providerSummary.latencyMs != null && (
@@ -256,142 +241,116 @@ export function AgentConsole() {
                   </span>
                 )}
               </div>
-            </div>
+            </section>
 
-            {leverageMap.length > 0 && (
-              <div className="grid gap-2">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-empire-green">Leverage map</div>
-                {leverageMap.slice(0, 5).map((item, i) => (
-                  <div key={i} className="rounded-lg border border-border bg-surface-2 p-3 space-y-1">
+            {leverage.length > 0 && (
+              <section className="space-y-2">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-empire-green">
+                  Leverage
+                </div>
+                {leverage.slice(0, 3).map((item, index) => (
+                  <div key={index} className="rounded-lg border border-border bg-surface-2 p-3 space-y-1">
                     <div className="text-sm font-medium text-gray-100">{item.lever}</div>
                     {item.whyItMatters && <p className="text-xs text-gray-300">{item.whyItMatters}</p>}
-                    {item.firstProof && <p className="text-xs text-empire-green">First proof: {item.firstProof}</p>}
+                    {item.firstProof && (
+                      <p className="text-xs text-empire-green">First proof: {item.firstProof}</p>
+                    )}
                   </div>
                 ))}
-              </div>
+              </section>
             )}
 
-            {issueBreakdown.length > 0 && (
-              <div className="grid gap-2">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-empire-blue">Issue breakdown</div>
-                {issueBreakdown.slice(0, 5).map((item, i) => (
-                  <div key={i} className="rounded-lg border border-border bg-surface-2 p-3 space-y-1">
-                    <div className="text-sm font-medium text-gray-100">{item.topic}</div>
-                    {item.insight && <p className="text-xs text-gray-300">{item.insight}</p>}
-                    {item.tension && <p className="text-xs text-empire-muted">Tension: {item.tension}</p>}
-                    {item.practicalMove && <p className="text-xs text-empire-blue">Move: {item.practicalMove}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {decisionPath.length > 0 && (
-              <div className="grid gap-2">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-empire-violet">Decision path</div>
-                {decisionPath.slice(0, 5).map((item, i) => (
-                  <div key={i} className="rounded-lg border border-border bg-surface-2 p-3 space-y-1">
-                    <div className="text-sm font-medium text-gray-100">{i + 1}. {item.step}</div>
+            {decisions.length > 0 && (
+              <section className="space-y-2">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-empire-violet">
+                  Decision path
+                </div>
+                {decisions.slice(0, 3).map((item, index) => (
+                  <div key={index} className="rounded-lg border border-border bg-surface-2 p-3 space-y-1">
+                    <div className="text-sm font-medium text-gray-100">
+                      {index + 1}. {item.step}
+                    </div>
                     {item.reason && <p className="text-xs text-gray-300">{item.reason}</p>}
-                    {item.doneWhen && <p className="text-xs text-empire-muted">Done when: {item.doneWhen}</p>}
+                    {item.doneWhen && (
+                      <p className="text-xs text-empire-muted">Done when: {item.doneWhen}</p>
+                    )}
                   </div>
                 ))}
-              </div>
+              </section>
             )}
 
-            {blindSpots.length > 0 && <ListBlock title="Blind spots" tone="muted" items={blindSpots} />}
-            {antiPatterns.length > 0 && <ListBlock title="Anti-patterns to avoid" tone="red" items={antiPatterns} />}
-            {creativeAngles.length > 0 && <ListBlock title="Creative angles" tone="muted" items={creativeAngles} />}
-            {conversationStarters.length > 0 && <ListBlock title="Questions to sharpen it" tone="muted" items={conversationStarters} />}
-            {output.nextBestQuestion && <ListBlock title="Next best question" tone="muted" items={[output.nextBestQuestion]} />}
+            {blindSpots.length > 0 && (
+              <ListBlock title="Blind spots" items={blindSpots.slice(0, 5)} />
+            )}
+
+            {output.nextBestQuestion && (
+              <ListBlock title="Next best question" items={[output.nextBestQuestion]} />
+            )}
 
             <div className="flex flex-wrap gap-1.5">
-              <Button size="sm" variant="secondary" onClick={() => run(lastCommand, { goDeeper: true })}>
+              <Button size="sm" variant="secondary" onClick={() => void run(lastCommand, { goDeeper: true })}>
                 Go deeper
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => run(lastCommand, { useResearch: true })}>
+              <Button size="sm" variant="secondary" onClick={() => void run(lastCommand, { useResearch: true })}>
                 Use research
               </Button>
-              <Button size="sm" variant="ghost" onClick={saveMemory}>
-                Save memory
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowWhy((s) => !s)}>
-                {showWhy ? 'Hide why' : 'Show why'}
+              <Button size="sm" variant="ghost" onClick={() => setShowDetails((current) => !current)}>
+                {showDetails ? 'Hide details' : 'Show details'}
               </Button>
             </div>
 
-            {showWhy && output.reasoningSummary && (
-              <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs text-gray-300 space-y-3">
-                <p className="leading-relaxed">{output.reasoningSummary}</p>
-                {output.reasoningArtifact && (
-                  <>
-                    <ReasoningList
-                      title="Problem frame"
-                      items={[
-                        output.reasoningArtifact.problemFrame.objective,
-                        `stakes: ${output.reasoningArtifact.problemFrame.stakes}`,
-                        output.reasoningArtifact.problemFrame.canAnswerNow ? 'can answer now' : 'blocked by missing inputs',
-                      ]}
-                    />
-                    <ReasoningList title="Assumptions" items={output.reasoningArtifact.assumptions} />
-                    <ReasoningList
-                      title="Evidence"
-                      items={output.reasoningArtifact.evidence.map((e) => `${e.claim} (${e.source}, ${e.strength})`)}
-                    />
-                    <ReasoningList title="What would change it" items={output.reasoningArtifact.whatWouldChangeMyMind} />
-                  </>
-                )}
-                {output.specialistVotes.length > 0 && (
-                  <ul className="mt-2 space-y-1 list-disc list-inside">
-                    {output.specialistVotes.map((v, i) => (
-                      <li key={i}>
-                        <span className="text-empire-blue">{v.specialist}</span>: {v.recommendation}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+            {showDetails && output.reasoningSummary && (
+              <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs text-gray-300">
+                {output.reasoningSummary}
               </div>
             )}
 
-            {output.risks.length > 0 && <ListBlock title="Risk warnings" tone="red" items={output.risks} />}
-
-            {output.researchRequests.length > 0 && (
-              <div className="rounded-lg border border-empire-yellow/25 bg-empire-yellow/10 p-3">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-empire-yellow mb-1">Research needed</div>
-                {output.researchRequests.map((r, i) => (
-                  <p key={i} className="text-xs text-gray-300">
-                    {r.topic} — {r.userActionRequired}
-                  </p>
-                ))}
+            {output.risks.length > 0 && (
+              <div className="rounded-lg border border-empire-red/25 bg-empire-red/10 p-3">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-empire-red mb-1">
+                  Risk warnings
+                </div>
+                <ul className="text-xs text-gray-300 space-y-0.5 list-disc list-inside">
+                  {output.risks.slice(0, 5).map((item, index) => <li key={index}>{item}</li>)}
+                </ul>
               </div>
-            )}
-
-            {output.memoryRequests.length > 0 && (
-              <ListBlock title="To sharpen future answers" tone="muted" items={output.memoryRequests.map((m) => m.question)} />
             )}
 
             {drafts.length > 0 && (
-              <div>
+              <section>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-empire-muted">Drafted actions — approve to add to your Spine</span>
-                  <Button size="sm" variant="primary" onClick={approveAll}>Approve all</Button>
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-empire-muted">
+                    Drafted actions — approve to add to the Spine
+                  </span>
+                  <Button size="sm" variant="primary" onClick={() => void approveAll()}>
+                    Approve all
+                  </Button>
                 </div>
                 <div className="space-y-2">
-                  {drafts.map((d) => (
-                    <div key={d.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 p-2.5">
+                  {drafts.map((draft) => (
+                    <div
+                      key={draft.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 p-2.5"
+                    >
                       <div className="min-w-0">
-                        <div className="text-sm text-gray-100 truncate">{d.title}</div>
+                        <div className="text-sm text-gray-100 truncate">{draft.title}</div>
                         <div className="text-[10px] font-mono text-empire-muted">
-                          {d.category} · {d.priority}{d.reason ? ` · ${d.reason}` : ''}
+                          {draft.category} · {draft.priority}
+                          {draft.reason ? ` · ${draft.reason}` : ''}
                         </div>
                       </div>
                       <div className="flex gap-1.5 shrink-0">
-                        <Button size="sm" variant="primary" onClick={() => decide(d.id, 'approve')}>Approve</Button>
-                        <Button size="sm" variant="ghost" onClick={() => decide(d.id, 'reject')}>Reject</Button>
+                        <Button size="sm" variant="primary" onClick={() => void decide(draft.id, 'approve')}>
+                          Approve
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => void decide(draft.id, 'reject')}>
+                          Reject
+                        </Button>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
             )}
           </div>
         )}
@@ -400,27 +359,14 @@ export function AgentConsole() {
   );
 }
 
-function ReasoningList({ title, items }: { title: string; items: string[] }) {
-  const clean = items.filter(Boolean).slice(0, 5);
-  if (clean.length === 0) return null;
+function ListBlock({ title, items }: { title: string; items: string[] }) {
   return (
-    <div>
-      <div className="text-[10px] font-mono uppercase tracking-widest text-empire-muted mb-1">{title}</div>
-      <ul className="space-y-0.5 list-disc list-inside text-empire-muted">
-        {clean.map((item, i) => <li key={i}>{item}</li>)}
-      </ul>
-    </div>
-  );
-}
-
-function ListBlock({ title, tone, items }: { title: string; tone: 'red' | 'muted'; items: string[] }) {
-  const border = tone === 'red' ? 'border-empire-red/25 bg-empire-red/10' : 'border-border bg-surface-2';
-  const label = tone === 'red' ? 'text-empire-red' : 'text-empire-muted';
-  return (
-    <div className={`rounded-lg border ${border} p-3`}>
-      <div className={`text-[10px] font-mono uppercase tracking-widest ${label} mb-1`}>{title}</div>
+    <div className="rounded-lg border border-border bg-surface-2 p-3">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-empire-muted mb-1">
+        {title}
+      </div>
       <ul className="text-xs text-gray-300 space-y-0.5 list-disc list-inside">
-        {items.slice(0, 5).map((it, i) => <li key={i}>{it}</li>)}
+        {items.map((item, index) => <li key={index}>{item}</li>)}
       </ul>
     </div>
   );

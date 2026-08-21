@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * AI Provider management (client). Configure up to 5 LLM providers/models, set
+ * AI Provider management (client). Configure up to 6 LLM providers/models, set
  * which one the AI layer uses by default, test connectivity, and remove them.
  * API keys are write-only — entered here, encrypted server-side, never returned.
  */
@@ -45,6 +45,7 @@ const PROVIDER_LABELS: Record<AIProviderKind, string> = {
   anthropic: 'Anthropic (Claude)',
   openai: 'OpenAI (GPT)',
   google: 'Google (Gemini) · free tier',
+  lmstudio: 'LM Studio · local/private',
   groq: 'Groq · free',
   cerebras: 'Cerebras · free',
   openrouter: 'OpenRouter · free models',
@@ -142,6 +143,11 @@ export function ProviderManager() {
                       {PROVIDER_LABELS[p.provider]} · {p.model} ·{' '}
                       {p.hasOwnKey ? `key ${p.apiKeyHint}` : p.usesEnvKey ? 'env key' : 'no key'}
                     </div>
+                    {p.provider === 'lmstudio' && (
+                      <div className="text-[11px] font-mono text-empire-yellow mt-0.5">
+                        Local server must be reachable from the EmpireOS server, not just from the browser.
+                      </div>
+                    )}
                     {t && (
                       <div
                         className={`text-[11px] font-mono mt-0.5 ${t.ok ? 'text-empire-green' : 'text-empire-red'}`}
@@ -243,7 +249,7 @@ function AddProviderForm({
 
   return (
     <Card>
-      <CardHeader title="Add a provider" subtitle="Up to 5 LLMs" />
+      <CardHeader title="Add a provider" subtitle={`Up to ${MAX_PROVIDERS} LLMs`} />
       <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-mono uppercase tracking-widest text-empire-muted">Label</span>
@@ -287,10 +293,16 @@ function AddProviderForm({
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-…"
+            placeholder={provider === 'lmstudio' ? 'lm-studio' : 'sk-…'}
             autoComplete="off"
           />
         </label>
+        {provider === 'lmstudio' && (
+          <div className="sm:col-span-2 rounded-lg border border-empire-yellow/25 bg-empire-yellow/10 px-3 py-2 text-xs text-gray-200">
+            LM Studio only works when its OpenAI-compatible server is running and reachable from the
+            EmpireOS server. For mobile-only use, keep Requesty or a cloud provider enabled.
+          </div>
+        )}
         <label className="flex items-center gap-2 sm:col-span-2">
           <input
             type="checkbox"

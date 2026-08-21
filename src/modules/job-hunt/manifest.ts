@@ -2,12 +2,12 @@ import type { ModuleManifest } from '@/spine/types';
 
 export const manifest: ModuleManifest = {
   id: 'job-hunt',
-  name: 'High-Income Job Hunt',
+  name: 'Career Command',
   slug: 'job-hunt',
-  description: 'Manage high-income job applications and pipeline.',
+  description: 'High-income career pipeline with fit scoring, drafter-reviewer application workflow, interview prep, and offer decision support.',
   phaseId: 'phase_1',
   route: '/modules/job-hunt',
   icon: 'briefcase',
-  capabilities: ['metrics', 'actions', 'decisions'],
+  capabilities: ['metrics', 'actions', 'decisions', 'fit-scoring', 'interview-prep', 'application-review'],
   priority: 20,
 };

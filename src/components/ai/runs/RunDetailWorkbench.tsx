@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, EmptyState } from '@/components/ui/Card';
 import { SkeletonRows } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 
 type RunDetail = {
   run: {
@@ -103,6 +104,7 @@ function safeInputArtifacts(artifacts: RunDetail['artifacts']) {
 }
 
 export function RunDetailWorkbench({ runId }: { runId: string }) {
+  const { error: toastError } = useToast();
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +145,7 @@ export function RunDetailWorkbench({ runId }: { runId: string }) {
     });
     setBusyDraftId(null);
     if (!response.ok) {
-      setError(response.error.message);
+      toastError(response.error.message);
       return;
     }
     await load();
@@ -160,7 +162,7 @@ export function RunDetailWorkbench({ runId }: { runId: string }) {
     });
     setBusyFeedback(null);
     if (!response.ok) {
-      setError(response.error.message);
+      toastError(response.error.message);
       return;
     }
     await load();

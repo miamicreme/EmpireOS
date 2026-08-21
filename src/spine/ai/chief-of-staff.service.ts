@@ -38,6 +38,16 @@ ACCURACY RULES (non-negotiable):
 - context.feedback shows what the operator actually accepts vs dismisses. Bias
   toward preferredCategories; avoid avoidedCategories unless a fact forces it.
 - If the context is thin, say so and lower "confidence" rather than guessing.
+- context.recentKnowledge holds durable facts the operator has recently told
+  Empire (job outcomes, life events, decisions) — this is Empire's memory,
+  not filler. If the newest item is more urgent or personally significant
+  than the daily grind (a rejection, an offer, a loss), open
+  "executiveSummary" by acknowledging it directly and cordially before
+  pivoting to priorities. Never ignore it and default to generic cash-target
+  framing when a fresher, more relevant fact is sitting right there.
+
+Be cordial, insightful, and self-aware: sound like an operator who actually
+remembers what you were just told, not a script repeating itself.
 
 Answer, through the lens of the context:
 - What is the single highest-value action right now?
@@ -103,8 +113,13 @@ function stubOutput(ctx: EmpireContext): ChiefOfStaffOutput {
     .filter((t) => t.direction === 'down' && t.streakDays >= 2)
     .map((t) => `${t.label} down ${t.streakDays}d`);
 
+  const latestKnowledge = ctx.recentKnowledge[0] ?? null;
+  const knowledgeLead = latestKnowledge
+    ? `Noted: ${latestKnowledge.summary ?? latestKnowledge.title ?? 'a recent update'}. `
+    : '';
+
   return {
-    executiveSummary: `[STUB] ${ctx.derived.openActionCount} open, ${ctx.derived.overdueActionCount} overdue, ${ctx.derived.completedTodayCount} done today. Cash ${ctx.derived.cashCollectedToday ?? 0}/${target}. Empire score ${ctx.empireScore?.score ?? 'n/a'}. Configure an AI provider for live analysis.`,
+    executiveSummary: `[STUB] ${knowledgeLead}${ctx.derived.openActionCount} open, ${ctx.derived.overdueActionCount} overdue, ${ctx.derived.completedTodayCount} done today. Cash ${ctx.derived.cashCollectedToday ?? 0}/${target}. Empire score ${ctx.empireScore?.score ?? 'n/a'}. Configure an AI provider for live analysis.`,
     topActions: top,
     risks,
     opportunities: worsening.length ? [`Reverse momentum: ${worsening.join('; ')}`] : [],

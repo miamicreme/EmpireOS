@@ -6,6 +6,7 @@ const envMock = vi.hoisted(() => {
     anthropic: undefined,
     openai: undefined,
     google: undefined,
+    lmstudio: undefined,
     groq: undefined,
     cerebras: undefined,
     openrouter: undefined,
@@ -20,13 +21,20 @@ const envMock = vi.hoisted(() => {
     deepModel: null,
     visionModel: null,
   };
-  return { aiKeys, requestyConfig };
+  const lmStudioConfig: Record<string, string | boolean | null> = {
+    enabled: false,
+    apiKey: 'lm-studio',
+    baseURL: 'http://localhost:1234/v1',
+    defaultModel: null,
+    fastModel: null,
+  };
+  return { aiKeys, requestyConfig, lmStudioConfig };
 });
 
-// Stub env module before importing provider so aiKeys reflects test state.
 vi.mock('@/lib/env', () => ({
   aiKeys: envMock.aiKeys,
   requestyConfig: envMock.requestyConfig,
+  lmStudioConfig: envMock.lmStudioConfig,
   hasRequestyProvider: () =>
     Boolean(
       envMock.requestyConfig.apiKey &&
@@ -37,10 +45,16 @@ vi.mock('@/lib/env', () => ({
           envMock.requestyConfig.deepModel ||
           envMock.requestyConfig.visionModel),
     ),
+  hasLMStudioProvider: () =>
+    Boolean(
+      envMock.lmStudioConfig.enabled &&
+        envMock.lmStudioConfig.baseURL &&
+        envMock.lmStudioConfig.defaultModel,
+    ),
 }));
 
-import { activeProvider, envProviderChain, modelForAdvisor } from '@/spine/ai/provider';
-import { aiKeys, requestyConfig } from '@/lib/env';
+import { activeProvider, envProviderChain, isAllowedLMStudioBaseURL, modelForAdvisor } from '@/spine/ai/provider';
+import { aiKeys, lmStudioConfig, requestyConfig } from '@/lib/env';
 
 beforeEach(() => {
   for (const key of Object.keys(aiKeys)) {
@@ -53,6 +67,10 @@ beforeEach(() => {
   (requestyConfig as Record<string, string | null>).standardModel = null;
   (requestyConfig as Record<string, string | null>).deepModel = null;
   (requestyConfig as Record<string, string | null>).visionModel = null;
+  (lmStudioConfig as Record<string, string | boolean | null>).enabled = false;
+  (lmStudioConfig as Record<string, string | boolean | null>).baseURL = 'http://localhost:1234/v1';
+  (lmStudioConfig as Record<string, string | boolean | null>).defaultModel = null;
+  (lmStudioConfig as Record<string, string | boolean | null>).fastModel = null;
 });
 
 describe('activeProvider', () => {
@@ -84,6 +102,24 @@ describe('activeProvider', () => {
     expect(activeProvider()).toBe('google');
   });
 
+  it('places LM Studio after direct cloud providers and before free-tier fallbacks', () => {
+    (aiKeys as Record<string, string | undefined>).google = 'goog-test';
+    (aiKeys as Record<string, string | undefined>).lmstudio = 'lm-studio';
+    (aiKeys as Record<string, string | undefined>).groq = 'gsk-test';
+    (lmStudioConfig as Record<string, string | boolean | null>).enabled = true;
+    (lmStudioConfig as Record<string, string | boolean | null>).defaultModel = 'qwen2.5-7b-instruct';
+    expect(envProviderChain()).toEqual(['google', 'lmstudio', 'groq']);
+    expect(activeProvider()).toBe('google');
+  });
+
+  it('uses LM Studio when enabled and no higher-priority provider exists', () => {
+    (aiKeys as Record<string, string | undefined>).lmstudio = 'lm-studio';
+    (lmStudioConfig as Record<string, string | boolean | null>).enabled = true;
+    (lmStudioConfig as Record<string, string | boolean | null>).defaultModel = 'qwen2.5-7b-instruct';
+    expect(activeProvider()).toBe('lmstudio');
+    expect(envProviderChain()).toEqual(['lmstudio']);
+  });
+
   it('prefers anthropic over openai when both are set', () => {
     (aiKeys as Record<string, string | undefined>).anthropic = 'sk-ant-test';
     (aiKeys as Record<string, string | undefined>).openai = 'sk-openai-test';
@@ -99,9 +135,7 @@ describe('activeProvider', () => {
 
 describe('modelForAdvisor', () => {
   it('returns the preferred model when provider is anthropic', () => {
-    expect(modelForAdvisor('claude-haiku-4-5-20251001', 'anthropic')).toBe(
-      'claude-haiku-4-5-20251001',
-    );
+    expect(modelForAdvisor('claude-haiku-4-5-20251001', 'anthropic')).toBe('claude-haiku-4-5-20251001');
   });
 
   it('ignores preferred model for openai, returns gpt-4o-mini', () => {
@@ -124,5 +158,27 @@ describe('modelForAdvisor', () => {
     (requestyConfig as Record<string, string | null>).defaultModel = 'requesty/default';
     expect(modelForAdvisor(undefined, 'requesty')).toBe('requesty/default');
     expect(modelForAdvisor('requesty/fast', 'requesty')).toBe('requesty/fast');
+  });
+
+  it('uses LM Studio model ids when LM Studio is the provider', () => {
+    (lmStudioConfig as Record<string, string | boolean | null>).defaultModel = 'qwen2.5-7b-instruct';
+    expect(modelForAdvisor(undefined, 'lmstudio')).toBe('qwen2.5-7b-instruct');
+    expect(modelForAdvisor('local/fast', 'lmstudio')).toBe('local/fast');
+  });
+});
+
+describe('LM Studio base URL guard', () => {
+  it('allows localhost and private network hosts', () => {
+    expect(isAllowedLMStudioBaseURL('http://localhost:1234/v1')).toBe(true);
+    expect(isAllowedLMStudioBaseURL('http://127.0.0.1:1234/v1')).toBe(true);
+    expect(isAllowedLMStudioBaseURL('http://192.168.1.50:1234/v1')).toBe(true);
+    expect(isAllowedLMStudioBaseURL('http://10.0.0.5:1234/v1')).toBe(true);
+    expect(isAllowedLMStudioBaseURL('http://100.64.0.10:1234/v1')).toBe(true);
+  });
+
+  it('rejects public or invalid LM Studio URLs', () => {
+    expect(isAllowedLMStudioBaseURL('https://api.openai.com/v1')).toBe(false);
+    expect(isAllowedLMStudioBaseURL('file:///tmp/model')).toBe(false);
+    expect(isAllowedLMStudioBaseURL('not a url')).toBe(false);
   });
 });

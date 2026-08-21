@@ -4,13 +4,14 @@
 import { z } from 'zod';
 
 /** Hard cap on configured providers per user. */
-export const MAX_PROVIDERS = 5;
+export const MAX_PROVIDERS = 6;
 
 export const aiProviderKind = z.enum([
   'requesty',
   'anthropic',
   'openai',
   'google',
+  'lmstudio',
   // OpenAI-API-compatible providers with free tiers, used as fallbacks.
   'groq',
   'cerebras',
@@ -35,6 +36,11 @@ export const AI_PROVIDER_MODELS: Record<AIProviderKind, string[]> = {
   openai: ['gpt-4o', 'gpt-4o-mini', 'o4-mini'],
   // Flash models are on Google's free tier; Pro is NOT (free quota is 0).
   google: ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.5-pro'],
+  lmstudio: [
+    process.env.LMSTUDIO_DEFAULT_MODEL ?? 'qwen2.5-7b-instruct',
+    process.env.LMSTUDIO_FAST_MODEL ?? 'llama-3.2-3b-instruct',
+    'local-model-name',
+  ],
   groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'openai/gpt-oss-20b'],
   cerebras: ['llama-3.3-70b', 'llama3.1-8b', 'qwen-3-32b'],
   openrouter: [

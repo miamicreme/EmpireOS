@@ -301,6 +301,75 @@ describe('runAgent', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Knowledge capture — telling Empire something durable must stick, without a
+// manual "save memory" step, so the next answer (even in stub mode) reflects
+// it instead of repeating generic boilerplate.
+// ---------------------------------------------------------------------------
+describe('knowledge capture', () => {
+  it('extracts a job rejection from free text', async () => {
+    const { extractConversationFact } = await import('@/spine/ai/knowledge/knowledge-capture.service');
+    const fact = extractConversationFact("Cara emailed — I didn't get the STT position, they went with another candidate.");
+    expect(fact?.memoryType).toBe('job_application_outcome');
+  });
+
+  it('does not flag routine planning chat as a durable fact', async () => {
+    const { extractConversationFact } = await import('@/spine/ai/knowledge/knowledge-capture.service');
+    expect(extractConversationFact('What should I do today?')).toBeNull();
+  });
+
+  it('runAgent saves a job rejection mentioned in the command as durable memory', async () => {
+    const { runAgent } = await import('@/spine/ai/agent/agent-orchestrator.service');
+    const seed = seedSpine();
+    seed.agent_memory_items = [];
+    const res = await runAgent(makeDb(seed), USER, {
+      command: "Cara emailed — I didn't get the STT position, they went with another candidate.",
+    });
+    expect(res.ok).toBe(true);
+    expect(seed.agent_memory_items?.length).toBe(1);
+    expect(seed.agent_memory_items?.[0]?.memory_type).toBe('job_application_outcome');
+  });
+
+  it('does not duplicate the same fact across two runs', async () => {
+    const { runAgent } = await import('@/spine/ai/agent/agent-orchestrator.service');
+    const seed = seedSpine();
+    seed.agent_memory_items = [];
+    const db = makeDb(seed);
+    await runAgent(db, USER, { command: "I didn't get the STT position." });
+    await runAgent(db, USER, { command: "Still thinking about the STT position rejection — I didn't get the STT position." });
+    expect(seed.agent_memory_items?.length).toBe(1);
+  });
+
+  it('captures a document/email analysis as durable memory', async () => {
+    const { captureDocumentKnowledge } = await import('@/spine/ai/knowledge/knowledge-capture.service');
+    const seed = seedSpine();
+    seed.agent_memory_items = [];
+    const db = makeDb(seed);
+    await captureDocumentKnowledge(db, USER, {
+      destinationModule: 'career',
+      title: 'Document analysis: cara-email.txt',
+      summary: "Cara emailed — I didn't get the STT position.",
+      keyFacts: ['They went with another candidate.'],
+      confidence: 0.78,
+      source: 'pasted_input',
+    });
+    expect(seed.agent_memory_items?.length).toBe(1);
+    expect(seed.agent_memory_items?.[0]?.memory_type).toBe('job_application_outcome');
+  });
+
+  it('the next answer references the captured fact instead of only generic cash framing', async () => {
+    const { runAgent } = await import('@/spine/ai/agent/agent-orchestrator.service');
+    const seed = seedSpine();
+    seed.agent_memory_items = [];
+    const res = await runAgent(makeDb(seed), USER, {
+      command: "Cara emailed — I didn't get the STT position.",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.answer).toContain('Noted:');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Repository safety
 // ---------------------------------------------------------------------------
 describe('createActionDrafts', () => {

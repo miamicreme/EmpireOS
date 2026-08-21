@@ -8,14 +8,16 @@ export interface ProviderCapability {
   jsonMode: boolean;
   cheap: boolean;
   deepReasoning: boolean;
-  routePurpose?: 'router' | 'direct';
-  models?: Array<{ purpose: 'default' | 'fast' | 'standard' | 'deep' | 'vision'; model: string; enabled: boolean }>;
+  local?: boolean;
+  routePurpose?: 'router' | 'direct' | 'local';
+  models?: Array<{ purpose: 'default' | 'fast' | 'standard' | 'deep' | 'vision' | 'local'; model: string; enabled: boolean }>;
 }
 
-export type ProviderTask = 'text' | 'vision' | 'long_context' | 'deep_reasoning';
+export type ProviderTask = 'text' | 'vision' | 'long_context' | 'deep_reasoning' | 'local_private';
 type RequestyRoutePurpose = 'default' | 'fast' | 'standard' | 'deep' | 'vision';
 
 export function getProviderCapabilities(env: NodeJS.ProcessEnv = process.env): ProviderCapability[] {
+  const lmStudioModel = env.LMSTUDIO_DEFAULT_MODEL ?? '';
   return [
     {
       provider: 'requesty',
@@ -68,6 +70,22 @@ export function getProviderCapabilities(env: NodeJS.ProcessEnv = process.env): P
       deepReasoning: true,
       routePurpose: 'direct',
     },
+    {
+      provider: 'lmstudio',
+      configured: Boolean(env.LMSTUDIO_ENABLED === 'true' && lmStudioModel),
+      enabled: env.LMSTUDIO_DISABLED !== 'true',
+      text: true,
+      vision: false,
+      longContext: false,
+      jsonMode: true,
+      cheap: true,
+      deepReasoning: false,
+      local: true,
+      routePurpose: 'local',
+      models: lmStudioModel
+        ? [{ purpose: 'local', model: lmStudioModel, enabled: true }]
+        : [],
+    },
   ];
 }
 
@@ -76,9 +94,11 @@ export function routeProviderForTask(task: ProviderTask, env: NodeJS.ProcessEnv 
   const match = candidates.find((p) =>
     task === 'vision' ? p.vision :
     task === 'long_context' ? p.longContext :
-    task === 'deep_reasoning' ? p.deepReasoning : p.text,
+    task === 'deep_reasoning' ? p.deepReasoning :
+    task === 'local_private' ? Boolean(p.local && p.text) : p.text,
   );
   if (!match && task === 'vision') return { ok: false as const, code: 'vision_provider_required' };
+  if (!match && task === 'local_private') return { ok: false as const, code: 'local_provider_required' };
   if (!match) return { ok: false as const, code: 'provider_required' };
   return { ok: true as const, provider: match.provider, capabilities: match };
 }

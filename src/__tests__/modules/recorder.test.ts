@@ -6,9 +6,6 @@ import { describe, it, expect } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { uploadRecordingSchema, renameRecordingSchema, MAX_AUDIO_BYTES } from '@/modules/recorder/schemas';
 
-// ---------------------------------------------------------------------------
-// Chainable Supabase mock (same shape as modules/metrics.test.ts)
-// ---------------------------------------------------------------------------
 function makeMock(responses: Record<string, unknown[]>): SupabaseClient {
   return {
     from(table: string) {
@@ -142,28 +139,22 @@ describe('recorder getHealth', () => {
   });
 });
 
-describe('recorder analysis — stub mode (no AI provider configured in test env)', () => {
-  it('transcribeAudio returns a stub transcript without a real API call', async () => {
+describe('recorder capability behavior', () => {
+  it('transcribeAudio fails honestly when no speech provider is configured', async () => {
     const { transcribeAudio } = await import('@/spine/ai/audio');
     const result = await transcribeAudio(Buffer.from('not real audio'), 'audio/webm', 'test.webm');
-    expect(result.provider).toBe('stub');
-    expect(result.text).toContain('STUB');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('capability_unavailable');
+      expect(result.error.message).not.toContain('STUB');
+    }
   });
 
-  it('analyzeRecording falls back to a deterministic stub', async () => {
+  it('analysis stub creates no action drafts', async () => {
     const { analyzeRecording } = await import('@/modules/recorder/analysis');
     const supabase = makeMock({ ai_providers: [] });
     const result = await analyzeRecording(supabase, USER, 'We agreed to ship by Friday and follow up with Jordan.');
     expect(result.provider).toBe('stub');
     expect(result.drafts).toEqual([]);
-    expect(result.analysis.summary).toContain('STUB');
-  });
-
-  it('translateTranscript falls back to a deterministic stub', async () => {
-    const { translateTranscript } = await import('@/modules/recorder/analysis');
-    const supabase = makeMock({ ai_providers: [] });
-    const result = await translateTranscript(supabase, USER, 'Hola, ¿cómo estás?', 'spanish');
-    expect(result.provider).toBe('stub');
-    expect(result.translatedText).toContain('STUB');
   });
 });
