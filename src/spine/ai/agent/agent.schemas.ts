@@ -189,6 +189,7 @@ export const universalInputAnalyzeSchema = z.object({
   mimeType: z.string().max(120).optional(),
   contentText: z.string().max(100_000).optional(),
   rows: z.array(z.record(z.union([z.string(), z.number(), z.boolean(), z.null()]))).max(500).optional(),
+  xlsxBase64: z.string().max(14_000_000).optional(),
   imageDescription: z.string().max(5000).optional(),
   imageBase64: z.string().max(14_000_000).optional(),
   frameDescriptions: z.array(z.string().max(2000)).max(10).optional(),

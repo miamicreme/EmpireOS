@@ -5,6 +5,7 @@ import { redactSensitiveText } from '@/spine/decisions/context-redaction.service
 import { appError } from '@/lib/errors';
 import { err, ok, type AppResult } from '@/lib/result';
 import { evaluateInputCost } from '../cost/cost-governor.service';
+import { parseXlsxWorkbook } from './xlsx-intelligence.service';
 
 export const supportedInputKinds = ['pdf', 'docx', 'txt', 'md', 'csv', 'xlsx', 'image', 'screenshot', 'camera_snapshot', 'video_frames', 'voice_transcript'] as const;
 export type SupportedInputKind = typeof supportedInputKinds[number];
@@ -41,6 +42,7 @@ export const rawInputSchema = z.object({
   mimeType: z.string().max(120).optional(),
   contentText: z.string().max(100_000).optional(),
   rows: z.array(z.record(z.union([z.string(), z.number(), z.boolean(), z.null()]))).max(500).optional(),
+  xlsxBase64: z.string().max(14_000_000).optional(),
   imageDescription: z.string().max(5000).optional(),
   imageBase64: z.string().max(14_000_000).optional(),
   frameDescriptions: z.array(z.string().max(2000)).max(10).optional(),
@@ -156,7 +158,19 @@ export function normalizeRawInput(raw: z.infer<typeof rawInputSchema>): AppResul
     imageInputs.push(decoded.data);
   }
   const transcript = raw.transcript ? redactSensitiveText(raw.transcript) : null;
-  const rows = redactRows(raw.rows ?? []);
+  let sourceRefs = [
+    raw.fileName,
+    raw.mimeType,
+    ...imageInputs.map((image) => `${image.mediaType}:${image.sha256.slice(0, 16)}`),
+  ].filter(Boolean) as string[];
+  let parsedRows = raw.rows ?? [];
+  if (raw.inputType === 'xlsx' && raw.xlsxBase64 && parsedRows.length === 0) {
+    const workbook = parseXlsxWorkbook({ xlsxBase64: raw.xlsxBase64, fileName: raw.fileName ?? null, maxRows: 500 });
+    if (!workbook.ok) return workbook;
+    parsedRows = workbook.data.rows;
+    sourceRefs = [...sourceRefs, workbook.data.sourceRef, workbook.data.sheetName ? `sheet:${workbook.data.sheetName}` : null].filter(Boolean) as string[];
+  }
+  const rows = redactRows(parsedRows);
 
   const cost = evaluateInputCost({
     extractedChars: extractedText.length,
@@ -175,11 +189,7 @@ export function normalizeRawInput(raw: z.infer<typeof rawInputSchema>): AppResul
     imageDescriptions,
     imageInputs,
     transcript,
-    sourceRefs: [
-      raw.fileName,
-      raw.mimeType,
-      ...imageInputs.map((image) => `${image.mediaType}:${image.sha256.slice(0, 16)}`),
-    ].filter(Boolean) as string[],
+    sourceRefs,
     redactionChecked: true,
     highRiskSecretsRedacted: redactionsApplied,
     cost: cost.data,

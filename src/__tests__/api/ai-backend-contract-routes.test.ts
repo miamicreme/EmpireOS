@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { deflateRawSync } from 'node:zlib';
 
 let currentClient: unknown = null;
 vi.mock('@/lib/supabase/server', () => ({
@@ -98,6 +99,62 @@ function jsonRequest(body: unknown, url = 'http://test/api') {
 }
 
 const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+
+function zipFixture(files: Record<string, string>) {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+
+  for (const [name, content] of Object.entries(files)) {
+    const nameBytes = Buffer.from(name);
+    const raw = Buffer.from(content);
+    const compressed = deflateRawSync(raw);
+    const local = Buffer.alloc(30 + nameBytes.length);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt32LE(0, 14);
+    local.writeUInt32LE(compressed.length, 18);
+    local.writeUInt32LE(raw.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    nameBytes.copy(local, 30);
+    locals.push(local, compressed);
+
+    const central = Buffer.alloc(46 + nameBytes.length);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(8, 10);
+    central.writeUInt32LE(0, 16);
+    central.writeUInt32LE(compressed.length, 20);
+    central.writeUInt32LE(raw.length, 24);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE(offset, 42);
+    nameBytes.copy(central, 46);
+    centrals.push(central);
+    offset += local.length + compressed.length;
+  }
+
+  const centralOffset = offset;
+  const centralSize = centrals.reduce((sum, part) => sum + part.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(centrals.length, 8);
+  end.writeUInt16LE(centrals.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(centralOffset, 16);
+  return Buffer.concat([...locals, ...centrals, end]).toString('base64');
+}
+
+function xlsxFixtureBase64() {
+  return zipFixture({
+    '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types" />',
+    'xl/workbook.xml': '<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Funding" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    'xl/_rels/workbook.xml.rels': '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+    'xl/sharedStrings.xml': '<sst><si><t>lender</t></si><si><t>loan_amount</t></si><si><t>apr</t></si><si><t>Bank A</t></si><si><t>Bank B</t></si></sst>',
+    'xl/worksheets/sheet1.xml': '<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c></row><row r="2"><c r="A2" t="s"><v>3</v></c><c r="B2"><v>75000</v></c><c r="C2"><v>11.5</v></c></row><row r="3"><c r="A3" t="s"><v>4</v></c><c r="B3"><v>50000</v></c><c r="C3"><v>13.25</v></c></row></sheetData></worksheet>',
+  });
+}
 
 async function body(res: Response) {
   return (await res.json()) as { ok: boolean; data?: unknown; error?: { code: string; message: string } };
@@ -217,6 +274,46 @@ describe('new AI backend route contracts', () => {
         else process.env[key] = value;
       }
     }
+  });
+
+  it('input analyze parses XLSX bytes and keeps high-stakes routing gated', async () => {
+    const { captures } = makeClient({
+      tables: {
+        agent_artifacts: {
+          rows: [{
+            id: 'artifact-xlsx',
+            user_id: 'user-1',
+            run_id: null,
+            artifact_type: 'research_needed',
+            title: 'Spreadsheet analysis: funding.xlsx',
+            summary: 'persisted xlsx summary',
+            content_json: {},
+            source_refs: [],
+            action_draft_refs: [],
+            confidence: 0.86,
+            risk_level: 'high',
+            status: 'active',
+            created_at: 'now',
+          }],
+        },
+      },
+    });
+    const { POST } = await import('@/app/api/ai/input/analyze/route');
+    const res = await POST(jsonRequest({
+      inputType: 'xlsx',
+      fileName: 'funding.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      xlsxBase64: xlsxFixtureBase64(),
+      createDrafts: false,
+    }));
+    const json = await body(res) as { ok: boolean; data?: { artifactType: string; summary: string; risks: string[] } };
+
+    expect(res.status).toBe(201);
+    expect(json.data?.artifactType).toBe('research_needed');
+    const artifactInsert = captures.find((capture) => capture.table === 'agent_artifacts' && capture.payload);
+    expect(JSON.stringify(artifactInsert?.payload)).toContain('Funding');
+    expect(JSON.stringify(artifactInsert?.payload)).toContain('loan_amount total is 125000.00');
+    expect(JSON.stringify(artifactInsert?.payload)).toContain('"researchRequired":true');
   });
 
   it('security status returns posture only', async () => {

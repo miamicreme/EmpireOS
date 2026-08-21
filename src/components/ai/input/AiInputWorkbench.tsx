@@ -81,7 +81,7 @@ async function extractTextFromFile(file: File): Promise<string | null> {
 function fileToBase64(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Could not read image bytes.'));
+    reader.onerror = () => reject(new Error('Could not read file bytes.'));
     reader.onload = () => {
       const value = String(reader.result ?? '');
       resolve(value.includes(',') ? value.split(',')[1] ?? '' : value);
@@ -122,7 +122,8 @@ async function buildAnalyzePayload(file: File | null, text: string, purpose: str
   } else if (kind === 'docx') {
     payload.contentText = text.trim() || `DOCX file ${fileName} was selected. Paste extracted text for richer analysis.`;
   } else if (kind === 'xlsx') {
-    payload.contentText = `Spreadsheet file ${fileName} was selected. Browser-side XLSX parsing is not wired in this pass; upload metadata is validated and summary will be metadata-safe.`;
+    payload.xlsxBase64 = await fileToBase64(file);
+    payload.contentText = text.trim() || `XLSX workbook ${fileName} was selected and submitted for local spreadsheet analysis.`;
   } else if (kind === 'image' || kind === 'screenshot') {
     payload.imageDescription = text.trim() || `User-selected ${kind} file ${fileName}.`;
     payload.imageBase64 = await fileToBase64(file);

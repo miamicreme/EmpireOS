@@ -22,7 +22,7 @@ Covers PDF analysis, DOCX analysis, TXT/MD analysis, CSV analysis, XLSX analysis
 | DOCX | Attach a safe DOCX or paste extracted DOCX text. | `document_analysis`; high-stakes credit/legal docs become `research_needed` unless Go deeper is enabled. | TODO |
 | TXT/MD | Paste or attach safe text/Markdown. | Summary, key facts, next actions, and Send to Agent enabled. | TODO |
 | CSV | Attach/paste CSV rows. | `spreadsheet_analysis` with inferred purpose, totals, missing values, duplicates, and draft suggestions. | TODO |
-| XLSX | Use safe XLSX exported as CSV or parser mock. | Local-first spreadsheet summary; high-stakes finance docs require deep/research state when applicable. | TODO |
+| XLSX | Attach a safe real XLSX workbook. | Browser submits workbook bytes to `/api/ai/input/analyze`; local-first spreadsheet summary is created from the first worksheet; high-stakes finance docs require deep/research state when applicable. | TODO |
 | screenshot/image | Attach a safe screenshot/image file; optional pasted text is context only. | Browser submits the actual image bytes to `/api/ai/input/analyze`; without a configured vision provider the route returns `vision_provider_required`; with one configured it creates `vision_analysis` with image byte metadata and no public URL. | TODO |
 
 ## Camera proof
